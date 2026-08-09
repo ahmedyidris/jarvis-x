@@ -1,0 +1,3 @@
+{"timestamp":"2026-08-09T20:34:08.765Z","action":"test","detail":"write a file","allowed":true}
+{"timestamp":"2026-08-09T20:34:08.929Z","action":"test","detail":"write a file","allowed":false}
+{"timestamp":"2026-08-09T20:34:09.095Z","action":"test","detail":"write a file","allowed":true}
