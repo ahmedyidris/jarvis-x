@@ -11,21 +11,21 @@ class ModelOrchestrator {
       gemini: {
         name: 'Gemini 2.5 Pro',
         type: 'api',
-        status: 'available',
-        priority: 1,
+        status: 'quota_exceeded',
+        priority: 2,
         capabilities: ['research', 'analysis', 'reasoning']
       },
       qwen: {
         name: 'Qwen2.5 1.5B',
         type: 'local',
         status: 'available',
-        priority: 2,
+        priority: 1,
         capabilities: ['reasoning', 'coding', 'analysis']
       },
       claude: {
         name: 'Claude Opus',
         type: 'api',
-        status: 'available',
+        status: 'no_key',
         priority: 3,
         capabilities: ['reasoning', 'coding', 'analysis']
       }
