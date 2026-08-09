@@ -15,3 +15,9 @@
 {"timestamp":"2026-08-09T22:05:43.430Z","action":"refused-cmd","detail":"curl http://example.com","allowed":false}
 {"timestamp":"2026-08-09T22:05:43.430Z","action":"shell","detail":"ls ; rm -rf ~","allowed":false}
 {"timestamp":"2026-08-09T22:05:43.431Z","action":"shell","detail":"ls && rm -rf ~","allowed":false}
+{"timestamp":"2026-08-09T22:08:36.086Z","action":"shell","detail":"ls code","allowed":true}
+{"timestamp":"2026-08-09T22:08:36.092Z","action":"refused-cmd","detail":"git log --oneline -1","allowed":false}
+{"timestamp":"2026-08-09T22:08:36.092Z","action":"refused-cmd","detail":"rm -rf logs","allowed":false}
+{"timestamp":"2026-08-09T22:08:36.092Z","action":"refused-cmd","detail":"curl http://example.com","allowed":false}
+{"timestamp":"2026-08-09T22:08:36.093Z","action":"shell","detail":"ls ; rm -rf ~","allowed":true}
+{"timestamp":"2026-08-09T22:08:36.095Z","action":"shell","detail":"ls && rm -rf ~","allowed":true}

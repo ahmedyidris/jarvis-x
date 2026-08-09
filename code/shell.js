@@ -5,7 +5,7 @@ const { BASE } = require('./exec.js');
 // Only these may run. Start narrow; widen deliberately.
 const ALLOWED = new Set([
   'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'find',
-  'git', 'node', 'date', 'pwd', 'du', 'df'
+  'date', 'pwd', 'du', 'df'
 ]);
 
 const TIMEOUT_MS = 15000;
