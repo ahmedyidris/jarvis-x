@@ -13,7 +13,6 @@ function safePath(p) {
   const final = path.join(realParent, path.basename(resolved));
   if (final !== BASE && !final.startsWith(BASE + path.sep)) {
     logAction('refused', final, false);
-    logAction('refused', final, false);
     throw new Error(`REFUSED: path outside jail: ${final}`);
   }
   return final;

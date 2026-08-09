@@ -1,21 +1,5 @@
-{"timestamp":"2026-08-09T20:34:08.765Z","action":"test","detail":"write a file","allowed":true}
-{"timestamp":"2026-08-09T20:34:08.929Z","action":"test","detail":"write a file","allowed":false}
-{"timestamp":"2026-08-09T20:34:09.095Z","action":"test","detail":"write a file","allowed":true}
-{"timestamp":"2026-08-09T20:40:13.960Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":true}
-{"timestamp":"2026-08-09T20:40:13.966Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":true}
-{"timestamp":"2026-08-09T20:40:13.967Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":true}
-{"timestamp":"2026-08-09T20:40:35.406Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":false}
-{"timestamp":"2026-08-09T20:40:35.412Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":false}
-{"timestamp":"2026-08-09T20:40:35.412Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":false}
-{"timestamp":"2026-08-09T20:41:28.507Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":true}
-{"timestamp":"2026-08-09T20:41:28.513Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":true}
-{"timestamp":"2026-08-09T20:41:28.514Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":true}
-{"timestamp":"2026-08-09T20:41:28.514Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
-{"timestamp":"2026-08-09T20:41:28.514Z","action":"refused","detail":"/etc/passwd","allowed":false}
-{"timestamp":"2026-08-09T20:43:33.669Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":true}
-{"timestamp":"2026-08-09T20:43:33.676Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":true}
-{"timestamp":"2026-08-09T20:43:33.676Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":true}
-{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
-{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
-{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/etc/passwd","allowed":false}
-{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T20:49:52.781Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":true}
+{"timestamp":"2026-08-09T20:49:52.789Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":true}
+{"timestamp":"2026-08-09T20:49:52.789Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":true}
+{"timestamp":"2026-08-09T20:49:52.789Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T20:49:52.790Z","action":"refused","detail":"/etc/passwd","allowed":false}
