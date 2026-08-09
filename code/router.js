@@ -12,10 +12,12 @@ function classify({ action = null, prompt = '' } = {}) {
 // tier -> backend. opus has no key yet, so consequential falls back to pro
 // AND still hits the human gate. Degrading to a weaker model must never
 // silently skip the gate.
+// Ordered fallback chains. Best first, degrade rightward.
 const ROUTE = {
-  quick:        { via: 'gemini', tier: 'flash' },
-  hard:         { via: 'gemini', tier: 'pro' },
-  consequential:{ via: 'gemini', tier: 'pro', gate: true, wanted: 'claude-opus' },
+  quick:        { via: 'gemini', chain: ['flash'] },
+  hard:         { via: 'gemini', chain: ['pro', 'flash'] },
+  consequential:{ via: 'gemini', chain: ['max', 'pro', 'flash'],
+                  gate: true, wanted: 'claude-opus' },
 };
 
 function route(input) {
@@ -23,7 +25,18 @@ function route(input) {
   return { level, ...ROUTE[level] };
 }
 
-module.exports = { classify, route };
+// Execute a routed call. Returns which model actually answered and whether
+// it degraded. gate is decided by LEVEL, never by which model responded --
+// a fallback must not become a shortcut past human review.
+async function run(input) {
+  const { askFallback } = require('./gemini');
+  const r = route(input);
+  const res = await askFallback(input.prompt, r.chain);
+  return { level: r.level, gate: !!r.gate, tier: res.tier,
+           degraded: res.degraded, text: res.text };
+}
+
+module.exports = { classify, route, run };
 
 if (require.main === module) {
   const tests = [

@@ -1,3 +1,5 @@
 .env
 logs/scratch.txt
 node_modules/
+logs/
+.env

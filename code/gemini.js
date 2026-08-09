@@ -15,9 +15,21 @@ function loadKey() {
 }
 
 const MODELS = {
-  flash: 'gemini-3.6-flash',
-  pro:   'gemini-3.1-pro-preview',
+  flash: 'gemini-3.6-flash',        // quick turns
+  pro:   'gemini-3.5-flash',        // "hard" tier: stronger on agentic/tool tasks
+  max:   'gemini-3.1-pro-preview',  // pure reasoning; needs billing, 429 on free tier
 };
+
+// Try tiers in order, return the first that answers. Never fail silently:
+// the caller is told which model actually responded.
+async function askFallback(prompt, tiers) {
+  const errs = [];
+  for (const t of tiers) {
+    try { return { text: await ask(prompt, t), tier: t, degraded: t !== tiers[0] }; }
+    catch (e) { errs.push(`${t}: ${e.message.slice(0,80)}`); }
+  }
+  throw new Error('all tiers failed -> ' + errs.join(' | '));
+}
 
 async function ask(prompt, tier = 'flash') {
   const model = MODELS[tier];
@@ -38,7 +50,7 @@ async function ask(prompt, tier = 'flash') {
   });
 }
 
-module.exports = { ask, MODELS };
+module.exports = { ask, askFallback, MODELS };
 
 if (require.main === module) {
   const tier = process.argv[2] === 'pro' ? 'pro' : 'flash';
