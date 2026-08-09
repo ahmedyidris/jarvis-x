@@ -3,7 +3,8 @@
 const CONSEQUENTIAL = new Set(['write', 'shell', 'trade']);
 const HARD_HINTS = /\b(plan|design|debug|why|analyz|strateg|refactor|architect|compare)\b/i;
 
-function classify({ action = null, prompt = '' } = {}) {
+function classify({ action = null, prompt = '', level = null } = {}) {
+  if (level) return level;   // caller knows better than the heuristic
   if (action && CONSEQUENTIAL.has(action)) return 'consequential';
   if (HARD_HINTS.test(prompt) || prompt.length > 600) return 'hard';
   return 'quick';
