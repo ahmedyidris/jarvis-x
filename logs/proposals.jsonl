@@ -1,0 +1,5 @@
+{"timestamp":"2026-08-09T22:16:49.131Z","model":"qwen2.5:1.5b","goal":"list the files in the code directory","proposed":{"action":"list","path":"code"},"gated":false,"approved":true}
+{"timestamp":"2026-08-09T22:17:12.424Z","model":"qwen2.5:1.5b","goal":"write a note to logs/hello.txt saying hi","proposed":{"action":"write","path":"logs/hello.txt","content":"Hello, World!"},"gated":true,"approved":false}
+{"timestamp":"2026-08-09T22:18:40.846Z","model":"qwen2.5:1.5b","goal":"show me the last 3 commits","proposed":{"action":"git_log","n":3},"gated":false,"approved":true}
+{"timestamp":"2026-08-09T22:18:41.601Z","model":"qwen2.5:1.5b","goal":"what are my trading constraints","proposed":{"action":"list","path":"constraints"},"gated":false,"approved":true}
+{"timestamp":"2026-08-09T22:18:42.513Z","model":"qwen2.5:1.5b","goal":"delete all the log files","proposed":{"action":"git_log","n":10},"gated":false,"approved":true}

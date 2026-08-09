@@ -1,0 +1,83 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const readline = require('readline');
+const { ask, MODEL } = require('./local.js');
+const { readFile, writeFile, listDir } = require('./exec.js');
+const { run, gitLog, gitStatus } = require('./shell.js');
+
+// Everything is gated while we measure this model's accuracy.
+const AUTO = new Set([]);
+const GATED = new Set(['read', 'list', 'git_log', 'git_status', 'write', 'shell']);
+const PROPOSALS = path.join(__dirname, '..', 'logs', 'proposals.jsonl');
+
+const SYSTEM = `You are Jarvis X. Reply with ONE JSON object and nothing else.
+Valid forms:
+{"action":"list","path":"code"}
+{"action":"read","path":"knowledge/Guidelines.md"}
+{"action":"git_log","n":5}
+{"action":"git_status"}
+{"action":"write","path":"logs/note.txt","content":"text"}
+{"action":"shell","cmd":"ls","args":["-la","code"]}
+{"action":"answer","text":"plain answer if no tool is needed"}
+Paths are relative to the project root. No markdown, no explanation.`;
+
+function parseAction(raw) {
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) return { action: 'answer', text: raw.trim() };
+  try { return JSON.parse(m[0]); }
+  catch { return { action: 'answer', text: raw.trim() }; }
+}
+
+function execute(a) {
+  switch (a.action) {
+    case 'list':       return listDir(a.path || '.').join('\n');
+    case 'read':       return readFile(a.path);
+    case 'git_log':    return gitLog(a.n || 5).stdout;
+    case 'git_status': return gitStatus().stdout || '(clean)';
+    case 'write':      return writeFile(a.path, a.content ?? '');
+    case 'shell':      { const r = run(a.cmd, a.args || []); return r.stdout || r.stderr; }
+    default:           return a.text || '(no action)';
+  }
+}
+
+function confirm(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise(res => rl.question(question, ans => { rl.close(); res(ans); }));
+}
+
+async function main() {
+  const goal = process.argv.slice(2).join(' ');
+  if (!goal) return console.log('Usage: node code/agent.js "your goal"');
+
+  const guidelines = readFile('knowledge/Guidelines.md');
+  const raw = await ask(`${SYSTEM}\n\nConstraints:\n${guidelines}\n\nGoal: ${goal}`);
+  const a = parseAction(raw);
+
+  console.log(`\nPROPOSED: ${JSON.stringify(a)}`);
+
+  let approved = true;
+  if (GATED.has(a.action)) {
+    const ans = await confirm('  Execute? [y/Enter = yes, n = no] ');
+    const t = ans.trim().toLowerCase();
+    approved = t === '' || t === 'y' || t === 'yes';
+  } else if (!AUTO.has(a.action)) {
+    approved = false;
+  }
+
+  const verdict = await confirm('  Was this the RIGHT action for the goal? [y/n] ');
+  const correct = verdict.trim().toLowerCase().startsWith('y');
+
+  fs.appendFileSync(PROPOSALS, JSON.stringify({
+    timestamp: new Date().toISOString(), model: MODEL, goal,
+    proposed: a, gated: GATED.has(a.action), approved, correct
+  }) + '\n');
+
+  if (a.action === 'answer') return console.log(`\n${a.text}\n`);
+  if (!approved) return console.log('  DECLINED — nothing ran.\n');
+
+  try { console.log(`\n${String(execute(a)).slice(0, 2000)}\n`); }
+  catch (e) { console.log(`  FAILED: ${e.message}\n`); }
+}
+
+main().catch(e => console.error('Error:', e.message));
