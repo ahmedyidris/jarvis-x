@@ -24,4 +24,4 @@ function guard(action, detail, fn) {
   return fn();
 }
 
-module.exports = { guard, isStopped, STOP_FILE };
+module.exports = { guard, isStopped, logAction, STOP_FILE };

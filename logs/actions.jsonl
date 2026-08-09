@@ -7,3 +7,8 @@
 {"timestamp":"2026-08-09T20:40:35.406Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":false}
 {"timestamp":"2026-08-09T20:40:35.412Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":false}
 {"timestamp":"2026-08-09T20:40:35.412Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":false}
+{"timestamp":"2026-08-09T20:41:28.507Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":true}
+{"timestamp":"2026-08-09T20:41:28.513Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":true}
+{"timestamp":"2026-08-09T20:41:28.514Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":true}
+{"timestamp":"2026-08-09T20:41:28.514Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T20:41:28.514Z","action":"refused","detail":"/etc/passwd","allowed":false}

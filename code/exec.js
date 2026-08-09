@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { guard } = require('./guard.js');
+const { guard, logAction } = require('./guard.js');
 
 const BASE = path.join(process.env.HOME, 'jarvis-x');
 
@@ -12,6 +12,7 @@ function safePath(p) {
   const realParent = fs.existsSync(parent) ? fs.realpathSync(parent) : parent;
   const final = path.join(realParent, path.basename(resolved));
   if (final !== BASE && !final.startsWith(BASE + path.sep)) {
+    logAction('refused', final, false);
     throw new Error(`REFUSED: path outside jail: ${final}`);
   }
   return final;
