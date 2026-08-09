@@ -15,10 +15,10 @@ class ModelOrchestrator {
         priority: 1,
         capabilities: ['research', 'analysis', 'reasoning']
       },
-      hermes: {
-        name: 'Hermes 2',
+      qwen: {
+        name: 'Qwen2.5 1.5B',
         type: 'local',
-        status: 'installing',
+        status: 'available',
         priority: 2,
         capabilities: ['reasoning', 'coding', 'analysis']
       },
