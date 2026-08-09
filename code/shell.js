@@ -1,6 +1,6 @@
 const { spawnSync } = require('child_process');
 const { guard, logAction } = require('./guard.js');
-const { BASE } = require('./exec.js');
+const { BASE, safePath } = require('./exec.js');
 
 // Only these may run. Start narrow; widen deliberately.
 const ALLOWED = new Set([
@@ -18,6 +18,12 @@ function run(cmd, args = []) {
   }
   if (!Array.isArray(args) || args.some(a => typeof a !== 'string')) {
     throw new Error('REFUSED: args must be an array of strings');
+  }
+
+  // Any arg that looks like a path must resolve inside the jail.
+  for (const a of args) {
+    if (a.startsWith('-')) continue;          // flags
+    if (a.includes('/') || a.includes('..')) safePath(a);
   }
 
   return guard('shell', `${cmd} ${args.join(' ')}`, () => {

@@ -25,3 +25,8 @@
 {"timestamp":"2026-08-09T22:10:58.182Z","action":"git","detail":"status","allowed":true}
 {"timestamp":"2026-08-09T22:10:58.186Z","action":"refused-cmd","detail":"git config --list","allowed":false}
 {"timestamp":"2026-08-09T22:11:08.522Z","action":"git","detail":"log -1","allowed":false}
+{"timestamp":"2026-08-09T22:11:54.736Z","action":"shell","detail":"cat ../../etc/passwd","allowed":true}
+{"timestamp":"2026-08-09T22:12:02.254Z","action":"shell","detail":"cat knowledge/Guidelines.md","allowed":true}
+{"timestamp":"2026-08-09T22:12:02.260Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T22:12:02.260Z","action":"refused","detail":"/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T22:12:02.261Z","action":"shell","detail":"ls -la code","allowed":true}
