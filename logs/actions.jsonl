@@ -12,3 +12,10 @@
 {"timestamp":"2026-08-09T20:41:28.514Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":true}
 {"timestamp":"2026-08-09T20:41:28.514Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
 {"timestamp":"2026-08-09T20:41:28.514Z","action":"refused","detail":"/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T20:43:33.669Z","action":"list","detail":"/home/ahmedyidris/jarvis-x","allowed":true}
+{"timestamp":"2026-08-09T20:43:33.676Z","action":"read","detail":"/home/ahmedyidris/jarvis-x/knowledge/Guidelines.md","allowed":true}
+{"timestamp":"2026-08-09T20:43:33.676Z","action":"write","detail":"/home/ahmedyidris/jarvis-x/logs/scratch.txt","allowed":true}
+{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/home/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/etc/passwd","allowed":false}
+{"timestamp":"2026-08-09T20:43:33.677Z","action":"refused","detail":"/etc/passwd","allowed":false}
