@@ -1,0 +1,40 @@
+const { spawnSync } = require('child_process');
+const { guard, logAction } = require('./guard.js');
+const { BASE } = require('./exec.js');
+
+// Only these may run. Start narrow; widen deliberately.
+const ALLOWED = new Set([
+  'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'find',
+  'git', 'node', 'date', 'pwd', 'du', 'df'
+]);
+
+const TIMEOUT_MS = 15000;
+const MAX_OUTPUT = 100_000;
+
+function run(cmd, args = []) {
+  if (typeof cmd !== 'string' || !ALLOWED.has(cmd)) {
+    logAction('refused-cmd', `${cmd} ${args.join(' ')}`, false);
+    throw new Error(`REFUSED: '${cmd}' not in allowlist`);
+  }
+  if (!Array.isArray(args) || args.some(a => typeof a !== 'string')) {
+    throw new Error('REFUSED: args must be an array of strings');
+  }
+
+  return guard('shell', `${cmd} ${args.join(' ')}`, () => {
+    const r = spawnSync(cmd, args, {
+      cwd: BASE,          // always runs inside the jail
+      shell: false,       // no shell = no injection via ; && | ` $()
+      timeout: TIMEOUT_MS,
+      encoding: 'utf8',
+      maxBuffer: MAX_OUTPUT
+    });
+    if (r.error) throw new Error(`FAILED: ${r.error.message}`);
+    return {
+      status: r.status,
+      stdout: (r.stdout || '').slice(0, MAX_OUTPUT),
+      stderr: (r.stderr || '').slice(0, MAX_OUTPUT)
+    };
+  });
+}
+
+module.exports = { run, ALLOWED };
