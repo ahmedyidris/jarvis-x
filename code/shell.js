@@ -4,7 +4,7 @@ const { BASE } = require('./exec.js');
 
 // Only these may run. Start narrow; widen deliberately.
 const ALLOWED = new Set([
-  'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'find',
+  'ls', 'cat', 'head', 'tail', 'wc', 'grep',
   'date', 'pwd', 'du', 'df'
 ]);
 
@@ -37,4 +37,22 @@ function run(cmd, args = []) {
   });
 }
 
-module.exports = { run, ALLOWED };
+
+// Hardcoded git helpers. `git` stays OUT of ALLOWED so the caller can ask for
+// "git log" but never `git config core.hooksPath=...` or arbitrary subcommands.
+function gitRun(args, label) {
+  return guard('git', label, () => {
+    const r = spawnSync('git', args, {
+      cwd: BASE, shell: false, timeout: TIMEOUT_MS,
+      encoding: 'utf8', maxBuffer: MAX_OUTPUT
+    });
+    if (r.error) throw new Error(`FAILED: ${r.error.message}`);
+    return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
+  });
+}
+
+const gitLog    = (n = 10) => gitRun(['log', '--oneline', `-${Number(n) || 10}`], `log -${n}`);
+const gitStatus = ()       => gitRun(['status', '--short'], 'status');
+const gitDiff   = ()       => gitRun(['diff'], 'diff');
+
+module.exports = { run, ALLOWED, gitLog, gitStatus, gitDiff };

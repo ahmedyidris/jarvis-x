@@ -21,3 +21,7 @@
 {"timestamp":"2026-08-09T22:08:36.092Z","action":"refused-cmd","detail":"curl http://example.com","allowed":false}
 {"timestamp":"2026-08-09T22:08:36.093Z","action":"shell","detail":"ls ; rm -rf ~","allowed":true}
 {"timestamp":"2026-08-09T22:08:36.095Z","action":"shell","detail":"ls && rm -rf ~","allowed":true}
+{"timestamp":"2026-08-09T22:10:58.176Z","action":"git","detail":"log -3","allowed":true}
+{"timestamp":"2026-08-09T22:10:58.182Z","action":"git","detail":"status","allowed":true}
+{"timestamp":"2026-08-09T22:10:58.186Z","action":"refused-cmd","detail":"git config --list","allowed":false}
+{"timestamp":"2026-08-09T22:11:08.522Z","action":"git","detail":"log -1","allowed":false}
