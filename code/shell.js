@@ -57,7 +57,7 @@ function gitRun(args, label) {
   });
 }
 
-const gitLog    = (n = 10) => gitRun(['log', '--oneline', `-${Number(n) || 10}`], `log -${n}`);
+const gitLog    = (n = 10) => gitRun(['log', '--oneline', `-${Math.max(1, Math.floor(Number(n)) || 10)}`], `log (n=${n})`);
 const gitStatus = ()       => gitRun(['status', '--short'], 'status');
 const gitDiff   = ()       => gitRun(['diff'], 'diff');
 

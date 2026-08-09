@@ -20,6 +20,14 @@ Valid forms:
 {"action":"write","path":"logs/note.txt","content":"text"}
 {"action":"shell","cmd":"ls","args":["-la","code"]}
 {"action":"answer","text":"plain answer if no tool is needed"}
+
+RULES:
+- Do not state anything about the contents of a file you have not read in this
+  turn. If the goal asks what a file says, use "read" on that file. Guessing is
+  a wrong answer even when it sounds right.
+- If no action above can accomplish the goal, use "answer" and say plainly that
+  you cannot do it. Do not substitute a different action that looks related.
+- "list" takes a directory path only. No wildcards, no globs.
 Paths are relative to the project root. No markdown, no explanation.`;
 
 function parseAction(raw) {
