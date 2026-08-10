@@ -9,7 +9,14 @@ const { validate } = require('./validate.js');
 // Action selection is the consequential decision -- route it to the hard
 // tier, and record which model ACTUALLY answered, not which we hoped would.
 let MODEL = LOCAL_MODEL;
+// JX_BACKEND=local runs action selection on the offline model instead, so
+// prompt changes and model changes can be measured separately.
+const BACKEND = process.env.JX_BACKEND || 'gemini';
 const ask = async (p) => {
+  if (BACKEND === 'local') {
+    MODEL = `local:${LOCAL_MODEL}`;
+    return askLocal(p);
+  }
   const r = await route({ prompt: p, level: 'hard' });
   MODEL = `gemini:${r.tier}${r.degraded ? '(degraded)' : ''}`;
   return r.text;
