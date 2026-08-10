@@ -5,6 +5,7 @@ const readline = require('readline');
 const { ask: askLocal, MODEL: LOCAL_MODEL } = require('./local.js');
 const { run: route } = require('./router.js');
 const { validate } = require('./validate.js');
+const { observe, forPrompt } = require('./memory.js');
 
 // Action selection is the consequential decision -- route it to the hard
 // tier, and record which model ACTUALLY answered, not which we hoped would.
@@ -120,7 +121,7 @@ async function main() {
   if (!goal) return console.log('Usage: node code/agent.js "your goal"');
 
   const guidelines = readFile('knowledge/Guidelines.md');
-  const raw = await ask(`${SYSTEM}\n\nConstraints:\n${guidelines}\n\nGoal: ${goal}`);
+  const raw = await ask(`${SYSTEM}\n\nConstraints:\n${guidelines}\n\n${forPrompt()}\n\nGoal: ${goal}`);
   const a = parseAction(raw);
 
   console.log(`\nPROPOSED: ${JSON.stringify(a)}`);
@@ -148,6 +149,10 @@ async function main() {
     timestamp: new Date().toISOString(), model: MODEL, goal,
     proposed: a, gated: GATED.has(a.action), approved, correct, rejected: invalid || null
   }) + '\n');
+
+  // Record what happened. Observations are evidence, never instruction.
+  observe(goal, JSON.stringify(a),
+    invalid ? `rejected: ${invalid}` : (approved ? 'ran' : 'declined'));
 
   if (a.action === 'answer') return console.log(`\n${a.text}\n`);
   if (!approved) return console.log('  DECLINED — nothing ran.\n');
