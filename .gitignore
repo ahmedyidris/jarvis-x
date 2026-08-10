@@ -5,3 +5,4 @@ logs/
 .env
 *.bak
 memory/observed.jsonl
+logs/plans.jsonl
