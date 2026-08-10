@@ -4,7 +4,7 @@
 - quick tier    -> gemini-3.6-flash        (remote, free tier)
 - hard tier     -> gemini-3.5-flash        (remote, free tier)
 - max tier      -> gemini-3.1-pro-preview  (remote, needs billing; 429 today)
-- offline       -> qwen2.5:3b via Ollama   (local fallback only)
+- offline       -> qwen2.5:7b via Ollama   (local default; 3b, 1.5b also installed)
 - NOT AVAILABLE -> Claude (no key), Hermes (not installed), DeepSeek (not installed)
 
 Routing is decided by code in router.js, not by you.
