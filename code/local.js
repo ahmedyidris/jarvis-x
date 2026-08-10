@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const MODEL = 'qwen2.5:3b';
+const MODEL = 'qwen2.5:7b';
 
 async function ask(prompt) {
   const res = await fetch('http://127.0.0.1:11434/api/generate', {
