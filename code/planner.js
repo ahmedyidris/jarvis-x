@@ -11,6 +11,7 @@ const { run: sh, gitLog, gitStatus } = require('./shell.js');
 const { run: route } = require('./router.js');
 const { validate } = require('./validate.js');
 const { observe, forPrompt } = require('./memory.js');
+const { reEscape, parseJSONLoose, execute, confirm } = require('./lib.js');
 
 const PLANS = path.join(__dirname, '..', 'logs', 'plans.jsonl');
 const MAX_STEPS = 5;
@@ -29,19 +30,7 @@ sense given those results, reply {"action":"answer","text":"SKIP: <why>"}.`;
 
 function ask(prompt) { return route({ prompt, level: 'hard' }).then(r => r.text); }
 
-function reEscape(t) {
-  let out = '', inStr = false, esc = false;
-  for (const ch of t) {
-    if (esc) { out += ch; esc = false; continue; }
-    if (ch === '\\') { out += ch; esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; out += ch; continue; }
-    if (inStr && (ch === '\n' || ch === '\r' || ch === '\t')) {
-      out += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t'; continue;
-    }
-    out += ch;
-  }
-  return out;
-}
+
 
 function parseJSON(raw) {
   const m = raw.match(/\{[\s\S]*\}/);
@@ -51,22 +40,9 @@ function parseJSON(raw) {
   return null;
 }
 
-function execute(a) {
-  switch (a.action) {
-    case 'list':       return listDir(a.path || '.').join('\n');
-    case 'read':       return readFile(a.path);
-    case 'git_log':    return gitLog(a.n || 5).stdout;
-    case 'git_status': return gitStatus().stdout || '(clean)';
-    case 'write':      return writeFile(a.path, a.content ?? '');
-    case 'shell':      { const r = sh(a.cmd, a.args || []); return r.stdout || r.stderr; }
-    default:           return a.text || '(no action)';
-  }
-}
 
-function confirm(q) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise(res => rl.question(q, a => { rl.close(); res(a.trim().toLowerCase()); }));
-}
+
+
 const yes = (a) => a === '' || a === 'y' || a === 'yes';
 
 async function main() {

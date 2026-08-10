@@ -6,6 +6,7 @@ const { ask: askLocal, MODEL: LOCAL_MODEL } = require('./local.js');
 const { run: route } = require('./router.js');
 const { validate } = require('./validate.js');
 const { observe, forPrompt } = require('./memory.js');
+const { reEscape, parseJSONLoose, execute, confirm } = require('./lib.js');
 
 // Action selection is the consequential decision -- route it to the hard
 // tier, and record which model ACTUALLY answered, not which we hoped would.
@@ -56,19 +57,7 @@ Paths are relative to the project root. No markdown, no explanation.`;
 // Re-escape raw control chars that sit INSIDE string literals. Needed because
 // unwrapping a nested object decodes its \n into real newlines, which are
 // illegal inside JSON strings and make a second JSON.parse fail.
-function reEscape(t) {
-  let out = '', inStr = false, esc = false;
-  for (const ch of t) {
-    if (esc) { out += ch; esc = false; continue; }
-    if (ch === '\\') { out += ch; esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; out += ch; continue; }
-    if (inStr && ch === '\n') { out += '\\n'; continue; }
-    if (inStr && ch === '\r') { out += '\\r'; continue; }
-    if (inStr && ch === '\t') { out += '\\t'; continue; }
-    out += ch;
-  }
-  return out;
-}
+
 
 function parseAction(raw) {
   const m = raw.match(/\{[\s\S]*\}/);
@@ -99,22 +88,9 @@ function parseAction(raw) {
   return out;
 }
 
-function execute(a) {
-  switch (a.action) {
-    case 'list':       return listDir(a.path || '.').join('\n');
-    case 'read':       return readFile(a.path);
-    case 'git_log':    return gitLog(a.n || 5).stdout;
-    case 'git_status': return gitStatus().stdout || '(clean)';
-    case 'write':      return writeFile(a.path, a.content ?? '');
-    case 'shell':      { const r = run(a.cmd, a.args || []); return r.stdout || r.stderr; }
-    default:           return a.text || '(no action)';
-  }
-}
 
-function confirm(question) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise(res => rl.question(question, ans => { rl.close(); res(ans); }));
-}
+
+
 
 async function main() {
   const goal = process.argv.slice(2).join(' ');
