@@ -2,7 +2,18 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { ask, MODEL } = require('./local.js');
+const { ask: askLocal, MODEL: LOCAL_MODEL } = require('./local.js');
+const { run: route } = require('./router.js');
+const { validate } = require('./validate.js');
+
+// Action selection is the consequential decision -- route it to the hard
+// tier, and record which model ACTUALLY answered, not which we hoped would.
+let MODEL = LOCAL_MODEL;
+const ask = async (p) => {
+  const r = await route({ prompt: p, level: 'hard' });
+  MODEL = `gemini:${r.tier}${r.degraded ? '(degraded)' : ''}`;
+  return r.text;
+};
 const { readFile, writeFile, listDir } = require('./exec.js');
 const { run, gitLog, gitStatus } = require('./shell.js');
 
@@ -68,8 +79,15 @@ async function main() {
 
   console.log(`\nPROPOSED: ${JSON.stringify(a)}`);
 
+  // Structural check BEFORE the gate: an invalid proposal never becomes
+  // something a tired human can approve by reflex.
+  const invalid = validate(a);
+  if (invalid) console.log(`  REJECTED by validator: ${invalid}`);
+
   let approved = true;
-  if (GATED.has(a.action)) {
+  if (invalid) {
+    approved = false;
+  } else if (GATED.has(a.action)) {
     const ans = await confirm('  Execute? [y/Enter = yes, n = no] ');
     const t = ans.trim().toLowerCase();
     approved = t === '' || t === 'y' || t === 'yes';
@@ -82,7 +100,7 @@ async function main() {
 
   fs.appendFileSync(PROPOSALS, JSON.stringify({
     timestamp: new Date().toISOString(), model: MODEL, goal,
-    proposed: a, gated: GATED.has(a.action), approved, correct
+    proposed: a, gated: GATED.has(a.action), approved, correct, rejected: invalid || null
   }) + '\n');
 
   if (a.action === 'answer') return console.log(`\n${a.text}\n`);
