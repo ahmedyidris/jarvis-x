@@ -20,6 +20,9 @@ function validate(a) {
   if (['list','read','write'].includes(a.action)) {
     if (!a.path || typeof a.path !== 'string') return `${a.action} requires a path`;
     if (/[*?\[\]]/.test(a.path)) return `path contains a glob: ${a.path}`;
+    if (a.path.startsWith('~')) return `path must be relative to project root, not ~: ${a.path}`;
+    if (path.isAbsolute(a.path)) return `path must be relative, not absolute: ${a.path}`;
+    if (a.path.split(/[\\/]/).includes('..')) return `path escapes the jail: ${a.path}`;
   }
 
   const abs = a.path ? path.join(BASE, a.path) : null;
@@ -54,6 +57,9 @@ if (require.main === module) {
     [{action:'list',path:'constraints'},                          'reject'],
     [{action:'list',path:'logs/*'},                               'reject'],
     [{action:'list',path:'models'},                               'reject'],
+    [{action:'list',path:'~/jarvis-x/models'},                     'reject'],
+    [{action:'read',path:'/etc/passwd'},                           'reject'],
+    [{action:'read',path:'../../.ssh/id_ed25519'},                 'reject'],
     [{action:'write',path:'logs/trading_log.txt',content:'text'}, 'reject'],
     [{action:'git_log',n:-1},                                     'reject'],
     [{action:'email',to:'accountant'},                            'reject'],

@@ -52,11 +52,50 @@ RULES:
 - "list" takes a directory path only. No wildcards, no globs.
 Paths are relative to the project root. No markdown, no explanation.`;
 
+// Re-escape raw control chars that sit INSIDE string literals. Needed because
+// unwrapping a nested object decodes its \n into real newlines, which are
+// illegal inside JSON strings and make a second JSON.parse fail.
+function reEscape(t) {
+  let out = '', inStr = false, esc = false;
+  for (const ch of t) {
+    if (esc) { out += ch; esc = false; continue; }
+    if (ch === '\\') { out += ch; esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; out += ch; continue; }
+    if (inStr && ch === '\n') { out += '\\n'; continue; }
+    if (inStr && ch === '\r') { out += '\\r'; continue; }
+    if (inStr && ch === '\t') { out += '\\t'; continue; }
+    out += ch;
+  }
+  return out;
+}
+
 function parseAction(raw) {
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) return { action: 'answer', text: raw.trim() };
-  try { return JSON.parse(m[0]); }
-  catch { return { action: 'answer', text: raw.trim() }; }
+  let out;
+  try { out = JSON.parse(m[0]); }
+  catch {
+    // Local models emit real newlines inside JSON strings, which is invalid.
+    // Re-escape and retry before giving up.
+    try { out = JSON.parse(reEscape(m[0])); }
+    catch { return { action: 'answer', text: raw.trim() }; }
+  }
+
+  // Smaller models sometimes wrap their JSON inside the text field of another
+  // JSON object. Unwrap up to 3 levels rather than showing the user raw JSON.
+  for (let i = 0; i < 3; i++) {
+    if (out && out.action === 'answer' && typeof out.text === 'string') {
+      const t = out.text.trim();
+      if (t.startsWith('{') && t.endsWith('}')) {
+        try {
+          const inner = JSON.parse(reEscape(t));
+          if (inner && inner.action) { out = inner; continue; }
+        } catch (e) { /* not nested JSON after all */ }
+      }
+    }
+    break;
+  }
+  return out;
 }
 
 function execute(a) {
