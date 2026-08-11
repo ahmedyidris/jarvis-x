@@ -1,7 +1,5 @@
 const { test, finish, assert } = require('./test-helper.js');
 const exec = require('./exec.js');
-const path = require('path');
-const fs = require('fs');
 
 test('safePath confines to BASE', () => {
   const result = exec.safePath('code/test.txt');
@@ -13,10 +11,8 @@ test('safePath rejects absolute', () => {
     exec.safePath('/etc/passwd');
     assert.fail('should have thrown');
   } catch (e) {
-    assert.ok(e.message.includes('outside jail'));
+    assert.ok(e.message.includes('escapes the jail'), 'error message should mention escape');
   }
 });
-
-// ... add more tests from original, wrapped in test()
 
 finish();

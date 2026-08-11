@@ -1,12 +1,15 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 // Voice configuration
 const VOICES = {
   'en_US-amy': { lang: 'en', gender: 'female', accent: 'us' },
-  'ar_EG-kareem': { lang: 'ar', gender: 'male', accent: 'egyptian' }
+  'ar_JO-kareem': { lang: 'ar', gender: 'male', accent: 'jordanian' }
 };
+
+const VOICES_DIR = path.join(os.homedir(), '.local/share/piper-tts/voices');
 
 const DEFAULT_VOICE = 'en_US-amy';
 
@@ -37,16 +40,22 @@ const synthesize = async (text, voiceKey = DEFAULT_VOICE) => {
   }
   
   return new Promise((resolve, reject) => {
-    const modelPath = path.expanduser(`~/.local/share/piper-tts/voices/${voiceKey}.onnx`);
+    const modelPath = path.join(VOICES_DIR, `${voiceKey}.onnx`);
+    const configPath = path.join(VOICES_DIR, `${voiceKey}.onnx.json`);
     const outputFile = path.join(__dirname, `../tmp-output-${Date.now()}.wav`);
-    
+
     if (!fs.existsSync(modelPath)) {
       reject(new Error(`Voice model not found: ${modelPath}`));
       return;
     }
-    
+    if (!fs.existsSync(configPath)) {
+      reject(new Error(`Voice config not found: ${configPath}`));
+      return;
+    }
+
     const proc = spawn('piper', [
       '--model', modelPath,
+      '--config', configPath,
       '--output-file', outputFile
     ]);
     

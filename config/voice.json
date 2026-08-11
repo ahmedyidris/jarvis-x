@@ -10,10 +10,10 @@
       "gender": "female",
       "accent": "us"
     },
-    "ar_EG-kareem": {
+    "ar_JO-kareem": {
       "lang": "ar",
       "gender": "male",
-      "accent": "egyptian"
+      "accent": "jordanian"
     }
   }
 }

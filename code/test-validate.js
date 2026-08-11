@@ -1,37 +1,41 @@
-const { validateAction } = require('./validate.js');
+const { test, finish, assert } = require('./test-helper.js');
+const { validate } = require('./validate.js');
 
-const cases = [
-  { a: null, want: 'not an object' },
-  { a: 42, want: 'not an object' },
-  { a: {}, want: 'unknown action "undefined"' },
-  { a: {type:'delete', path:'code'}, want: 'unknown action "delete"' },
-  { a: {type:'answer'}, want: 'answer with no text' },
-  { a: {type:'answer', text:''}, want: 'answer with no text' },
-  { a: {type:'answer', text:'   '}, want: 'answer with no text' },
-  { a: {type:'answer', text:'here you go'}, want: null },
-  { a: {type:'list'}, want: 'list requires a path' },
-  { a: {type:'read', path:''}, want: 'read requires a path' },
-  { a: {type:'write', path:123, content:'hi'}, want: 'write requires a path' },
-  { a: {type:'list', path:'code/*.js'}, want: 'path contains a glob' },
-  { a: {type:'read', path:'~/secrets'}, want: 'path must be relative' },
-  { a: {type:'write', path:'/etc/shadow', content:'hi'}, want: 'path must be relative' },
-  { a: {type:'read', path:'code/../../../etc/passwd'}, want: 'path escapes' },
-  { a: {type:'list', path:'a/b/../c'}, want: 'path escapes' },
-  { a: {type:'list', path:'nope-does-not-exist'}, want: 'no such directory' },
-  { a: {type:'list', path:'code/validate.js'}, want: 'not a directory' },
-  { a: {type:'list', path:'code'}, want: null },
-  { a: {type:'list', path:'.'}, want: null },
-  { a: {type:'read', path:'nope-does-not-exist.txt'}, want: 'no such file' },
-  { a: {type:'read', path:'code'}, want: 'is a directory' },
-  { a: {type:'read', path:'knowledge/Guidelines.md'}, want: null },
-];
+function reject(proposal, expectedReasonPart) {
+  const result = validate(proposal);
+  assert.strictEqual(result.valid, false, 'expected invalid');
+  if (expectedReasonPart) {
+    assert.ok(result.reason.includes(expectedReasonPart), `reason should include "${expectedReasonPart}" but got "${result.reason}"`);
+  }
+}
 
-let pass = 0;
-cases.forEach(tc => {
-  const result = validateAction(tc.a);
-  const r = result.reason || '';
-  const ok = tc.want === null ? result.valid : r.includes(tc.want);
-  pass += ok ? 1 : 0;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${tc.want ? tc.want.padEnd(6) : 'accept'.padEnd(6)} ${JSON.stringify(tc.a).slice(0,52).padEnd(54)} ${r || ''}`);
-});
-console.log(`\n${pass}/${cases.length} passed`);
+function accept(proposal) {
+  const result = validate(proposal);
+  assert.strictEqual(result.valid, true, 'expected valid');
+}
+
+test('reject null', () => reject(null, 'object'));
+test('reject 42', () => reject(42, 'object'));
+test('unknown action "undefined"', () => reject({}, 'missing type'));
+test('unknown action "delete"', () => reject({ type: 'delete', path: 'code' }, 'unknown action type'));
+test('answer with no text', () => reject({ type: 'answer' }, 'answer requires non-empty text'));
+test('answer with empty text', () => reject({ type: 'answer', text: '' }, 'answer requires non-empty text'));
+test('answer with spaces', () => reject({ type: 'answer', text: '   ' }, 'answer requires non-empty text'));
+test('accept answer with text', () => accept({ type: 'answer', text: 'here you go' }));
+test('list requires a path', () => reject({ type: 'list' }, 'path must be a non-empty string'));
+test('read requires a path', () => reject({ type: 'read', path: '' }, 'path must be a non-empty string'));
+test('write requires a path', () => reject({ type: 'write', path: 123, content: 'hi' }, 'path must be a non-empty string'));
+test('path contains a glob', () => reject({ type: 'list', path: 'code/*.js' }, 'glob'));
+test('path must be relative (tilde)', () => reject({ type: 'read', path: '~/secrets' }, 'must be relative'));
+test('path must be relative (absolute)', () => reject({ type: 'write', path: '/etc/shadow', content: 'hi' }, 'must be relative'));
+test('path escapes', () => reject({ type: 'read', path: 'code/../../../etc/passwd' }, 'escapes the jail'));
+test('path escapes (list)', () => reject({ type: 'list', path: 'a/b/../c' }, 'escapes the jail'));
+test('no such directory', () => reject({ type: 'list', path: 'nope-does-not-exist' }, 'no such directory'));
+test('not a directory', () => reject({ type: 'list', path: 'code/validate.js' }, 'not a directory'));
+test('accept list code', () => accept({ type: 'list', path: 'code' }));
+test('accept list .', () => accept({ type: 'list', path: '.' }));
+test('no such file', () => reject({ type: 'read', path: 'nope-does-not-exist.txt' }, 'no such file'));
+test('is a directory', () => reject({ type: 'read', path: 'code' }, 'is a directory'));
+test('accept read Guidelines', () => accept({ type: 'read', path: 'knowledge/Guidelines.md' }));
+
+finish();
