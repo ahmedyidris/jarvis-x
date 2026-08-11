@@ -5,7 +5,8 @@ function reject(proposal, expectedReasonPart) {
   const result = validate(proposal);
   assert.strictEqual(result.valid, false, 'expected invalid');
   if (expectedReasonPart) {
-    assert.ok(result.reason.includes(expectedReasonPart), `reason should include "${expectedReasonPart}" but got "${result.reason}"`);
+    assert.ok(result.reason.includes(expectedReasonPart), 
+      `reason should include "${expectedReasonPart}" but got "${result.reason}"`);
   }
 }
 
