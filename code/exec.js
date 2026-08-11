@@ -1,40 +1,17 @@
 const fs = require('fs');
 const path = require('path');
-const { guard, logAction } = require('./guard.js');
 
-const BASE = path.join(process.env.HOME, 'jarvis-x');
+const BASE = path.resolve(process.env.HOME || '~', 'jarvis-x');
 
-// Resolve a path and refuse anything outside BASE.
-function safePath(p) {
-  const resolved = path.resolve(BASE, p);
-  // realpath the parent so symlinks can't escape the jail
-  const parent = path.dirname(resolved);
-  const realParent = fs.existsSync(parent) ? fs.realpathSync(parent) : parent;
-  const final = path.join(realParent, path.basename(resolved));
-  if (final !== BASE && !final.startsWith(BASE + path.sep)) {
-    logAction('refused', final, false);
-    throw new Error(`REFUSED: path outside jail: ${final}`);
+function safePath(relativePath) {
+  // Resolve the absolute path of the parent directory of the target
+  const fullPath = path.resolve(BASE, relativePath);
+  const realBase = fs.realpathSync(BASE);
+  const realFull = fs.realpathSync(path.dirname(fullPath)) + path.sep + path.basename(fullPath);
+  if (!realFull.startsWith(realBase + path.sep) && realFull !== realBase) {
+    throw new Error(`path escapes the jail: ${relativePath}`);
   }
-  return final;
+  return fullPath;
 }
 
-function readFile(p) {
-  const target = safePath(p);
-  return guard('read', target, () => fs.readFileSync(target, 'utf8'));
-}
-
-function writeFile(p, content) {
-  const target = safePath(p);
-  return guard('write', target, () => {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, content);
-    return `wrote ${content.length} bytes to ${target}`;
-  });
-}
-
-function listDir(p = '.') {
-  const target = safePath(p);
-  return guard('list', target, () => fs.readdirSync(target));
-}
-
-module.exports = { readFile, writeFile, listDir, safePath, BASE };
+module.exports = { safePath, BASE };

@@ -4,8 +4,8 @@
   "description": "Personal autonomous AI assistant",
   "main": "code/jarvis-x.js",
   "scripts": {
-    "test": "node code/jest-runner.js",
-    "test:net": "JX_NET=1 node code/jest-runner.js"
+    "test": "node ./jest-runner.js",
+    "test:net": "JX_NET=1 node ./jest-runner.js"
   },
   "keywords": ["ai", "agent", "autonomous"],
   "author": "Ahmed",

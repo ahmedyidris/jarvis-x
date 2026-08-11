@@ -1,33 +1,47 @@
-const validateAction = (action) => {
-  if (!action || typeof action !== 'object') return { valid: false, reason: 'Not an object' };
-  if (!action.type) return { valid: false, reason: 'Missing type' };
-  
-  const allowed = ['query', 'write', 'shell', 'note', 'plan', 'list', 'read', 'git_log', 'git_status', 'answer'];
-  if (!allowed.includes(action.type)) return { valid: false, reason: `Unknown action: ${action.type}` };
-  
-  if (action.type === 'write' && (!action.file || !action.content)) {
-    return { valid: false, reason: 'Write requires file and content' };
+const { safePath } = require('./exec');
+
+function validateAction(action) {
+  if (!action || typeof action !== 'object')
+    return { valid: false, reason: 'action must be an object' };
+  if (!action.type)
+    return { valid: false, reason: 'missing type' };
+
+  switch (action.type) {
+    case 'write':
+      if (!action.path) return { valid: false, reason: 'write requires path' };
+      if (action.content === undefined) return { valid: false, reason: 'write requires content' };
+      break;
+    case 'read':
+    case 'list':
+      if (!action.path) return { valid: false, reason: `${action.type} requires path` };
+      break;
+    case 'shell':
+      if (!action.cmd) return { valid: false, reason: 'shell requires cmd' };
+      break;
+    case 'query':
+      if (!action.q) return { valid: false, reason: 'query requires q' };
+      break;
+    default:
+      return { valid: false, reason: `unknown action type: ${action.type}` };
   }
-  
+
+  // Path confinement for file operations
+  if (['write', 'read', 'list'].includes(action.type)) {
+    try {
+      safePath(action.path);
+    } catch (e) {
+      return { valid: false, reason: e.message };
+    }
+  }
+
   return { valid: true };
-};
-
-module.exports = { validateAction };
-
-if (require.main === module) {
-  // Run tests
-  const tests = [
-    { action: null, expect: false },
-    { action: { type: 'query', q: 'test' }, expect: true },
-    { action: { type: 'write', file: 'test.txt' }, expect: false }
-  ];
-  
-  let pass = 0;
-  tests.forEach(t => {
-    const result = validateAction(t.action);
-    const ok = result.valid === t.expect;
-    pass += ok ? 1 : 0;
-    console.log(`${ok ? '✓' : '✗'} ${JSON.stringify(t.action).slice(0, 40).padEnd(42)} → ${result.reason || 'valid'}`);
-  });
-  console.log(`\n${pass}/${tests.length} passed`);
 }
+
+// Alias for backward compatibility
+function validate(proposal) {
+  // If proposal has an action field, use that; otherwise treat proposal as action
+  const action = proposal.action || proposal;
+  return validateAction(action);
+}
+
+module.exports = { validate, validateAction };

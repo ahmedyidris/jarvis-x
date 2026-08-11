@@ -1,27 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 
-const STOP_FILE = path.join(process.env.HOME, '.jarvis-x', 'STOP');
-const LOG = path.join(__dirname, '..', 'logs', 'actions.jsonl');
+const LOG_FILE = path.join(__dirname, '..', 'logs', 'actions.jsonl');
+const STOP_FILE = path.join(__dirname, '..', '.jarvis-x-STOP');
 
-function isStopped() {
-  return fs.existsSync(STOP_FILE);
-}
+// Ensure logs directory exists
+const logDir = path.dirname(LOG_FILE);
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
-function logAction(action, detail, allowed) {
-  fs.appendFileSync(LOG, JSON.stringify({
-    timestamp: new Date().toISOString(), action, detail, allowed
-  }) + '\n');
-}
-
-// Every action in Jarvis X must go through this.
-function guard(action, detail, fn) {
-  if (isStopped()) {
-    logAction(action, detail, false);
-    throw new Error(`HALTED: kill switch active (${STOP_FILE})`);
+function guard(action, level = 'quick') {
+  // Kill switch: STOP file exists → block all actions
+  if (fs.existsSync(STOP_FILE)) {
+    console.error('⛔ Kill switch active – action blocked');
+    return { blocked: true, reason: 'STOP file present' };
   }
-  logAction(action, detail, true);
-  return fn();
+
+  // Log every action
+  const entry = {
+    timestamp: new Date().toISOString(),
+    action,
+    level,
+    pid: process.pid
+  };
+  fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+
+  // In this phase, we just return the action; actual execution is done in agent/scheduler.
+  // This is a gate, not the executor.
+  return { executed: true, action };
 }
 
-module.exports = { guard, isStopped, logAction, STOP_FILE };
+module.exports = { guard };

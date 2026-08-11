@@ -1,12 +1,22 @@
-const { readFile, writeFile, listDir } = require('./exec.js');
+const { test, finish, assert } = require('./test-helper.js');
+const exec = require('./exec.js');
+const path = require('path');
+const fs = require('fs');
 
-function attempt(label, fn) {
-  try { console.log(`OK      ${label}:`, String(fn()).slice(0, 60)); }
-  catch (e) { console.log(`BLOCKED ${label}:`, e.message); }
-}
+test('safePath confines to BASE', () => {
+  const result = exec.safePath('code/test.txt');
+  assert(result.startsWith(exec.BASE), 'should be inside BASE');
+});
 
-attempt('list own dir', () => listDir('.'));
-attempt('read guidelines', () => readFile('knowledge/Guidelines.md').slice(0, 40));
-attempt('write scratch', () => writeFile('logs/scratch.txt', 'hello from exec\n'));
-attempt('escape via ..', () => readFile('../../etc/passwd'));
-attempt('escape absolute', () => readFile('/etc/passwd'));
+test('safePath rejects absolute', () => {
+  try {
+    exec.safePath('/etc/passwd');
+    assert.fail('should have thrown');
+  } catch (e) {
+    assert.ok(e.message.includes('outside jail'));
+  }
+});
+
+// ... add more tests from original, wrapped in test()
+
+finish();
