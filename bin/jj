@@ -1,27 +1,48 @@
 #!/usr/bin/env node
-const agent = require('../code/agent.js');
-const router = require('../code/router.js');
-const lib = require('../code/lib.js');
+const path = require('path');
+const universal = require(path.join(__dirname, '../code/universal-router.js'));
+const planner = require(path.join(__dirname, '../code/planner.js'));
+const memory = require(path.join(__dirname, '../code/memory.js'));
 
 const args = process.argv.slice(2);
 const cmd = args[0];
 const rest = args.slice(1);
 
 (async () => {
-  switch(cmd) {
-    case 'ask':
-      const question = rest.join(' ').replace(/--tier \w+/, '');
-      const tier = rest.find(a => a.startsWith('--tier'))?.split(' ')[1] || 'smart';
-      await router.routeByTier(question, tier);
-      break;
-    case 'plan':
-      const goal = rest.join(' ');
-      await agent.planMultiStep(goal);
-      break;
-    case 'status':
-      console.log('✅ Jarvis running');
-      break;
-    default:
-      console.log('Usage: jj [ask|plan|status] ...');
+  try {
+    switch(cmd) {
+      case 'ask':
+        const tierMatch = rest.find(a => a.startsWith('--tier'));
+        const tier = tierMatch ? tierMatch.split(' ')[1] : 'smart';
+        const question = rest.filter(a => !a.startsWith('--')).join(' ');
+        
+        if (!question) {
+          console.log('Usage: jj ask "<question>" [--tier local|fast|smart|long]');
+          process.exit(1);
+        }
+        
+        const answer = await universal.ask(question, tier);
+        console.log('Answer:', answer);
+        break;
+        
+      case 'plan':
+        const goal = rest.join(' ');
+        const plan = await planner.planMultiStep(goal);
+        console.log('Plan:', JSON.stringify(plan, null, 2));
+        break;
+        
+      case 'status':
+        console.log('✅ Jarvis X ready');
+        console.log('   Available tiers: local | fast | smart | long');
+        console.log('   Usage: jj ask "<q>" --tier smart');
+        break;
+        
+      default:
+        console.log('Commands: ask, plan, status');
+        process.exit(1);
+    }
+  } catch (err) {
+    console.error('Error:', err.message);
+    process.exit(1);
   }
 })();
