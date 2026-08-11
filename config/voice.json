@@ -1,0 +1,19 @@
+{
+  "default_voice": "en_US-amy",
+  "accent": "us",
+  "gender": "female",
+  "language": "en",
+  "tts_engine": "piper",
+  "available_voices": {
+    "en_US-amy": {
+      "lang": "en",
+      "gender": "female",
+      "accent": "us"
+    },
+    "ar_EG-kareem": {
+      "lang": "ar",
+      "gender": "male",
+      "accent": "egyptian"
+    }
+  }
+}
