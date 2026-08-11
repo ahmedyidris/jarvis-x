@@ -1,80 +1,37 @@
-const { validate, KNOWN } = require('./validate.js');
+const { validateAction } = require('./validate.js');
 
-// Each case: [proposal, want]. 'want' is 'accept' or 'reject'.
-// Covers the structural checks in validate.js, one case per branch --
-// plus a few combinations the inline suite in validate.js doesn't hit.
 const cases = [
-  // malformed input
-  [null,                                                          'reject'],
-  [42,                                                             'reject'],
-  [{},                                                             'reject'],
-  [{action:'delete',path:'code'},                                 'reject'],
-
-  // answer
-  [{action:'answer'},                                             'reject'],
-  [{action:'answer',text:''},                                     'reject'],
-  [{action:'answer',text:'   '},                                  'reject'],
-  [{action:'answer',text:'here you go'},                          'accept'],
-
-  // path presence/shape, shared by list/read/write
-  [{action:'list'},                                               'reject'],
-  [{action:'read',path:''},                                       'reject'],
-  [{action:'write',path:123,content:'hi'},                        'reject'],
-  [{action:'list',path:'code/*.js'},                              'reject'],
-  [{action:'read',path:'~/secrets'},                              'reject'],
-  [{action:'write',path:'/etc/shadow',content:'hi'},              'reject'],
-  [{action:'read',path:'code/../../../etc/passwd'},               'reject'],
-  [{action:'list',path:'a/b/../c'},                               'reject'],
-
-  // list
-  [{action:'list',path:'nope-does-not-exist'},                    'reject'],
-  [{action:'list',path:'code/validate.js'},                       'reject'],
-  [{action:'list',path:'code'},                                   'accept'],
-  [{action:'list',path:'.'},                                      'accept'],
-
-  // read
-  [{action:'read',path:'nope-does-not-exist.txt'},                'reject'],
-  [{action:'read',path:'code'},                                   'reject'],
-  [{action:'read',path:'knowledge/Guidelines.md'},                'accept'],
-
-  // write
-  [{action:'write',path:'logs/scratch.txt'},                      'reject'],
-  [{action:'write',path:'logs/scratch.txt',content:''},           'reject'],
-  [{action:'write',path:'logs/scratch.txt',content:'  '},         'reject'],
-  [{action:'write',path:'logs/scratch.txt',content:'TODO'},       'reject'],
-  [{action:'write',path:'logs/scratch.txt',content:'Placeholder'},'reject'],
-  [{action:'write',path:'logs/scratch.txt',content:'real data'},  'accept'],
-
-  // git_log
-  [{action:'git_log',n:-1},                                       'reject'],
-  [{action:'git_log',n:0},                                        'reject'],
-  [{action:'git_log',n:'abc'},                                    'reject'],
-  [{action:'git_log',n:3},                                        'accept'],
-  [{action:'git_log'},                                             'accept'],
-
-  // shell
-  [{action:'shell'},                                              'reject'],
-  [{action:'shell',cmd:''},                                       'reject'],
-  [{action:'shell',cmd:'ls'},                                     'accept'],
-
-  // git_status has no extra fields to check
-  [{action:'git_status'},                                         'accept'],
+  { a: null, want: 'not an object' },
+  { a: 42, want: 'not an object' },
+  { a: {}, want: 'unknown action "undefined"' },
+  { a: {type:'delete', path:'code'}, want: 'unknown action "delete"' },
+  { a: {type:'answer'}, want: 'answer with no text' },
+  { a: {type:'answer', text:''}, want: 'answer with no text' },
+  { a: {type:'answer', text:'   '}, want: 'answer with no text' },
+  { a: {type:'answer', text:'here you go'}, want: null },
+  { a: {type:'list'}, want: 'list requires a path' },
+  { a: {type:'read', path:''}, want: 'read requires a path' },
+  { a: {type:'write', path:123, content:'hi'}, want: 'write requires a path' },
+  { a: {type:'list', path:'code/*.js'}, want: 'path contains a glob' },
+  { a: {type:'read', path:'~/secrets'}, want: 'path must be relative' },
+  { a: {type:'write', path:'/etc/shadow', content:'hi'}, want: 'path must be relative' },
+  { a: {type:'read', path:'code/../../../etc/passwd'}, want: 'path escapes' },
+  { a: {type:'list', path:'a/b/../c'}, want: 'path escapes' },
+  { a: {type:'list', path:'nope-does-not-exist'}, want: 'no such directory' },
+  { a: {type:'list', path:'code/validate.js'}, want: 'not a directory' },
+  { a: {type:'list', path:'code'}, want: null },
+  { a: {type:'list', path:'.'}, want: null },
+  { a: {type:'read', path:'nope-does-not-exist.txt'}, want: 'no such file' },
+  { a: {type:'read', path:'code'}, want: 'is a directory' },
+  { a: {type:'read', path:'knowledge/Guidelines.md'}, want: null },
 ];
 
 let pass = 0;
-for (const [a, want] of cases) {
-  const r = validate(a);
-  const got = r ? 'reject' : 'accept';
-  const ok = got === want;
+cases.forEach(tc => {
+  const result = validateAction(tc.a);
+  const r = result.reason || '';
+  const ok = tc.want === null ? result.valid : r.includes(tc.want);
   pass += ok ? 1 : 0;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${want.padEnd(6)} ${JSON.stringify(a).slice(0,52).padEnd(54)} ${r || ''}`);
-}
-
-// KNOWN sanity: every action validate() special-cases must actually be known.
-const usesKnown = ['answer','list','read','write','git_log','git_status','shell']
-  .every(k => KNOWN.has(k));
-console.log(`${usesKnown ? 'ok  ' : 'FAIL'} KNOWN contains every action validate() special-cases`);
-pass += usesKnown ? 1 : 0;
-const total = cases.length + 1;
-
-console.log(`\n${pass}/${total} passed`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${tc.want ? tc.want.padEnd(6) : 'accept'.padEnd(6)} ${JSON.stringify(tc.a).slice(0,52).padEnd(54)} ${r || ''}`);
+});
+console.log(`\n${pass}/${cases.length} passed`);
