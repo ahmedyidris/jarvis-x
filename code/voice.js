@@ -5,8 +5,8 @@ const path = require('path');
 
 // Voice configuration
 const VOICES = {
-  'en_US-amy': { lang: 'en', gender: 'female', accent: 'us' },
-  'ar_JO-kareem': { lang: 'ar', gender: 'male', accent: 'jordanian' }
+  'en_US-amy': { lang: 'en', gender: 'female', accent: 'us', quality: 'medium' },
+  'ar_JO-kareem': { lang: 'ar', gender: 'male', accent: 'jordanian', quality: 'medium' }
 };
 
 const VOICES_DIR = path.join(os.homedir(), '.local/share/piper-tts/voices');
@@ -40,8 +40,9 @@ const synthesize = async (text, voiceKey = DEFAULT_VOICE) => {
   }
   
   return new Promise((resolve, reject) => {
-    const modelPath = path.join(VOICES_DIR, `${voiceKey}.onnx`);
-    const configPath = path.join(VOICES_DIR, `${voiceKey}.onnx.json`);
+    const fileBase = `${voiceKey}-${VOICES[voiceKey].quality}`;
+    const modelPath = path.join(VOICES_DIR, `${fileBase}.onnx`);
+    const configPath = path.join(VOICES_DIR, `${fileBase}.onnx.json`);
     const outputFile = path.join(__dirname, `../tmp-output-${Date.now()}.wav`);
 
     if (!fs.existsSync(modelPath)) {
