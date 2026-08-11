@@ -1,7 +1,5 @@
-const local = require('./local.js');
-const gemini = require('./gemini.js');
-const fs = require('fs');
-const path = require('path');
+const localModule = require('./local.js');
+const geminiModule = require('./gemini.js');
 
 // Unified interface: one ask() function, auto-tier-selection
 const ask = async (question, userTier = 'smart') => {
@@ -31,23 +29,22 @@ const ask = async (question, userTier = 'smart') => {
 
 const askLocal = async (q) => {
   console.log('  → local qwen2.5:3b');
-  return await local.askLocal(q, 'qwen2.5:3b');
+  return await localModule.ask(q);
 };
 
 const askFast = async (q) => {
-  console.log('  → fast: Groq');
-  // TODO: Groq integration (use existing gemini.js fallback for now)
-  return await gemini.askGemini(q, 'flash');
+  console.log('  → fast: Gemini Flash');
+  return await geminiModule.ask(q, 'flash');
 };
 
 const askSmart = async (q) => {
   console.log('  → smart: Gemini Flash + fallback');
-  return await gemini.askGemini(q, 'flash');
+  return await geminiModule.ask(q, 'flash');
 };
 
 const askLong = async (q) => {
-  console.log('  → long: Gemini + 1M context');
-  return await gemini.askGemini(q, 'pro');
+  console.log('  → long: Gemini Pro');
+  return await geminiModule.ask(q, 'pro');
 };
 
 module.exports = { ask, askLocal, askFast, askSmart, askLong };
