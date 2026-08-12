@@ -25,7 +25,7 @@ print(" ".join(seg.text for seg in segments))
   let pass = 0;
   const results = [];
   const check = (label, ok) => { results.push(`${ok ? 'ok  ' : 'FAIL'} ${label}`); if (ok) pass++; };
-  const total = 2;
+  const total = 3;
 
   try {
     const wav = await synthesize('The quick brown fox jumps over the lazy dog.', 'en_US-amy-medium', '/tmp/test-voice-en.wav');
@@ -44,6 +44,17 @@ print(" ".join(seg.text for seg in segments))
     check(`ar_JO-kareem round-trips ("${heard}")`, ok);
   } catch (e) {
     check(`ar_JO-kareem round-trips (${e})`, false);
+  }
+
+  // ar-AE-emirati-female is a community "quality:train" checkpoint (early,
+  // not a finished release like kareem) -- keep the test sentence short and
+  // common, matching what it's actually reliable at, not what would be nice.
+  try {
+    const wav = await synthesize('السلام عليكم', 'ar-AE-emirati-female', '/tmp/test-voice-ae.wav');
+    const heard = await transcribe(wav, 'ar');
+    check(`ar-AE-emirati-female round-trips ("${heard}")`, heard.includes('السلام') && heard.includes('عليكم'));
+  } catch (e) {
+    check(`ar-AE-emirati-female round-trips (${e})`, false);
   }
 
   results.forEach(r => console.log(r));
