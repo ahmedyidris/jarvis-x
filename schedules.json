@@ -1,6 +1,6 @@
 [
   {
-    "goal": "date >> /home/ahmedyidris/jarvis-x/logs/test.log",
+    "goal": "echo $(date) > /home/ahmedyidris/jarvis-x/logs/test.log",
     "everyMinutes": 1
   }
 ]

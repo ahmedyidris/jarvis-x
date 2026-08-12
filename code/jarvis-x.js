@@ -4,7 +4,7 @@ const { propose } = require('./agent.js');
 const fs = require('fs');
 const path = require('path');
 
-// Status banner
+// Load guidelines for banner
 const guidelines = {};
 try {
   const g = fs.readFileSync(path.join(__dirname, '..', 'knowledge', 'Guidelines.md'), 'utf8');
@@ -16,7 +16,8 @@ try {
   guidelines.dailyLoss = dailyLoss ? parseInt(dailyLoss[1]) : 10;
 } catch (e) {}
 
-console.log(`\n🤖 Jarvis X v0.1.0 initializing...
+console.log(`
+🤖 Jarvis X v0.1.0 initializing...
 
 ✅ Guidelines loaded
    • Stop-loss: ${guidelines.stopLoss}%
@@ -37,7 +38,8 @@ Constraints:
   Max position:     ${guidelines.maxPos}%
   Daily loss limit: ${guidelines.dailyLoss}%
 
-✅ Jarvis X is ready!`);
+✅ Jarvis X is ready!
+`);
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -52,10 +54,14 @@ rl.on('line', async (line) => {
   if (!input) return rl.prompt();
   if (input === 'exit' || input === 'quit') return rl.close();
 
+  // Strip leading "ask " if present
   const goal = input.startsWith('ask ') ? input.slice(4) : input;
   console.log(`\n📝 Goal: "${goal}"`);
   const res = await propose(goal);
-  if (res.error) console.error('❌', res.error);
+  if (res.error) {
+    console.error('❌', res.error);
+    if (res.reason) console.error('   Reason:', res.reason);
+  }
   console.log('');
   rl.prompt();
 }).on('close', () => {
