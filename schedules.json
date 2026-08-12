@@ -1,1 +1,6 @@
-[{"goal":"show me the last 3 commits","everyMinutes":60}]
+[
+  {
+    "goal": "ls -la logs >> logs/test.log",
+    "everyMinutes": 1
+  }
+]

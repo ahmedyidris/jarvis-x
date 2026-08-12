@@ -53,3 +53,5 @@ function confirm(question) {
 const yes = (a) => a === '' || a === 'y' || a === 'yes';
 
 module.exports = { reEscape, parseJSONLoose, execute, confirm, yes };
+exports.execute = (action) => { console.log('Execute:', action); return 'ok'; };
+exports.confirm = async (q) => { const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); return new Promise(resolve => rl.question(q, ans => { rl.close(); resolve(ans.toLowerCase().startsWith('y')); })); };

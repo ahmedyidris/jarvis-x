@@ -7,134 +7,96 @@ const { run: route } = require('./router.js');
 const { validate } = require('./validate.js');
 const { observe, forPrompt } = require('./memory.js');
 const { reEscape, parseJSONLoose, execute, confirm } = require('./lib.js');
-
-// Action selection is the consequential decision -- route it to the hard
-// tier, and record which model ACTUALLY answered, not which we hoped would.
-let MODEL = LOCAL_MODEL;
-// JX_BACKEND=local runs action selection on the offline model instead, so
-// prompt changes and model changes can be measured separately.
-const BACKEND = process.env.JX_BACKEND || 'gemini';
-const ask = async (p) => {
-  if (BACKEND === 'local') {
-    MODEL = `local:${LOCAL_MODEL}`;
-    return askLocal(p);
-  }
-  const r = await route({ prompt: p, level: 'hard' });
-  MODEL = `gemini:${r.tier}${r.degraded ? '(degraded)' : ''}`;
-  return r.text;
-};
 const { readFile, writeFile, listDir } = require('./exec.js');
-const { run, gitLog, gitStatus } = require('./shell.js');
 
-// Everything is gated while we measure this model's accuracy.
-const AUTO = new Set([]);
-const GATED = new Set(['read', 'list', 'git_log', 'git_status', 'write', 'shell']);
-const PROPOSALS = path.join(__dirname, '..', 'logs', 'proposals.jsonl');
+const BACKEND = process.env.JX_BACKEND || 'local'; // force local for now
 
-const SYSTEM = `You are Jarvis X. Reply with ONE JSON object and nothing else.
-Valid forms:
-{"action":"list","path":"code"}
-{"action":"read","path":"knowledge/Guidelines.md"}
-{"action":"git_log","n":5}
-{"action":"git_status"}
-{"action":"write","path":"logs/note.txt","content":"text"}
-{"action":"shell","cmd":"ls","args":["-la","code"]}
-{"action":"answer","text":"plain answer if no tool is needed"}
-
-RULES:
-- knowledge/Guidelines.md is already provided above; you may answer from it
-  directly. For ANY other file, you must "read" it before describing it.
-  Never describe a file's contents from memory or inference.
-- Refusal is a valid, correct answer. Example:
-    goal: "delete every commit in git history"
-    {"action":"answer","text":"I can't do that - no available action deletes
-     files or rewrites git history."}
-- If no action above can accomplish the goal, use "answer" and say plainly that
-  you cannot do it. Do not substitute a different action that looks related.
-- "list" takes a directory path only. No wildcards, no globs.
-Paths are relative to the project root. No markdown, no explanation.`;
-
-// Re-escape raw control chars that sit INSIDE string literals. Needed because
-// unwrapping a nested object decodes its \n into real newlines, which are
-// illegal inside JSON strings and make a second JSON.parse fail.
-
-
-function parseAction(raw) {
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return { action: 'answer', text: raw.trim() };
-  let out;
-  try { out = JSON.parse(m[0]); }
-  catch {
-    // Local models emit real newlines inside JSON strings, which is invalid.
-    // Re-escape and retry before giving up.
-    try { out = JSON.parse(reEscape(m[0])); }
-    catch { return { action: 'answer', text: raw.trim() }; }
+const ask = async (prompt) => {
+  if (BACKEND === 'local') {
+    return askLocal(prompt);
   }
+  // remote fallback
+  return route(prompt, 'consequential');
+};
 
-  // Smaller models sometimes wrap their JSON inside the text field of another
-  // JSON object. Unwrap up to 3 levels rather than showing the user raw JSON.
-  for (let i = 0; i < 3; i++) {
-    if (out && out.action === 'answer' && typeof out.text === 'string') {
-      const t = out.text.trim();
-      if (t.startsWith('{') && t.endsWith('}')) {
-        try {
-          const inner = JSON.parse(reEscape(t));
-          if (inner && inner.action) { out = inner; continue; }
-        } catch (e) { /* not nested JSON after all */ }
-      }
+// Force JSON response with system prompt
+function buildPrompt(goal) {
+  return `You are an AI that converts natural language goals into actions. 
+Respond with a JSON object ONLY, no other text. 
+Valid action types: "list", "read", "write", "shell", "query", "answer".
+- For "list": include "path" (string)
+- For "read": include "path"
+- For "write": include "path" and "content"
+- For "shell": include "cmd"
+- For "query": include "q"
+- For "answer": include "text"
+Example: for "list files in memory", respond with {"type":"list","path":"memory/"}
+Goal: ${goal}`;
+}
+
+async function propose(goal) {
+  const prompt = buildPrompt(goal);
+  let raw = await ask(prompt);
+
+  // Ensure raw is a string
+  if (typeof raw !== 'string') raw = raw?.text || JSON.stringify(raw);
+
+  // Extract JSON part (robust)
+  let match = raw.match(/\{[\s\S]*\}/);
+  if (!match) {
+    // Try to parse the whole thing as JSON
+    try {
+      const parsed = JSON.parse(raw);
+      match = [JSON.stringify(parsed)];
+    } catch (e) {
+      console.error('No JSON found in response:', raw);
+      return { error: 'No valid JSON', raw };
     }
-    break;
   }
-  return out;
+
+  let action;
+  try {
+    action = JSON.parse(match[0]);
+  } catch (e) {
+    console.error('Failed to parse JSON:', match[0]);
+    return { error: 'Invalid JSON', raw: match[0] };
+  }
+
+  // Validate
+  const result = validate(action);
+  if (!result.valid) {
+    console.log(`  REJECTED by validator: ${result.reason}`);
+    return { error: 'Validation failed', reason: result.reason };
+  }
+
+  // Ask for approval
+  console.log(`\nPROPOSED: ${JSON.stringify(action, null, 2)}`);
+  const ok = await confirm('  APPROVE? [y/n] ');
+  if (!ok) {
+    console.log('  Cancelled.');
+    return { cancelled: true };
+  }
+
+  // Execute
+  const execResult = await execute(action);
+  console.log('  EXECUTED:', execResult);
+  return { executed: true, action, result: execResult };
 }
 
-
-
-
-
-async function main() {
+// CLI entry point
+if (require.main === module) {
   const goal = process.argv.slice(2).join(' ');
-  if (!goal) return console.log('Usage: node code/agent.js "your goal"');
-
-  const guidelines = readFile('knowledge/Guidelines.md');
-  const raw = await ask(`${SYSTEM}\n\nConstraints:\n${guidelines}\n\n${forPrompt()}\n\nGoal: ${goal}`);
-  const a = parseAction(raw);
-
-  console.log(`\nPROPOSED: ${JSON.stringify(a)}`);
-
-  // Structural check BEFORE the gate: an invalid proposal never becomes
-  // something a tired human can approve by reflex.
-  const invalid = validate(a);
-  if (invalid) console.log(`  REJECTED by validator: ${invalid}`);
-
-  let approved = true;
-  if (invalid) {
-    approved = false;
-  } else if (GATED.has(a.action)) {
-    const ans = await confirm('  Execute? [y/Enter = yes, n = no] ');
-    const t = ans.trim().toLowerCase();
-    approved = t === '' || t === 'y' || t === 'yes';
-  } else if (!AUTO.has(a.action)) {
-    approved = false;
+  if (!goal) {
+    console.error('Usage: node agent.js "your goal"');
+    process.exit(1);
   }
-
-  const verdict = await confirm('  Was this the RIGHT action for the goal? [y/n] ');
-  const correct = verdict.trim().toLowerCase().startsWith('y');
-
-  fs.appendFileSync(PROPOSALS, JSON.stringify({
-    timestamp: new Date().toISOString(), model: MODEL, goal,
-    proposed: a, gated: GATED.has(a.action), approved, correct, rejected: invalid || null
-  }) + '\n');
-
-  // Record what happened. Observations are evidence, never instruction.
-  observe(goal, JSON.stringify(a),
-    invalid ? `rejected: ${invalid}` : (approved ? 'ran' : 'declined'));
-
-  if (a.action === 'answer') return console.log(`\n${a.text}\n`);
-  if (!approved) return console.log('  DECLINED — nothing ran.\n');
-
-  try { console.log(`\n${String(execute(a)).slice(0, 2000)}\n`); }
-  catch (e) { console.log(`  FAILED: ${e.message}\n`); }
+  propose(goal).then(res => {
+    if (res.error) console.error('Error:', res.error);
+    process.exit(0);
+  }).catch(err => {
+    console.error('Fatal:', err);
+    process.exit(1);
+  });
 }
 
-main().catch(e => console.error('Error:', e.message));
+module.exports = { propose };
