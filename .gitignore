@@ -8,3 +8,4 @@ memory/observed.jsonl
 logs/plans.jsonl
 logs/queue.jsonl
 logs/scheduled.jsonl
+models/

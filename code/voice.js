@@ -37,25 +37,34 @@ print(" ".join(seg.text for seg in segments))
   });
 }
 
-// Speak text using Piper
-function say(text, voice = 'en_US-amy-medium') {
+// Synthesize text to a wav file using Piper (no playback -- lets callers verify
+// the audio, e.g. by transcribing it back, before ever touching a speaker).
+function synthesize(text, voice = 'en_US-amy-medium', outFile = '/tmp/speech.wav') {
   return new Promise((resolve, reject) => {
     const modelPath = path.join(process.env.HOME, '.local/share/piper-tts/voices', voice + '.onnx');
     if (!fs.existsSync(modelPath)) {
       reject(`Voice model not found: ${modelPath}`);
       return;
     }
-    const proc = spawn('piper', ['--model', modelPath, '--output_file', '/tmp/speech.wav']);
+    const proc = spawn('piper', ['--model', modelPath, '--output_file', outFile]);
     proc.stdin.write(text);
     proc.stdin.end();
     proc.on('close', (code) => {
-      if (code !== 0) { reject(`piper exited with ${code}`); return; }
-      const play = spawn('aplay', ['/tmp/speech.wav']);
-      play.on('close', (c) => {
-        if (c === 0) resolve();
-        else reject(`aplay exited with ${c}`);
-      });
+      if (code === 0) resolve(outFile);
+      else reject(`piper exited with ${code}`);
     });
+    proc.on('error', reject);
+  });
+}
+
+// Speak text using Piper
+function say(text, voice = 'en_US-amy-medium') {
+  return new Promise((resolve, reject) => {
+    synthesize(text, voice).then((wav) => {
+      const play = spawn('aplay', [wav]);
+      play.on('close', (c) => (c === 0 ? resolve() : reject(`aplay exited with ${c}`)));
+      play.on('error', reject);
+    }, reject);
   });
 }
 
@@ -89,4 +98,4 @@ async function voiceInteraction(duration = 5) {
   }
 }
 
-module.exports = { record, transcribe, say, voiceInteraction };
+module.exports = { record, transcribe, synthesize, say, voiceInteraction };

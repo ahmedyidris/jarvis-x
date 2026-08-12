@@ -1,16 +1,16 @@
 {
-  "default_voice": "en_US-amy",
+  "default_voice": "en_US-amy-medium",
   "accent": "us",
   "gender": "female",
   "language": "en",
   "tts_engine": "piper",
   "available_voices": {
-    "en_US-amy": {
+    "en_US-amy-medium": {
       "lang": "en",
       "gender": "female",
       "accent": "us"
     },
-    "ar_JO-kareem": {
+    "ar_JO-kareem-medium": {
       "lang": "ar",
       "gender": "male",
       "accent": "jordanian"
