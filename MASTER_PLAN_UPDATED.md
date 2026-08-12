@@ -1,6 +1,6 @@
 # HERMES — MASTER PLAN (Reconciled)
 **Date:** 2026-08-12
-**Status:** Week 2 partially complete — Hermes Core done, TTS Engine NOT done (see reconciliation note)
+**Status:** Week 2 complete (Hermes Core + TTS Engine). Ready for Week 3.
 
 ---
 
@@ -34,7 +34,7 @@ What's real vs. claimed for Week 2 TTS, checked against the filesystem directly:
 |------|------|--------|----------|
 | **1** | Ollama + Voice Foundation | ✅ COMPLETE | `WEEK_1_COMPLETE.md`; qwen2.5:7b/3b loaded in Ollama, kokoro-tts synthesis tested |
 | **2a** | Hermes Core | ✅ COMPLETE | `hermes.py`, 154 lines, committed `26d2d49` — CLI + SQLite state at `~/.hermes/state.db`, restart-safe |
-| **2b** | TTS Engine | 🔶 IN PROGRESS | Deps installed (`piper-tts`, `kokoro-onnx`, `kokoro-tts` in `venv-ai`); 3 Piper voices downloaded; Piper en/ar test wavs generated in `/tmp`. **No `tts_engine.py` module, no Kokoro synthesis test, nothing committed.** |
+| **2b** | TTS Engine | ✅ COMPLETE | `tts_engine.py`, committed `d0a5111`. 9 voice_ids, all synthesized and verified (not just installed) — see below. |
 | **3** | Router + Tier Selection | ⏳ NEXT | Not started |
 | **4** | Web UI + Minimal App | — | Not started |
 
@@ -52,19 +52,41 @@ What's real vs. claimed for Week 2 TTS, checked against the filesystem directly:
 - Modes: `--status`, `--recall [N]`, `"question" [model]`
 - Committed as `26d2d49`
 
-## WEEK 2b — TTS Engine (Actual remaining work)
+## WEEK 2b — TTS Engine (Verified complete, `d0a5111`)
 
-What exists to build on:
-- `venv-ai` has `piper-tts` 1.6.0, `kokoro-onnx` 0.3.9, `kokoro-tts` 2.3.1, `onnxruntime` 1.28.0, `soundfile` 0.14.0
-- Voices at `~/.local/share/piper-tts/voices/`: `en_US-amy-medium`, `ar_JO-kareem-medium`, `ar-AE-emirati-female`
-- Prior history (`4161b5a`, `bbf3b43`) already explored Jordanian vs. Emirati vs. Egyptian Arabic — Egyptian was ruled out as "no CPU-viable option found"; decide whether to keep both `ar_JO` and `ar-AE` or drop one
+Priority order requested: Arabic (Egyptian > formal/MSA > rest), English (US, UK, Irish, Australian-if-found).
 
-What's actually left to do:
-1. Write `tts_engine.py` with a real `synthesize(text, voice_id) -> (audio_bytes, mime_type)` API over Piper (and Kokoro if it's worth the added dependency weight over what `code/kokoro.js` already does in the Node side)
-2. Run an actual Kokoro synthesis test and keep the output as evidence
-3. Decide the Arabic voice: `ar_JO-kareem-medium` vs `ar-AE-emirati-female` (or keep both, exposed as separate voice IDs)
-4. Commit the module once it's real
-5. Only then move to Week 3 (router)
+`tts_engine.py` wires two CPU-only backends — Piper (fast) and Kokoro (natural,
+English only) — behind `TTSEngine.synthesize(text, voice_id) -> (audio_bytes, mime_type)`.
+Every voice_id below was actually run and produced audio in `/tmp/tts-verify/`,
+not just installed:
+
+| voice_id | backend | latency (this machine) | notes |
+|---|---|---|---|
+| `ar_msa_piper` | Piper, `ar_JO-kareem-medium` | ~1.8s | closest available to formal/MSA |
+| `ar_msa_piper_low` | Piper, `ar_JO-kareem-low` | ~1.3s | same voice, faster/lower quality |
+| `ar_ae_piper` | Piper, `ar-AE-emirati-female` | ~2.0s | Gulf addition, not MSA |
+| `en_us_piper` | Piper, `en_US-amy-medium` | ~1.2s | |
+| `en_gb_piper` | Piper, `en_GB-alba-medium` | ~1.2s | downloaded this session |
+| `en_us_kokoro`(+`_m`) | Kokoro `af_heart`/`am_eric` | ~4-6s | natural, slower |
+| `en_gb_kokoro`(+`_m`) | Kokoro `bf_emma`/`bm_george` | ~5s | natural, slower |
+
+**Egyptian Arabic — priority 1, not delivered.** Researched, not silently
+dropped: no CPU-viable ONNX/Piper voice exists in the official Piper catalog,
+the OpenVoiceOS community collection, or MMS-TTS (which only ships a single
+Standard-Arabic checkpoint, `facebook/mms-tts-ara`, under the macrolanguage
+code `ara` — not Egyptian `arz`). Best real lead: `OmarSamir/EGTTS-V0.1` on
+HuggingFace, an actual Egyptian Arabic TTS model — but it's XTTS-v2 based
+(PyTorch voice-cloning architecture), much heavier than Piper/Kokoro, and
+needs real CPU-latency testing on this Chromebook before it's fair to call
+it a deliverable. **Follow-up, not forgotten.**
+
+**Irish / Australian English — not found.** Checked Piper's official
+catalog, the OpenVoiceOS Piper-voice collection, and Kokoro's full 54-voice
+set (loaded and enumerated locally: `af_/am_` = US, `bf_/bm_` = UK, no
+Irish or Australian entries exist). Australian was flagged as okay-to-skip;
+Irish wasn't, but genuinely isn't available in any CPU-friendly stack found
+so far.
 
 ---
 
