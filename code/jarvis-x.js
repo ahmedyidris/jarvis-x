@@ -4,7 +4,7 @@ const { propose } = require('./agent.js');
 const fs = require('fs');
 const path = require('path');
 
-// Load guidelines for banner
+// Load guidelines
 const guidelines = {};
 try {
   const g = fs.readFileSync(path.join(__dirname, '..', 'knowledge', 'Guidelines.md'), 'utf8');
@@ -39,6 +39,7 @@ Constraints:
   Daily loss limit: ${guidelines.dailyLoss}%
 
 ✅ Jarvis X is ready!
+Commands: "ask <goal>" or just "<goal>". Type "voice" or "v" to speak.
 `);
 
 const rl = readline.createInterface({
@@ -54,14 +55,19 @@ rl.on('line', async (line) => {
   if (!input) return rl.prompt();
   if (input === 'exit' || input === 'quit') return rl.close();
 
-  // Strip leading "ask " if present
+  // Voice command
+  if (input === 'voice' || input === 'v') {
+    const { voiceInteraction } = require('./voice.js');
+    await voiceInteraction(5);
+    console.log('');
+    rl.prompt();
+    return;
+  }
+
   const goal = input.startsWith('ask ') ? input.slice(4) : input;
   console.log(`\n📝 Goal: "${goal}"`);
   const res = await propose(goal);
-  if (res.error) {
-    console.error('❌', res.error);
-    if (res.reason) console.error('   Reason:', res.reason);
-  }
+  if (res.error) console.error('❌', res.error);
   console.log('');
   rl.prompt();
 }).on('close', () => {

@@ -1,93 +1,92 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
+const { propose } = require('./agent.js');
 
-// Voice configuration
-const VOICES = {
-  'en_US-amy': { lang: 'en', gender: 'female', accent: 'us', quality: 'medium' },
-  'ar_JO-kareem': { lang: 'ar', gender: 'male', accent: 'jordanian', quality: 'medium' }
-};
-
-const VOICES_DIR = path.join(os.homedir(), '.local/share/piper-tts/voices');
-
-const DEFAULT_VOICE = 'en_US-amy';
-
-// STT: Speech to Text (Faster-Whisper)
-const transcribe = async (audioFile) => {
+// Record audio using arecord
+function record(duration = 5) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('faster-whisper', [audioFile, '--model', 'base', '--language', 'en,ar']);
-    let output = '';
-    
-    proc.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-    
+    const file = '/tmp/recording.wav';
+    const args = ['-d', duration, '-f', 'cd', '-t', 'wav', file];
+    const proc = spawn('arecord', args);
     proc.on('close', (code) => {
-      if (code === 0) {
-        resolve(output.trim());
-      } else {
-        reject(new Error(`Transcription failed: ${output}`));
-      }
+      if (code === 0) resolve(file);
+      else reject(`arecord exited with ${code}`);
     });
-  });
-};
-
-// TTS: Text to Speech (Piper)
-const synthesize = async (text, voiceKey = DEFAULT_VOICE) => {
-  if (!VOICES[voiceKey]) {
-    throw new Error(`Unknown voice: ${voiceKey}. Available: ${Object.keys(VOICES).join(', ')}`);
-  }
-  
-  return new Promise((resolve, reject) => {
-    const fileBase = `${voiceKey}-${VOICES[voiceKey].quality}`;
-    const modelPath = path.join(VOICES_DIR, `${fileBase}.onnx`);
-    const configPath = path.join(VOICES_DIR, `${fileBase}.onnx.json`);
-    const outputFile = path.join(__dirname, `../tmp-output-${Date.now()}.wav`);
-
-    if (!fs.existsSync(modelPath)) {
-      reject(new Error(`Voice model not found: ${modelPath}`));
-      return;
-    }
-    if (!fs.existsSync(configPath)) {
-      reject(new Error(`Voice config not found: ${configPath}`));
-      return;
-    }
-
-    const proc = spawn('piper', [
-      '--model', modelPath,
-      '--config', configPath,
-      '--output-file', outputFile
-    ]);
-    
-    proc.stdin.write(text);
-    proc.stdin.end();
-    
-    proc.on('close', (code) => {
-      if (code === 0 && fs.existsSync(outputFile)) {
-        resolve(outputFile);
-      } else {
-        reject(new Error(`TTS synthesis failed with code ${code}`));
-      }
-    });
-  });
-};
-
-// List available voices
-const listVoices = () => {
-  return Object.entries(VOICES).map(([key, config]) => ({
-    key,
-    lang: config.lang,
-    gender: config.gender,
-    accent: config.accent
-  }));
-};
-
-module.exports = { transcribe, synthesize, listVoices, VOICES, DEFAULT_VOICE };
-
-if (require.main === module) {
-  console.log('Available voices:');
-  listVoices().forEach(v => {
-    console.log(`  ${v.key}: ${v.lang} (${v.gender}, ${v.accent})`);
+    proc.on('error', reject);
   });
 }
+
+// Transcribe with faster-whisper
+function transcribe(wavFile) {
+  return new Promise((resolve, reject) => {
+    const py = spawn('python3', ['-c', `
+import sys
+from faster_whisper import WhisperModel
+model = WhisperModel("tiny.en", device="cpu", compute_type="int8")
+segments, info = model.transcribe(sys.argv[1], beam_size=5)
+print(" ".join(seg.text for seg in segments))
+`, wavFile]);
+    let output = '';
+    py.stdout.on('data', d => output += d);
+    py.stderr.on('data', d => console.error(d.toString()));
+    py.on('close', (code) => {
+      if (code === 0) resolve(output.trim());
+      else reject(`transcribe failed`);
+    });
+  });
+}
+
+// Speak text using Piper
+function say(text, voice = 'en_US-amy-medium') {
+  return new Promise((resolve, reject) => {
+    const modelPath = path.join(process.env.HOME, '.local/share/piper-tts/voices', voice + '.onnx');
+    if (!fs.existsSync(modelPath)) {
+      reject(`Voice model not found: ${modelPath}`);
+      return;
+    }
+    const proc = spawn('piper', ['--model', modelPath, '--output_file', '/tmp/speech.wav']);
+    proc.stdin.write(text);
+    proc.stdin.end();
+    proc.on('close', (code) => {
+      if (code !== 0) { reject(`piper exited with ${code}`); return; }
+      const play = spawn('aplay', ['/tmp/speech.wav']);
+      play.on('close', (c) => {
+        if (c === 0) resolve();
+        else reject(`aplay exited with ${c}`);
+      });
+    });
+  });
+}
+
+// Voice interaction: listen, transcribe, run agent, speak result
+async function voiceInteraction(duration = 5) {
+  console.log('🎤 Listening...');
+  const wav = await record(duration);
+  console.log('🔄 Transcribing...');
+  const text = await transcribe(wav);
+  fs.unlinkSync(wav);
+  if (!text) {
+    console.log('No speech detected.');
+    return;
+  }
+  console.log(`📝 You said: "${text}"`);
+  const result = await propose(text);
+  if (result.error) {
+    console.error('❌', result.error);
+    return;
+  }
+  // Speak the result if it's an answer or has a text field
+  if (result.action && result.action.type === 'answer') {
+    const reply = result.action.text;
+    console.log(`🗣️ Jarvis says: "${reply}"`);
+    await say(reply);
+  } else {
+    // For other actions, summarize or just say "Done"
+    const summary = `Executed ${result.action?.type || 'action'}`;
+    console.log(`✅ ${summary}`);
+    await say(summary);
+  }
+}
+
+module.exports = { record, transcribe, say, voiceInteraction };
