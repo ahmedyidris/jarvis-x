@@ -17,22 +17,27 @@ function record(duration = 5) {
   });
 }
 
-// Transcribe with faster-whisper
+// Transcribe with faster-whisper. Uses the multilingual "tiny" model (not
+// "tiny.en") and lets it auto-detect the spoken language -- this is what
+// voiceInteraction() uses to pick which TTS voice/accent to reply with, so
+// it needs to know what language it heard, not just assume English.
 function transcribe(wavFile) {
   return new Promise((resolve, reject) => {
     const py = spawn('python3', ['-c', `
-import sys
+import sys, json
 from faster_whisper import WhisperModel
-model = WhisperModel("tiny.en", device="cpu", compute_type="int8")
+model = WhisperModel("tiny", device="cpu", compute_type="int8")
 segments, info = model.transcribe(sys.argv[1], beam_size=5)
-print(" ".join(seg.text for seg in segments))
+text = " ".join(seg.text for seg in segments).strip()
+print(json.dumps({"text": text, "language": info.language}))
 `, wavFile]);
     let output = '';
     py.stdout.on('data', d => output += d);
     py.stderr.on('data', d => console.error(d.toString()));
     py.on('close', (code) => {
-      if (code === 0) resolve(output.trim());
-      else reject(`transcribe failed`);
+      if (code !== 0) { reject(`transcribe failed`); return; }
+      try { resolve(JSON.parse(output.trim())); }
+      catch (e) { reject(`transcribe: could not parse output: ${output}`); }
     });
   });
 }
@@ -68,18 +73,43 @@ function say(text, voice = 'en_US-amy-medium') {
   });
 }
 
-// Voice interaction: listen, transcribe, run agent, speak result
+// Which route (see voice-router.js) to reply in, based on the language STT
+// detected in what the user said. Assumes the agent replies in the same
+// language it was asked in -- true for the fixed strings below, but not
+// guaranteed for propose()'s own answers; a real bilingual reply pipeline
+// would need the agent to report what language it answered in, not just
+// infer it from the question. Config-driven so it's a one-line change to
+// point 'ar' at ar-gulf instead of ar-jo, add more languages, etc.
+function loadLanguageRoutes() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'voice.json'), 'utf8'));
+    return cfg.language_routes || { en: 'en-us' };
+  } catch (e) {
+    return { en: 'en-us' };
+  }
+}
+
+// Voice interaction: listen, transcribe (detecting language), run agent,
+// speak the result back through voice-router.js in a matching voice.
 async function voiceInteraction(duration = 5) {
+  // Lazy require: voice-router.js requires this file back (to call Piper),
+  // so this can't be a top-level require without creating a cycle -- same
+  // pattern already used in code/router.js for gemini.js.
+  const { say: routedSay } = require('./voice-router.js');
+
   console.log('🎤 Listening...');
   const wav = await record(duration);
   console.log('🔄 Transcribing...');
-  const text = await transcribe(wav);
+  const { text, language } = await transcribe(wav);
   fs.unlinkSync(wav);
   if (!text) {
     console.log('No speech detected.');
     return;
   }
-  console.log(`📝 You said: "${text}"`);
+  console.log(`📝 You said (${language}): "${text}"`);
+  const routes = loadLanguageRoutes();
+  const route = routes[language] || routes.en || 'en-us';
+
   const result = await propose(text);
   if (result.error) {
     console.error('❌', result.error);
@@ -89,13 +119,13 @@ async function voiceInteraction(duration = 5) {
   if (result.action && result.action.type === 'answer') {
     const reply = result.action.text;
     console.log(`🗣️ Jarvis says: "${reply}"`);
-    await say(reply);
+    await routedSay(reply, route);
   } else {
     // For other actions, summarize or just say "Done"
     const summary = `Executed ${result.action?.type || 'action'}`;
     console.log(`✅ ${summary}`);
-    await say(summary);
+    await routedSay(summary, route);
   }
 }
 
-module.exports = { record, transcribe, synthesize, say, voiceInteraction };
+module.exports = { record, transcribe, synthesize, say, voiceInteraction, loadLanguageRoutes };

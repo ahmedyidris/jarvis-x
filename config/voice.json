@@ -4,6 +4,10 @@
   "gender": "female",
   "language": "en",
   "tts_engine": "piper",
+  "language_routes": {
+    "en": "en-us",
+    "ar": "ar-jo"
+  },
   "available_voices": {
     "en_US-amy-medium": {
       "lang": "en",
