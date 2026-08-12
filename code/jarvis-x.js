@@ -8,107 +8,26 @@ const path = require('path');
 const guidelines = {};
 try {
   const g = fs.readFileSync(path.join(__dirname, '..', 'knowledge', 'Guidelines.md'), 'utf8');
-  const stopLoss = g.match(/Stop-loss:\s*(\d+)%/);
-  const maxPos = g.match(/Max position:\s*(\d+)%/);
-  const dailyLoss = g.match(/Daily loss limit:\s*(\d+)%/);
+  const stopLoss = g.match(/Stop-loss:\s+(\d+)%/);
+  const maxPos = g.match(/Max position:\s+(\d+)%/);
+  const dailyLoss = g.match(/Daily loss limit:\s+(\d+)%/);
   guidelines.stopLoss = stopLoss ? parseInt(stopLoss[1]) : 15;
   guidelines.maxPos = maxPos ? parseInt(maxPos[1]) : 5;
   guidelines.dailyLoss = dailyLoss ? parseInt(dailyLoss[1]) : 10;
 } catch (e) {}
 
 console.log(`
-ğŸ¤– Jarvis X v0.1.0 initializing...
 
-âœ… Guidelines loaded
+âˆ­ Jarvis X v0.1.0 initializing...
+
+È Guidelines loaded
    â€¢ Stop-loss: ${guidelines.stopLoss}%
    â€¢ Max position: ${guidelines.maxPos}%
    â€¢ Daily loss limit: ${guidelines.dailyLoss}%
-âœ… Logging initialized
+È Logging initialized
 
-â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-â•‘        JARVIS X STATUS REPORT          â•‘
-â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-Name:        Jarvis X
-Version:     0.1.0
-Timestamp:   ${new Date().toISOString()}
-
-Constraints:
-  Stop-loss:        ${guidelines.stopLoss}%
-  Max position:     ${guidelines.maxPos}%
-  Daily loss limit: ${guidelines.dailyLoss}%
-
-âœ… Jarvis X is ready!
-Type "help" or "?" for available commands.
-`);
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  prompt: 'jj> '
-});
-
-rl.prompt();
-
-rl.on('line', async (line) => {
-  const input = line.trim();
-  if (!input) return rl.prompt();
-
-  // Exit
-  if (['exit', 'quit', '/exit', '/quit'].includes(input)) {
-    rl.close();
-    return;
-  }
-
-  // Help
-  if (input === 'help' || input === '?') {
-    console.log(`
-Available commands:
-  <goal>               â€“ run any natural language goal
-  ask <goal>           â€“ same as above
-  voice | v            â€“ listen and respond via speech (5s)
-  describe <path>      â€“ describe an image using vision
-  exit | quit          â€“ leave the REPL
-`);
-    rl.prompt();
-    return;
-  }
-
-  // Voice
-  if (input === 'voice' || input === 'v') {
-    const { voiceInteraction } = require('./voice.js');
-    await voiceInteraction(5);
-    console.log('');
-    rl.prompt();
-    return;
-  }
-
-  // Describe
-  if (input.startsWith('describe ')) {
-    const imgPath = input.slice(9).trim();
-    const { describe } = require('./vision.js');
-    try {
-      const desc = await describe(imgPath);
-      console.log(`ğŸ“· Description: ${desc}`);
-    } catch (err) {
-      console.error(`âŒ Vision error: ${err.message || err}`);
-    }
-    console.log('');
-    rl.prompt();
-    return;
-  }
-
-  // Regular goal
-  const goal = input.startsWith('ask ') ? input.slice(4) : input;
-  console.log(`\nğŸ“ Goal: "${goal}"`);
-  const res = await propose(goal);
-  if (res.error) {
-    console.error('âŒ', res.error);
-    if (res.reason) console.error('   Reason:', res.reason);
-  }
-  console.log('');
-  rl.prompt();
-}).on('close', () => {
-  console.log('\nğŸ‘‹ Goodbye.');
-  process.exit(0);
-});
+â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â– â–­
+â•        JARVIS X STATUS REPORT          â• 
+â– â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• )9…µ”è€€€€€€€)…ÉÙ¥Ì`)Y•ÉÍ¥½¸è€€€€€À¸Ä¸À)Q¥µ•ÍÑ…µÀè€€€‘í¹•Ü…Ñ” ¤¹Ñ½%M=MÑÉ¥¹œ ¥ô()½¹ÍÑÉ…¥¹ÑÌè(€MÑ½Àµ±½ÍÌè€€€€€€€€‘íÕ¥‘•±¥¹•Ì¹ÍÑ½Á1½ÍÍô”(€5…àÁ½Í¥Ñ¥½¸è€€€€€‘íÕ¥‘•±¥¹•Ì¹µ…áA½Íô”(€…¥±ä±½ÍÌ±¥µ¥Ğè€‘íÕ¥‘•±¥¹•Ì¹‘…¥±å1½ÍÍô”((+"x)…ÉÙ¥Ì`¥ÌÉ•…‘ä„)QåÁ”€‰¡•±Àˆ½È€ˆüˆ™½È…Ù…¥±…‰±”½µµ…¹‘Ì¸)€¤ì()½¹ÍĞÉ°€ôÉ•…‘±¥¹”¹É•…Ñ•%¹Ñ•É™…”¡ì(€¥¹ÁÕĞèÁÉ½•ÍÌ¹ÍÑ‘¥¸°(€½ÕÑÁÕĞèÁÉ½•ÍÌ¹ÍÑ‘½ÕĞ°(€ÁÉ½µÁĞè€©¨ø€œ)ô¤ì()É°¹ÁÉ½µÁĞ ¤ì()É°¹½¸ ±¥¹”œ°…Íå¹Œ€¡±¥¹”¤€ôøì(€½¹ÍĞ¥¹ÁÕĞ€ô±¥¹”¹ÑÉ¥´ ¤ì(€¥˜€ …¥¹ÁÕĞ¤É•ÑÕÉ¸É°¹ÁÉ½µÁĞ ¤ì((€€¼¼á¥Ğ(€¥˜€¡l•á¥Ğœ°€ÅÕ¥Ğœ°€œ½•á¥Ğœ°€œ½ÅÕ¥Ğt¹¥¹±Õ‘•Ì¡¥¹ÁÕĞ¤¤ì(€€€É°¹±½Í” ¤ì(€€€É•ÑÕÉ¸ì(€ô((€€¼¼!•±À(€¥˜€¡¥¹ÁÕĞ€ôôô€¡•±Àœñğ¥¹ÁÕĞ€ôôô€œüœ¤ì(€€€½¹Í½±”¹±½œ¡€()Ù…¥±…‰±”½µµ…¹‘Ìè(€€ñ½…°ø€€€€€€€€€€€€€€ƒŠLÉÕ¸…¹ä¹…ÑÕÉ…°±…¹Õ…”½…°(€…Í¬€ñ½…°ø€€€€€€€€€€ƒŠLÍ…µ”…Ì…‰½Ù”(€Ù½¥”ğØ€€€€€€€€€€€ƒŠL±¥ÍÑ•¸…¹É•ÍÁ½¹Ù¥„ÍÁ•• € ÕÌ¤(€‘•ÍÉ¥‰”€ñÁ…Ñ ø€€€€€ƒŠL‘•ÍÉ¥‰”…¸¥µ…”ÕÍ¥¹œÙ¥Í¥½¸(€•á¥ĞğÅÕ¥Ğ€€€€€€€€€ƒŠL±•…Ù”Ñ¡”II0)€¤ì(€€€É°¹ÁÉ½µÁĞ ¤ì(€€€É•ÑÕÉ¸ì(€ô((€€¼¼Y½¥”(€¥˜€¡¥¹ÁÕĞ€ôôô€Ù½¥”œñğ¥¹ÁÕĞ€ôôô€Øœ¤ì(€€€½¹ÍĞìÙ½¥•%¹Ñ•É…Ñ¥½¸ô€ôÉ•ÅÕ¥É” œ¸½Ù½¥”¹©Ìœ¤ì(€€€…İ…¥ĞÙ½¥•%¹Ñ•É…Ñ¥½¸ Ô¤ì(€€€½¹Í½±”¹±½œ œœ¤ì(€€€É°¹ÁÉ½µÁĞ ¤ì(€€€É•ÑÕÉ¸ì(€ô((€€¼¼•ÍÉ¥‰”(€¥˜€¡¥¹ÁÕĞ¹ÍÑ…ÉÑÍ]¥Ñ  ‘•ÍÉ¥‰”€œ¤¤ì(€€€½¹ÍĞ¥µA…Ñ €ô¥¹ÁÕĞ¹Í±¥” ä¤¹ÑÉ¥´ ¤ì(€€€½¹ÍĞì‘•ÍÉ¥‰”ô€ôÉ•ÅÕ¥É” œ¸½Ù¥Í¥½¸¹©Ìœ¤ì(€€€ÑÉäì(€€€€€½¹ÍĞ‘•ÍŒ€ô…İ…¥Ğ‘•ÍÉ¥‰”¡¥µA…Ñ ¤ì(€€€€€½¹Í½±”¹±½œ¡ƒÂv>ß
+€•ÍÉ¥ÁÑ¥½¸è€‘í‘•Íõ€¤ì(€€€ô…Ñ €¡•ÉÈ¤ì(€€€€€½¹Í½±”¹•ÉÉ½È¡ƒÂv2<Y§
+ÍÍ¥½¸•ÉÉ½Èè€‘í•ÉÈ¹µ•ÍÍ…”ñğ•ÉÉõ€¤ì(€€€ô(€€€½¹Í½±”¹±½œ œœ¤ì(€€€É°¹ÁÉ½µÁĞ ¤ì(€€€É•ÑÕÉ¸ì(€ô((€€¼¼I•Õ±…È½…°(€½¹ÍĞ½…°€ô¥¹ÁÕĞ¹ÍÑ…ÉÑÍ]¥Ñ  …Í¬€œ¤€ü¥¹ÁÕĞ¹Í±¥” Ğ¤€è¥¹ÁÕĞì(€½¹Í½±”¹±½œ¡q¸ƒÂvN4½…°è€ˆ‘í½…±ô‰€¤ì(€½¹ÍĞÉ•Ì€ô…İ…¥ĞÁÉ½Á½Í”¡½…°¤ì(€¥˜€¡É•Ì¹•ÉÉ½È¤ì(€€€½¹Í½±”¹•ÉÉ½È ŸÂv2<œ°É•Ì¹•ÉÉ½È¤ì(€€€¥˜€¡É•Ì¹É•…Í½¸¤½¹Í½±”¹•ÉÉ½È œ€€I•…Í½¸èœ°É•Ì¹É•…Í½¸¤ì(€ô(€½¹Í½±”¹±½œ œœ¤ì(€É°¹ÁÉ½µÁĞ ¤ì)ô¤¹½¸ ±½Í”œ°€ ¤€ôøì(€½¹Í½±”¹±½œ q»Â~6,½½‘‰å”¸œ¤ì(€ÁÉ½•ÍÌ¹•á¥Ğ À¤ì)ô¤ì

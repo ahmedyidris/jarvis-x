@@ -9,20 +9,18 @@ const { observe, forPrompt } = require('./memory.js');
 const { reEscape, parseJSONLoose, execute, confirm } = require('./lib.js');
 const { readFile, writeFile, listDir } = require('./exec.js');
 
-const BACKEND = process.env.JX_BACKEND || 'local'; // force local for now
+const BACKEND = process.env.JX_BACKEND || 'local';
 
 const ask = async (prompt) => {
   if (BACKEND === 'local') {
     return askLocal(prompt);
   }
-  // remote fallback
   return route(prompt, 'consequential');
 };
 
-// Force JSON response with system prompt
 function buildPrompt(goal) {
-  return `You are an AI that converts natural language goals into actions. 
-Respond with a JSON object ONLY, no other text. 
+  return `You are an AI that converts natural language goals into actions.
+Respond with a JSON object ONLY, no other text.
 Valid action types: "list", "read", "write", "shell", "query", "answer".
 - For "list": include "path" (string)
 - For "read": include "path"
@@ -37,14 +35,10 @@ Goal: ${goal}`;
 async function propose(goal) {
   const prompt = buildPrompt(goal);
   let raw = await ask(prompt);
-
-  // Ensure raw is a string
   if (typeof raw !== 'string') raw = raw?.text || JSON.stringify(raw);
 
-  // Extract JSON part (robust)
   let match = raw.match(/\{[\s\S]*\}/);
   if (!match) {
-    // Try to parse the whole thing as JSON
     try {
       const parsed = JSON.parse(raw);
       match = [JSON.stringify(parsed)];
@@ -62,41 +56,48 @@ async function propose(goal) {
     return { error: 'Invalid JSON', raw: match[0] };
   }
 
-  // Validate
   const result = validate(action);
   if (!result.valid) {
     console.log(`  REJECTED by validator: ${result.reason}`);
     return { error: 'Validation failed', reason: result.reason };
   }
 
-  // Ask for approval
-  console.log(`\nPROPOSED: ${JSON.stringify(action, null, 2)}`);
-  const ok = await confirm('  APPROVE? [y/n] ');
-  if (!ok) {
+  // Auto-approve safe actions; ask for write/shell
+  const safeTypes = ['list', 'read', 'answer', 'query'];
+  let approved = true;
+  if (!safeTypes.includes(action.type)) {
+    console.log(`\nPROPOSED: ${JSON.stringify(action, null, 2)}`);
+    approved = await confirm('  APPROVE? [y/n] ');
+  } else {
+    console.log(`\nPROPOSED: ${JSON.stringify(action, null, 2)}`);
+    console.log('  Auto-approved (safe action)');
+  }
+
+  if (!approved) {
     console.log('  Cancelled.');
     return { cancelled: true };
   }
 
-  // Execute
   const execResult = await execute(action);
   console.log('  EXECUTED:', execResult);
   return { executed: true, action, result: execResult };
 }
 
-// CLI entry point
 if (require.main === module) {
   const goal = process.argv.slice(2).join(' ');
   if (!goal) {
     console.error('Usage: node agent.js "your goal"');
     process.exit(1);
   }
-  propose(goal).then(res => {
-    if (res.error) console.error('Error:', res.error);
-    process.exit(0);
-  }).catch(err => {
-    console.error('Fatal:', err);
-    process.exit(1);
-  });
+  propose(goal)
+    .then(res => {
+      if (res.error) console.error('Error:', res.error);
+      process.exit(0);
+    })
+    .catch(err => {
+      console.error('Fatal:', err);
+      process.exit(1);
+    });
 }
 
 module.exports = { propose };
