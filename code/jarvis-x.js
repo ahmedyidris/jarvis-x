@@ -39,7 +39,7 @@ Constraints:
   Daily loss limit: ${guidelines.dailyLoss}%
 
 ✅ Jarvis X is ready!
-Commands: "ask <goal>" or just "<goal>". Type "voice" or "v" to speak.
+Type "help" or "?" for available commands.
 `);
 
 const rl = readline.createInterface({
@@ -53,9 +53,28 @@ rl.prompt();
 rl.on('line', async (line) => {
   const input = line.trim();
   if (!input) return rl.prompt();
-  if (input === 'exit' || input === 'quit') return rl.close();
 
-  // Voice command
+  // Exit
+  if (['exit', 'quit', '/exit', '/quit'].includes(input)) {
+    rl.close();
+    return;
+  }
+
+  // Help
+  if (input === 'help' || input === '?') {
+    console.log(`
+Available commands:
+  <goal>               – run any natural language goal
+  ask <goal>           – same as above
+  voice | v            – listen and respond via speech (5s)
+  describe <path>      – describe an image using vision
+  exit | quit          – leave the REPL
+`);
+    rl.prompt();
+    return;
+  }
+
+  // Voice
   if (input === 'voice' || input === 'v') {
     const { voiceInteraction } = require('./voice.js');
     await voiceInteraction(5);
@@ -64,10 +83,29 @@ rl.on('line', async (line) => {
     return;
   }
 
+  // Describe
+  if (input.startsWith('describe ')) {
+    const imgPath = input.slice(9).trim();
+    const { describe } = require('./vision.js');
+    try {
+      const desc = await describe(imgPath);
+      console.log(`📷 Description: ${desc}`);
+    } catch (err) {
+      console.error(`❌ Vision error: ${err.message || err}`);
+    }
+    console.log('');
+    rl.prompt();
+    return;
+  }
+
+  // Regular goal
   const goal = input.startsWith('ask ') ? input.slice(4) : input;
   console.log(`\n📝 Goal: "${goal}"`);
   const res = await propose(goal);
-  if (res.error) console.error('❌', res.error);
+  if (res.error) {
+    console.error('❌', res.error);
+    if (res.reason) console.error('   Reason:', res.reason);
+  }
   console.log('');
   rl.prompt();
 }).on('close', () => {
