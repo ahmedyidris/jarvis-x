@@ -3,14 +3,26 @@ const util = require('util');
 const execPromise = util.promisify(exec);
 
 async function describe(imagePath) {
-  const { stdout } = await execPromise(`ollama run moondream "Describe this image: ${imagePath}"`);
-  return stdout.trim();
+  try {
+    const { stdout } = await execPromise(`ollama run moondream "Describe this image: ${imagePath}"`);
+    return stdout.trim();
+  } catch (err) {
+    throw new Error(`Vision failed: ${err.message}`);
+  }
 }
 
-// CLI usage
 if (require.main === module) {
   const img = process.argv[2];
-  if (!img) return console.error('Usage: node vision.js <image_path>');
-  describe(img).then(console.log).catch(console.error);
+  if (!img) {
+    console.error('Usage: node vision.js <image_path>');
+    process.exit(1);
+  }
+  describe(img)
+    .then(console.log)
+    .catch(err => {
+      console.error('Error:', err.message);
+      process.exit(1);
+    });
 }
+
 module.exports = { describe };
