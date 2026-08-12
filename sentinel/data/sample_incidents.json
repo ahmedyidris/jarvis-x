@@ -1,0 +1,20 @@
+[
+  {
+    "id": "inc-1",
+    "input": "Checkout service latency spike, 5xx errors climbing since 14:02 UTC. Logs show 'TimeoutError: connection pool exhausted' on order-service. Deploy of order-service v2.14 went out at 13:55 UTC.",
+    "expected_category": "database",
+    "expected_root_cause_keywords": ["connection pool", "leak", "exhaust"]
+  },
+  {
+    "id": "inc-2",
+    "input": "API gateway returning 502s across us-east and eu-west simultaneously. Started ~5 minutes after the scheduled TLS certificate rotation job finished. Upstream health checks are green.",
+    "expected_category": "network",
+    "expected_root_cause_keywords": ["certificate", "tls", "rotation", "chain"]
+  },
+  {
+    "id": "inc-3",
+    "input": "Nightly batch-processor pod OOMKilled at 03:12 UTC. Grafana shows memory climbing steadily since the 'recommendations-v2' feature flag was enabled to 100% three days ago.",
+    "expected_category": "application",
+    "expected_root_cause_keywords": ["memory", "leak", "flag", "oom"]
+  }
+]

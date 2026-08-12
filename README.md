@@ -30,3 +30,9 @@ Autonomous agent running on ASUS Chromebook CX5500FE (Crostini/Debian 12).
 
 Flag file at `~/.jarvis-x/STOP`. Present = everything halts.
 Verified: run → blocked → run, and jail refuses `../` and absolute-path escapes.
+
+## Other subprojects
+
+- `sentinel/` — a separate portfolio project (AI incident-response copilot).
+  Not part of the jarvis-x agent; doesn't go through `guard.js` or the kill
+  switch. See `sentinel/README.md`.
