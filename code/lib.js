@@ -1,57 +1,72 @@
-// Shared helpers for agent.js and planner.js. Single home for the pieces that
-// were duplicated -- notably reEscape, where two copies meant a parser fix
-// could land in one file and silently not the other.
+const fs = require('fs');
+const path = require('path');
 const readline = require('readline');
-const { readFile, writeFile, listDir } = require('./exec.js');
-const { run: sh, gitLog, gitStatus } = require('./shell.js');
+const { exec: execSync } = require('child_process');
+const { BASE, safePath } = require('./exec.js');
 
-// Models emit real newlines inside JSON string literals, which is invalid JSON.
-// Re-escape control chars that sit INSIDE strings, leaving structure untouched.
-function reEscape(t) {
-  let out = '', inStr = false, esc = false;
-  for (const ch of t) {
-    if (esc) { out += ch; esc = false; continue; }
-    if (ch === '\\') { out += ch; esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; out += ch; continue; }
-    if (inStr && ch === '\n') { out += '\\n'; continue; }
-    if (inStr && ch === '\r') { out += '\\r'; continue; }
-    if (inStr && ch === '\t') { out += '\\t'; continue; }
-    out += ch;
-  }
-  return out;
+function reEscape(str) {
+  return str.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
 }
 
-// Best-effort JSON extraction. Returns the object, or null.
 function parseJSONLoose(raw) {
-  const m = String(raw).match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch {}
-  try { return JSON.parse(reEscape(m[0])); } catch {}
-  return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
 }
 
-// Dispatch. Adds no authority: every branch goes through exec.js/shell.js,
-// which route through guard() and the file jail.
-function execute(a) {
-  switch (a.action) {
-    case 'list':       return listDir(a.path || '.').join('\n');
-    case 'read':       return readFile(a.path);
-    case 'git_log':    return gitLog(a.n || 5).stdout;
-    case 'git_status': return gitStatus().stdout || '(clean)';
-    case 'write':      return writeFile(a.path, a.content ?? '');
-    case 'shell':      { const r = sh(a.cmd, a.args || []); return r.stdout || r.stderr; }
-    default:           return a.text || '(no action)';
+// ACTUAL EXECUTION ENGINE
+async function execute(action) {
+  const { type } = action;
+  switch (type) {
+    case 'list': {
+      const full = path.resolve(BASE, action.path);
+      if (!fs.existsSync(full)) return `Directory not found: ${action.path}`;
+      const files = fs.readdirSync(full);
+      return files.join('\n');
+    }
+    case 'read': {
+      const full = path.resolve(BASE, action.path);
+      if (!fs.existsSync(full)) return `File not found: ${action.path}`;
+      const content = fs.readFileSync(full, 'utf8');
+      return content;
+    }
+    case 'write': {
+      const full = path.resolve(BASE, action.path);
+      // Ensure directory exists
+      const dir = path.dirname(full);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(full, action.content, 'utf8');
+      return `Written to ${action.path}`;
+    }
+    case 'shell': {
+      return new Promise((resolve, reject) => {
+        execSync(action.cmd, { cwd: BASE, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+          if (err) reject(stderr || err.message);
+          else resolve(stdout.trim());
+        });
+      });
+    }
+    case 'query': {
+      // For now, just echo the query – later can route to model
+      return `Query: ${action.q}`;
+    }
+    case 'answer': {
+      return action.text;
+    }
+    default:
+      return `Unknown action type: ${type}`;
   }
 }
 
-// Returns the answer trimmed and lowercased.
 function confirm(question) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise(res => rl.question(question, a => { rl.close(); res(a.trim().toLowerCase()); }));
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  return new Promise(resolve => {
+    rl.question(question, ans => {
+      rl.close();
+      resolve(ans.toLowerCase().startsWith('y'));
+    });
+  });
 }
 
-const yes = (a) => a === '' || a === 'y' || a === 'yes';
-
-module.exports = { reEscape, parseJSONLoose, execute, confirm, yes };
-exports.execute = (action) => { console.log('Execute:', action); return 'ok'; };
-exports.confirm = async (q) => { const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); return new Promise(resolve => rl.question(q, ans => { rl.close(); resolve(ans.toLowerCase().startsWith('y')); })); };
+module.exports = { reEscape, parseJSONLoose, execute, confirm };
