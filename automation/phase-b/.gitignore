@@ -1,0 +1,7 @@
+# Rendered video output — regenerable via video_renderer.py, not checked in.
+output/
+
+# Python cache / local artifacts
+__pycache__/
+*.pyc
+.venv/
