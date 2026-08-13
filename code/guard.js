@@ -8,7 +8,7 @@ const STOP_FILE = path.join(__dirname, '..', '.jarvis-x-STOP');
 const logDir = path.dirname(LOG_FILE);
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
-function guard(action, level = 'quick') {
+function guard(action, level = 'quick', fn) {
   // Kill switch: STOP file exists → throw
   if (fs.existsSync(STOP_FILE)) {
     throw new Error('⛔ Kill switch active – action blocked');
@@ -23,7 +23,7 @@ function guard(action, level = 'quick') {
   };
   fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
 
-  return { executed: true, action };
+  return fn ? fn() : { executed: true, action };
 }
 
 function isStopped() {
