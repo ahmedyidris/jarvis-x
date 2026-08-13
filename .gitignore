@@ -17,3 +17,10 @@ __pycache__/
 sentinel/.venv/
 sentinel/data/vector_store.db
 sentinel/eval/eval_report.json
+
+# Claude Code local/derived state — regenerable from skills-lock.json,
+# and worktrees are full nested checkouts that must never be committed.
+.claude/worktrees/
+.claude/settings.local.json
+.claude/skills/
+.agents/
