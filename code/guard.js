@@ -9,10 +9,9 @@ const logDir = path.dirname(LOG_FILE);
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
 function guard(action, level = 'quick') {
-  // Kill switch: STOP file exists → block all actions
+  // Kill switch: STOP file exists → throw
   if (fs.existsSync(STOP_FILE)) {
-    console.error('⛔ Kill switch active – action blocked');
-    return { blocked: true, reason: 'STOP file present' };
+    throw new Error('⛔ Kill switch active – action blocked');
   }
 
   // Log every action
@@ -24,9 +23,21 @@ function guard(action, level = 'quick') {
   };
   fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
 
-  // In this phase, we just return the action; actual execution is done in agent/scheduler.
-  // This is a gate, not the executor.
   return { executed: true, action };
 }
 
-module.exports = { guard };
+function isStopped() {
+  return fs.existsSync(STOP_FILE);
+}
+
+function logAction(action, level = 'quick') {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    action,
+    level,
+    pid: process.pid
+  };
+  fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+}
+
+module.exports = { guard, isStopped, logAction, STOP_FILE, LOG_FILE };
