@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Professional TTS Engine — Piper, Kokoro, MMS-TTS, ElevenLabs"""
-import subprocess, json, tempfile, os, io
+import subprocess, json, tempfile, os, io, wave
 from pathlib import Path
 
 class TTSEngine:
@@ -76,17 +76,31 @@ class TTSEngine:
         }
         elevenlabs_voice = voice_map.get(voice_id, "hpp4J3VqNfWAUOO0d1Us")
 
+        # Request raw PCM, not the default MP3 — callers (app.py) save this
+        # as .wav and serve it as audio/wav, so the bytes must actually be
+        # WAV, not MP3 wearing a .wav extension.
+        pcm_sample_rate = 24000
         audio_stream = client.text_to_speech.convert(
             text=text,
             voice_id=elevenlabs_voice,
-            model_id="eleven_multilingual_v2"
+            model_id="eleven_multilingual_v2",
+            output_format=f"pcm_{pcm_sample_rate}"
         )
-        
-        # Collect audio chunks into WAV
-        wav_buffer = io.BytesIO()
+
+        pcm_buffer = io.BytesIO()
         for chunk in audio_stream:
-            wav_buffer.write(chunk)
-        
+            pcm_buffer.write(chunk)
+        pcm_data = pcm_buffer.getvalue()
+
+        # ElevenLabs' pcm_* formats are headerless 16-bit mono PCM; wrap it
+        # in a real WAV container so the output matches its .wav extension.
+        wav_buffer = io.BytesIO()
+        with wave.open(wav_buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(pcm_sample_rate)
+            wav_file.writeframes(pcm_data)
+
         return wav_buffer.getvalue()
     
     def _synthesize_kokoro(self, text, voice_id):
