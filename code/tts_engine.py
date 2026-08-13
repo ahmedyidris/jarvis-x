@@ -65,13 +65,17 @@ class TTSEngine:
             raise ImportError("elevenlabs SDK not installed. Run: pip install elevenlabs")
         
         client = ElevenLabs(api_key=self.elevenlabs_key)
-        
-        # Map voice_id to ElevenLabs voice name
+
+        # Map our voice_id to a real ElevenLabs voice_id (the opaque hash,
+        # not a display name — "Zahra" doesn't exist on this account).
+        # Bella is a stock English voice; eleven_multilingual_v2 can still
+        # speak Arabic text through it, but the accent won't be authentically
+        # Egyptian. Swap this for a real Arabic Voice Library voice_id later.
         voice_map = {
-            "ar_eg_elevenlabs": "Zahra"  # Arabic female voice
+            "ar_eg_elevenlabs": "hpp4J3VqNfWAUOO0d1Us"  # Bella (en, american, female)
         }
-        elevenlabs_voice = voice_map.get(voice_id, "Zahra")
-        
+        elevenlabs_voice = voice_map.get(voice_id, "hpp4J3VqNfWAUOO0d1Us")
+
         audio_stream = client.text_to_speech.convert(
             text=text,
             voice_id=elevenlabs_voice,
