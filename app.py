@@ -19,11 +19,16 @@ logger = logging.getLogger('HermesAPI')
 app = FastAPI(title="Hermes", version="1.0")
 router = Router()
 
+STOP_FILE = Path(__file__).parent / ".jarvis-x-STOP"
+
 class QueryRequest(BaseModel):
     question: str
     tier: str = "local"
     voice: str = None
     speak: bool = False
+
+class KillSwitchRequest(BaseModel):
+    stopped: bool
 
 @app.get("/")
 async def root():
@@ -100,6 +105,18 @@ async def history(limit: int = 20):
     conversations = hermes.recall(limit)
     hermes.close()
     return {"conversations": conversations}
+
+@app.get("/api/killswitch")
+async def killswitch_status():
+    return {"stopped": STOP_FILE.exists()}
+
+@app.post("/api/killswitch")
+async def killswitch_set(req: KillSwitchRequest):
+    if req.stopped:
+        STOP_FILE.write_text(datetime.now().isoformat() + "\n")
+    else:
+        STOP_FILE.unlink(missing_ok=True)
+    return {"stopped": STOP_FILE.exists()}
 
 if __name__ == "__main__":
     import uvicorn
