@@ -28,8 +28,8 @@ from code.tts_engine import get_engine  # noqa: E402
 
 from content_generator import generate_letter_content  # noqa: E402
 
-CONTENT_DIR = Path(__file__).parent / "content"
-OUTPUT_DIR = Path(__file__).parent / "output"
+CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "letters"
+OUTPUT_DIR = Path(__file__).parent / "stages" / "02_render_video" / "output" / "letters"
 
 # Video spec (v1 defaults, see module docstring).
 WIDTH, HEIGHT = 1080, 1920

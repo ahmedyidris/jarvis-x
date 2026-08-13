@@ -59,8 +59,8 @@ from content_generator import (
     _extract_json_object,
 )
 
-CONTENT_DIR = Path(__file__).parent / "content"
-OUTPUT_DIR = Path(__file__).parent / "output"
+CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "economic_facts"
+OUTPUT_DIR = Path(__file__).parent / "stages" / "02_render_video" / "output" / "economic_facts"
 
 # Target duration for Week 2's videos: denser content than Week 1's 15s
 # kids letter videos (which only had to hold a letter + example word), but

@@ -1,5 +1,5 @@
 # Rendered video output — regenerable via video_renderer.py, not checked in.
-output/
+stages/02_render_video/output/
 
 # Python cache / local artifacts
 __pycache__/

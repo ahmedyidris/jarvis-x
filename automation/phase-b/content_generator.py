@@ -30,7 +30,7 @@ OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 MODEL = "qwen2.5:3b"
 REQUEST_TIMEOUT = 120  # seconds, generous for a cold-loaded local model
 
-CONTENT_DIR = Path(__file__).parent / "content"
+CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "letters"
 
 REQUIRED_FIELDS = {
     "letter",
