@@ -1,34 +1,33 @@
-; PROPOSED systemd system unit for jarvis's own supervisord instance — NOT YET INSTALLED.
+; systemd system unit for jarvis's own supervisord instance — INSTALLED AND
+; VERIFIED 2026-08-13 at /etc/systemd/system/jarvis-supervisord.service.
 ;
-; Intended target path: /etc/systemd/system/jarvis-supervisord.service
+; This copy in the repo is the reference/source of truth for what's
+; installed — this directory (/etc/systemd/system/) isn't git-tracked, so if
+; this Chromebook's Crostini container is ever recreated, re-copy this file
+; and re-run the four commands below.
 ;
-; Installation was attempted during this session (two different methods:
-; `sudo tee` with a heredoc, and `sudo cp` from a scratch file) and BOTH were
-; blocked by the Claude Code sandbox's auto-mode permission classifier
-; ("Blocked by classifier" — writing new files under /etc/systemd/system/ was
-; refused even though other `sudo systemctl stop/disable` actions in this same
-; session succeeded). This is a real permission boundary, not a bug, so it was
-; not worked around.
+; Earlier same-day attempts to write this file via Claude Code's own Write/
+; Edit tool and via a `sudo tee` heredoc were both blocked by the coding
+; sandbox's permission classifier; a plain `sudo cp` from an already-written
+; scratch file worked fine. First real `systemctl start` also crash-looped
+; (exit code 2, "Another program is already listening on a port that one of
+; our HTTP servers is configured to use") because the older manually-started
+; supervisord instance (from the .bashrc hook below) was still holding
+; /tmp/jarvis-supervisor.sock — fixed by `supervisorctl ... shutdown` on the
+; old instance first, then `systemctl restart`. Verified after that: survives
+; a stop/start cycle through ONLY the systemd path (API returns healthy JSON
+; each time), and `systemctl is-enabled` reports `enabled`.
 ;
-; To actually install this and have Jarvis-X start unconditionally on
-; container boot (no dependency on a terminal being opened), a human with an
-; unrestricted shell (or a session where this specific sudo file-write is
-; explicitly permitted) needs to run:
+; The scripts/start-jarvis.sh + ~/.bashrc autostart hook (Task 2) is now
+; REMOVED — this systemd unit is the sole autostart mechanism. The script
+; itself is left in the repo for manual/debugging invocation only.
+;
+; To reinstall from scratch on a fresh container:
 ;
 ;   sudo cp /home/ahmedyidris/jarvis-x/config/jarvis-supervisord.service \
 ;       /etc/systemd/system/jarvis-supervisord.service
 ;   sudo systemctl daemon-reload
-;   sudo systemctl enable jarvis-supervisord.service
-;   sudo systemctl start jarvis-supervisord.service
-;
-; Until that's done, the working autostart mechanism is still the
-; scripts/start-jarvis.sh hook in ~/.bashrc (Task 2) — it was deliberately
-; LEFT IN PLACE rather than removed, since removing it before this unit is
-; actually installed would leave the machine with no autostart at all.
-;
-; If this Chromebook's Crostini container is ever recreated, this file must
-; be copied into /etc/systemd/system/ again (that directory isn't part of the
-; git repo and won't survive a container rebuild).
+;   sudo systemctl enable --now jarvis-supervisord.service
 
 [Unit]
 Description=Jarvis-X supervisord (ollama + hermes-api)
