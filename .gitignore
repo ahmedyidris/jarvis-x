@@ -9,10 +9,11 @@ logs/plans.jsonl
 logs/queue.jsonl
 logs/scheduled.jsonl
 models/
+__pycache__/
+**/__pycache__/
+*.pyc
 
 # sentinel/ (portfolio subproject — separate from the jarvis-x agent)
 sentinel/.venv/
 sentinel/data/vector_store.db
 sentinel/eval/eval_report.json
-sentinel/__pycache__/
-sentinel/**/__pycache__/
