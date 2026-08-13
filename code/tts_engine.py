@@ -133,16 +133,28 @@ class TTSEngine:
     
     def _synthesize_piper(self, text, voice_id):
         try:
-            # Map voice_id to Piper model
+            # Map voice_id to Piper model. piper-tts 1.6.0's CLI resolves a
+            # bare model name only through its own download cache
+            # (piper.download_voices) and raises "Unable to find voice: ..."
+            # for anything not fetched that way -- it does not scan
+            # arbitrary voice directories. Voices here were downloaded
+            # straight into ~/.local/share/piper-tts/voices/, so we must
+            # pass full paths to the .onnx and .onnx.json ourselves via -m/-c
+            # rather than rely on that cache lookup.
+            voices_dir = Path.home() / ".local" / "share" / "piper-tts" / "voices"
             piper_models = {
                 "en_us_piper": "en_US-amy-medium",
-                "en_gb_piper": "en_GB-vctk-medium",
+                "en_gb_piper": "en_GB-alba-medium",
                 "ar_msa_piper": "ar_JO-kareem-medium",
             }
             model = piper_models.get(voice_id, "en_US-amy-medium")
-            
+            model_path = voices_dir / f"{model}.onnx"
+            config_path = voices_dir / f"{model}.onnx.json"
+            if not model_path.exists():
+                raise RuntimeError(f"Piper voice not found on disk: {model_path}")
+
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                cmd = ["piper", "--model", model, "--output-file", tmp.name]
+                cmd = ["piper", "--model", str(model_path), "--config", str(config_path), "--output-file", tmp.name]
                 subprocess.run(cmd, input=text.encode(), check=True)
                 with open(tmp.name, "rb") as f:
                     wav_data = f.read()
