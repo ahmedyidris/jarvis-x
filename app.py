@@ -2,6 +2,7 @@
 """HERMES WEB API — Week 4"""
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sys, logging, json, subprocess, asyncio
 from pathlib import Path
@@ -20,6 +21,8 @@ logger = logging.getLogger('HermesAPI')
 app = FastAPI(title="Hermes", version="1.0")
 router = Router()
 
+WEB_DIST = Path(__file__).parent / "web" / "dist"
+
 STOP_FILE = Path(__file__).parent / ".jarvis-x-STOP"
 
 class QueryRequest(BaseModel):
@@ -33,7 +36,10 @@ class KillSwitchRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    return FileResponse("index.html")
+    return FileResponse(WEB_DIST / "index.html")
+
+# Mount built assets (JS/CSS/etc.) under /assets
+app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
 
 @app.get("/api/status")
 async def status():
@@ -124,6 +130,26 @@ async def transcribe(audio: UploadFile = File(...)):
     wav_bytes = await audio.read()
     text = await asyncio.to_thread(get_stt_engine().transcribe, wav_bytes)
     return {"text": text}
+
+# SPA fallback: any unmatched non-/api path serves index.html,
+# so client-side routes (if added later) don't 404 on refresh.
+#
+# Deviation from the plan's literal code: Vite's build here also copies
+# web/public/*'s root-level static files (favicon.svg, icons.svg, and
+# Task 10's manifest.json/icon-*.png) straight into web/dist/ rather than
+# under /assets/. The plan's fallback would have shadowed every one of
+# those with index.html's HTML (still a 200, but wrong content) since this
+# catch-all matches before any 404 would occur. Serving the real file when
+# it exists on disk keeps the SPA-fallback behavior for genuine client
+# routes while not breaking the manifest/icons/favicon.
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found")
+    candidate = WEB_DIST / full_path
+    if full_path and candidate.is_file():
+        return FileResponse(candidate)
+    return FileResponse(WEB_DIST / "index.html")
 
 if __name__ == "__main__":
     import uvicorn
