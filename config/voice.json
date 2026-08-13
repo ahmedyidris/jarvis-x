@@ -24,6 +24,18 @@
       "gender": "female",
       "accent": "emirati",
       "note": "community checkpoint tagged quality:train (early/unconverged, not a finished 'medium'/'high' release like kareem) -- reliable on short/common phrases, degrades on longer sentences; verified 2026-08-12"
+    },
+    "ar_eg_elevenlabs": {
+      "lang": "ar",
+      "gender": "female",
+      "accent": "us",
+      "note": "still Bella (en) placeholder, not authentically Egyptian -- real voice 'Fatima - Smooth Audiobook Narrator' (voice_id vWDp3PLsTWjIhBxxUKh9) identified 2026-08-13 but blocked: ElevenLabs free tier returns 402 for any shared/library voice via the API. Swap in once account is upgraded off free tier."
+    },
+    "ar_eg_egtts": {
+      "lang": "ar",
+      "gender": "male",
+      "accent": "egyptian",
+      "note": "local XTTS-v2 voice clone (code/egtts_engine.py), voice-cloned to Ahmed; CPU-viable but slow (15-90s warm, up to ~5min cold), async-only"
     }
   }
 }

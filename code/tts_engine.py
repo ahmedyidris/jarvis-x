@@ -70,9 +70,22 @@ class TTSEngine:
         # not a display name — "Zahra" doesn't exist on this account).
         # Bella is a stock English voice; eleven_multilingual_v2 can still
         # speak Arabic text through it, but the accent won't be authentically
-        # Egyptian. Swap this for a real Arabic Voice Library voice_id later.
+        # Egyptian.
+        #
+        # A real Egyptian voice was identified on 2026-08-13 — "Fatima -
+        # Smooth Audiobook Narrator" (voice_id vWDp3PLsTWjIhBxxUKh9),
+        # picked from ElevenLabs' shared voice library (language=ar,
+        # accent=egyptian, gender=female) — but swapping it in is BLOCKED:
+        # a live test confirmed ElevenLabs' free tier returns 402
+        # "Free users cannot use library voices via the API" for ANY
+        # shared/community voice_id, regardless of the per-voice
+        # `free_users_allowed` flag (which turned out to describe website
+        # preview eligibility, not API access). Bella, a premade voice,
+        # still works via the API on this account — confirmed live. Swap
+        # in vWDp3PLsTWjIhBxxUKh9 here once the ElevenLabs account is
+        # upgraded off the free tier (Starter plan or above).
         voice_map = {
-            "ar_eg_elevenlabs": "hpp4J3VqNfWAUOO0d1Us"  # Bella (en, american, female)
+            "ar_eg_elevenlabs": "hpp4J3VqNfWAUOO0d1Us"  # Bella (en, american, female) — see note above
         }
         elevenlabs_voice = voice_map.get(voice_id, "hpp4J3VqNfWAUOO0d1Us")
 
