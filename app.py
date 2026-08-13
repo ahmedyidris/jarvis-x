@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """HERMES WEB API — Week 4"""
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import sys, logging, json, subprocess, asyncio
@@ -11,6 +11,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent))
 from code.router import Router
 from code.tts_engine import get_engine
+from code.stt_engine import get_engine as get_stt_engine
 import hermes as hermes_module
 
 logging.basicConfig(level=logging.INFO)
@@ -117,6 +118,12 @@ async def killswitch_set(req: KillSwitchRequest):
     else:
         STOP_FILE.unlink(missing_ok=True)
     return {"stopped": STOP_FILE.exists()}
+
+@app.post("/api/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
+    wav_bytes = await audio.read()
+    text = await asyncio.to_thread(get_stt_engine().transcribe, wav_bytes)
+    return {"text": text}
 
 if __name__ == "__main__":
     import uvicorn
