@@ -61,8 +61,31 @@ def _load_cached_or_generate(letter: str) -> dict:
     return generate_letter_content(letter)
 
 
-def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_piper") -> str:
-    """Render one letter's MP4 from its content dict. Returns output_path."""
+def render_video(
+    content: dict,
+    output_path: str,
+    voice_id: str = "en_us_piper",
+    headline_field: str = "on_screen_text",
+    headline_font_size: int = 700,
+    caption_font_size: int = 90,
+) -> str:
+    """Render one MP4 from a content dict. Returns output_path.
+
+    Generic MoviePy composition extracted from Week 1's letter-specific
+    renderer: TTS synthesis, background+text rendering, and audio/video
+    duration reconciliation don't actually care whether `headline_field`
+    holds a single letter or a short economic headline — only the font
+    size sensibly differs between a giant single glyph (Week 1) and a
+    short phrase (Week 2). Both `render_letter_video` and
+    `render_economic_video` (in economic_facts_generator.py) call this.
+
+    - `headline_field`: which key in `content` holds the large, prominent
+      text drawn in the upper-middle of the frame (Week 1: "letter",
+      Week 2: could be "topic" or "on_screen_text").
+    - `content["on_screen_text"]` (if present and different from the
+      headline field) is always rendered as the smaller caption below it;
+      otherwise the caption is skipped.
+    """
     # Imported lazily so importing this module doesn't require moviepy
     # unless a render is actually requested.
     from moviepy import (
@@ -72,8 +95,10 @@ def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_
         TextClip,
     )
 
-    letter = content["letter"]
-    on_screen_text = content["on_screen_text"]
+    headline_text = content[headline_field]
+    caption_text = content.get("on_screen_text")
+    if caption_text == headline_text:
+        caption_text = None
     narration_script = content["narration_script"]
     target_duration = float(content["duration_seconds"])
 
@@ -108,30 +133,36 @@ def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_
             final_duration
         )
 
-        # Huge centered letter.
-        letter_clip = TextClip(
-            text=letter,
-            font_size=700,
+        # Large headline text (a single letter in Week 1; a short phrase
+        # in Week 2 — "caption" wrapping handles both).
+        headline_clip = TextClip(
+            text=headline_text,
+            font_size=headline_font_size,
             color="white",
-            **font_kwargs,
-        ).with_duration(final_duration)
-        letter_clip = letter_clip.with_position(("center", HEIGHT * 0.30))
-
-        # Smaller on-screen text below the letter.
-        text_clip = TextClip(
-            text=on_screen_text,
-            font_size=90,
-            color="white",
-            size=(int(WIDTH * 0.85), None),
+            size=(int(WIDTH * 0.9), None),
             method="caption",
             text_align="center",
             **font_kwargs,
         ).with_duration(final_duration)
-        text_clip = text_clip.with_position(("center", HEIGHT * 0.62))
+        headline_clip = headline_clip.with_position(("center", HEIGHT * 0.30))
 
-        video = CompositeVideoClip(
-            [background, letter_clip, text_clip], size=(WIDTH, HEIGHT)
-        ).with_duration(final_duration)
+        clips = [background, headline_clip]
+
+        if caption_text:
+            # Smaller on-screen text below the headline.
+            caption_clip = TextClip(
+                text=caption_text,
+                font_size=caption_font_size,
+                color="white",
+                size=(int(WIDTH * 0.85), None),
+                method="caption",
+                text_align="center",
+                **font_kwargs,
+            ).with_duration(final_duration)
+            caption_clip = caption_clip.with_position(("center", HEIGHT * 0.62))
+            clips.append(caption_clip)
+
+        video = CompositeVideoClip(clips, size=(WIDTH, HEIGHT)).with_duration(final_duration)
         video = video.with_audio(audio_clip)
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -147,9 +178,8 @@ def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_
         )
 
         video.close()
-        background.close()
-        letter_clip.close()
-        text_clip.close()
+        for clip in clips:
+            clip.close()
     finally:
         audio_clip.close()
         try:
@@ -158,6 +188,43 @@ def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_
             pass
 
     return output_path
+
+
+def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_piper") -> str:
+    """Render one letter's MP4 from its content dict. Returns output_path.
+
+    Thin Week-1-shaped wrapper around the generic `render_video`: the
+    letter itself is the big headline (font size 700, same as the
+    original implementation), and on_screen_text is the smaller caption.
+    """
+    return render_video(
+        content,
+        output_path,
+        voice_id=voice_id,
+        headline_field="letter",
+        headline_font_size=700,
+        caption_font_size=90,
+    )
+
+
+def render_economic_video(content: dict, output_path: str, voice_id: str = "en_us_kokoro") -> str:
+    """Render one economic-fact MP4 (Week 2) from its content dict.
+
+    Thin wrapper around the generic `render_video`, same pattern as
+    `render_letter_video`: the short `on_screen_text` caption is the big
+    headline here (there's no separate single-glyph element like Week 1's
+    "letter"), sized down from 700 to something readable for a full short
+    sentence. Defaults to the `en_us_kokoro` voice per this week's brief
+    (a general/adult audience, not Week 1's kids tone).
+    """
+    return render_video(
+        content,
+        output_path,
+        voice_id=voice_id,
+        headline_field="on_screen_text",
+        headline_font_size=85,
+        caption_font_size=60,
+    )
 
 
 if __name__ == "__main__":

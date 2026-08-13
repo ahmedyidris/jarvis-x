@@ -131,9 +131,39 @@ class TTSEngine:
     def _synthesize_kokoro(self, text, voice_id):
         try:
             from kokoro import KPipeline
-            pipeline = KPipeline(lang_code="en")
-            samples = pipeline(text, voice=voice_id.replace("en_us_", "").replace("en_gb_", ""))
+            import numpy as np
             import soundfile as sf
+
+            # Two bugs fixed here (found + verified live 2026-08-13 while
+            # building the Phase B Week 2 pipeline; this path had never
+            # actually been exercised before):
+            #
+            # 1. lang_code="en" is not a valid Kokoro lang_code -- the
+            #    package asserts against {"a": American English, "b":
+            #    British English, ...}. Map our en_us_/en_gb_ ids to "a"/"b".
+            # 2. voice_id.replace(...) left the bare string "kokoro", which
+            #    is not a real Kokoro voice pack name (a 404 from HF
+            #    confirms this) -- real voice packs look like "af_heart".
+            #    Map each accent to a real, general-purpose voice pack.
+            if "en_gb" in voice_id:
+                lang_code, voice = "b", "bf_emma"
+            else:
+                lang_code, voice = "a", "af_heart"
+
+            pipeline = KPipeline(lang_code=lang_code)
+            # pipeline() returns a generator of Result objects (Kokoro
+            # splits long text into multiple chunks internally) -- each
+            # chunk's .audio is a separate tensor, so concatenate them all
+            # into one waveform rather than keeping only the last chunk.
+            chunks = [
+                result.audio.numpy()
+                for result in pipeline(text, voice=voice)
+                if result.audio is not None
+            ]
+            if not chunks:
+                raise RuntimeError("Kokoro produced no audio output")
+            samples = np.concatenate(chunks)
+
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 sf.write(tmp.name, samples, 24000)
                 with open(tmp.name, "rb") as f:
