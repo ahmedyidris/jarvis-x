@@ -823,6 +823,21 @@ git commit -m "feat(web): client-side voice capture via MediaRecorder + /api/tra
 
 ### Task 9: Serve the built SPA from FastAPI (one process, one port)
 
+> **Executed 2026-08-13.** Deviation from plan: this repo's Vite build (Tailwind v4
+> setup from Task 9's era) copies `web/public/*`'s root-level static files
+> (`favicon.svg`, `icons.svg`, and Task 10's `manifest.json`/`icon-*.png`) straight
+> into `web/dist/` rather than under `/assets/`. The plan's literal `spa_fallback`
+> (unconditionally `FileResponse(WEB_DIST / "index.html")` for every unmatched
+> path) would have shadowed all of those with `index.html`'s HTML — a false-positive
+> 200 with wrong content. Fixed by checking `WEB_DIST/full_path` for a real file on
+> disk first, falling back to `index.html` only when nothing exists there. Verified
+> live: root serves `<title>web</title>` (pre-Task-10) then `<title>Jarvis-X</title>`
+> (post-Task-10), `/assets/*` resolves with correct content-types, `favicon.svg`
+> resolves as itself, unmatched deep paths still fall back to `index.html`, and
+> `/api/*` 404 behavior is unchanged. `web/vite.config.ts`'s `build.outDir: "dist"`
+> is a no-op (already Vite's default relative to `web/`) — added anyway to match
+> the plan's intent explicitly. Commit: `1df3903`.
+
 **Files:**
 - Modify: `/home/ahmedyidris/jarvis-x/app.py`
 - Modify: `web/vite.config.ts` (set `build.outDir`)
@@ -831,7 +846,7 @@ git commit -m "feat(web): client-side voice capture via MediaRecorder + /api/tra
 - Consumes: `web/dist/` (Vite's build output).
 - Produces: `GET /` and any non-`/api` path → the SPA's `index.html` (client-side routing fallback); `/assets/*` → the built JS/CSS.
 
-- [ ] **Step 1: Point Vite's build output at a path `app.py` will serve**
+- [x] **Step 1: Point Vite's build output at a path `app.py` will serve**
 
 ```ts
 // web/vite.config.ts — add to defineConfig(...)
@@ -841,7 +856,7 @@ build: {
 },
 ```
 
-- [ ] **Step 2: Build it**
+- [x] **Step 2: Build it**
 
 ```bash
 cd /home/ahmedyidris/jarvis-x/web
@@ -850,7 +865,7 @@ npm run build
 
 Expected: `web/dist/index.html` and `web/dist/assets/*.js`/`*.css` exist.
 
-- [ ] **Step 3: Mount it in FastAPI, replacing the old static `FileResponse("index.html")`**
+- [x] **Step 3: Mount it in FastAPI, replacing the old static `FileResponse("index.html")`**
 
 ```python
 # app.py — near the top, after `app = FastAPI(...)`
@@ -875,7 +890,7 @@ async def spa_fallback(full_path: str):
     return FileResponse(WEB_DIST / "index.html")
 ```
 
-- [ ] **Step 4: Restart and verify the built SPA is served, not the old `index.html`**
+- [x] **Step 4: Restart and verify the built SPA is served, not the old `index.html`**
 
 Run:
 ```bash
@@ -884,20 +899,43 @@ curl -s http://127.0.0.1:8000/ | grep -o '<title>[^<]*</title>'
 ```
 Expected: the Vite-generated title (e.g. `<title>Vite + React + TS</title>` until Task 10 renames it), not the old hand-written `index.html`'s content — confirming FastAPI is now serving `web/dist/index.html`.
 
-- [ ] **Step 5: Open in Chrome and do a full click-through**
+- [x] **Step 5: Open in Chrome and do a full click-through**
 
 Visit `http://127.0.0.1:8000/`, ask a question, toggle the kill switch, use the mic button — everything from Phase 3 should work identically from this single served origin.
 
-- [ ] **Step 6: Commit**
+> Not literally clicked through in a real Chrome window by this agent — verified
+> the equivalent via curl instead: `/api/status`, `/api/killswitch` GET/POST round
+> trip, and the SPA fallback all confirmed live through the new single-origin
+> routing. A human click-through in Chrome is still worth doing but isn't
+> something a terminal-only agent can fake honestly.
+
+- [x] **Step 6: Commit**
 
 ```bash
 git add app.py web/vite.config.ts
 git commit -m "feat: serve built SPA from FastAPI, retire static index.html"
 ```
+Commit: `1df3903`.
 
 > Old `index.html` at the repo root is superseded but left in place (untouched, not deleted) — it's still referenced by `MASTER_PLAN_UPDATED.md`'s Week 4 history and costs nothing to keep as a record of what "v1 shipped" actually looked like.
 
 ### Task 10: PWA manifest, icons, and Chrome OS install
+
+> **Executed 2026-08-13.** Deviation from plan: Step 2's literal PIL snippet uses
+> PIL's default bitmap font, which renders 'J' as a near-invisible ~11px glyph on
+> a 192-512px canvas (verified visually — technically a valid PNG, but useless as
+> even a placeholder). Used `/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf`
+> (already present system-wide, no network/CDN fetch) at ~55% of the canvas
+> height, centered via `textbbox`, so the placeholder is actually legible. Both
+> icons verified as valid PNGs via `file` and a PIL open+verify round-trip.
+> Verified live: `manifest.json` (200, `content-type: application/json`, parses as
+> valid JSON with the exact fields written), `icon-192.png`/`icon-512.png` (200,
+> `content-type: image/png`, correct dimensions), and `web/index.html`'s `<head>`
+> — all three references (`<link rel="manifest">`, the two icon URLs inside
+> `manifest.json`, `<meta name="theme-color">`) resolve with 200 through the app,
+> not 404. Could not perform Step 5 (clicking "Install app" in a real Chrome
+> window) — no GUI browser available to this agent; see the final report for
+> exact manual steps handed to Ahmed instead. Commit: `df5a8fd`.
 
 **Files:**
 - Create: `web/public/manifest.json`
@@ -907,7 +945,7 @@ git commit -m "feat: serve built SPA from FastAPI, retire static index.html"
 **Interfaces:**
 - Produces: a Chrome-installable PWA — the browser's omnibox shows an install icon once `manifest.json` and icons are present and linked.
 
-- [ ] **Step 1: Write the manifest**
+- [x] **Step 1: Write the manifest**
 
 ```json
 {
@@ -926,7 +964,7 @@ git commit -m "feat: serve built SPA from FastAPI, retire static index.html"
 
 (`background_color`/`theme_color` reuse `index.html`'s existing gradient start color, `#0f172a`, as a placeholder — replace once Design.md's HUD accent color is finalized.)
 
-- [ ] **Step 2: Generate two placeholder icons (swap for real artwork later — this only unblocks installability)**
+- [x] **Step 2: Generate two placeholder icons (swap for real artwork later — this only unblocks installability)**
 
 ```bash
 cd /home/ahmedyidris/jarvis-x/web/public
@@ -942,7 +980,7 @@ for size in (192, 512):
 
 (Requires `Pillow` — `~/venv-ai/bin/pip install pillow` first if not already present.)
 
-- [ ] **Step 3: Link the manifest and set a real page title**
+- [x] **Step 3: Link the manifest and set a real page title**
 
 ```html
 <!-- web/index.html -->
@@ -951,7 +989,7 @@ for size in (192, 512):
 <meta name="theme-color" content="#0f172a" />
 ```
 
-- [ ] **Step 4: Rebuild and restart**
+- [x] **Step 4: Rebuild and restart**
 
 ```bash
 cd /home/ahmedyidris/jarvis-x/web && npm run build
@@ -963,13 +1001,20 @@ supervisorctl -c /home/ahmedyidris/jarvis-x/config/supervisord.conf restart herm
 In Chrome, visit `http://127.0.0.1:8000/`. Click the install icon in the right side of the address bar (or Chrome menu → "Save and share" → "Install page as app"). Confirm.
 Expected: Jarvis-X opens in its own standalone window (no address bar/tabs) and a launcher icon appears — right-click it in the shelf and choose "Pin" to keep it there permanently.
 
-- [ ] **Step 6: Commit**
+> Left unchecked deliberately — this agent has no GUI Chrome window to click
+> "Install app" in. Everything checkable from the command line (manifest valid
+> JSON + correct content-type, icons valid PNGs at the right dimensions, all
+> `<head>` references resolving with 200) was verified instead. Exact manual
+> steps for Ahmed are in this execution's final report.
+
+- [x] **Step 6: Commit**
 
 ```bash
 cd /home/ahmedyidris/jarvis-x
 git add web/public web/index.html
 git commit -m "feat(web): PWA manifest + icons, installable from Chrome"
 ```
+Commit: `df5a8fd`.
 
 ---
 

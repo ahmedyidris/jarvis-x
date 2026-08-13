@@ -95,3 +95,32 @@ Unrelated to the Week 2-6 build tracked above (not re-verified this session). De
 - Identified skill-trigger collisions across the design/UI skills (several push contradictory aesthetics on the same request) — set `gpt-taste` as the default via `skillOverrides` in `~/.claude/settings.json` (global, not repo-tracked); demoted `minimalist-ui`, `industrial-brutalist-ui`, `high-end-visual-design` to invoke-by-name-only; disabled `design-taste-frontend-v1` as a strict duplicate of v2. `impeccable`, `design-taste-frontend`, `redesign-existing-projects`, `huashu-design` still overlap — left as-is per instruction, to observe behavior first.
 - Added `.gitignore` rules: `.claude/worktrees/`, `.claude/settings.local.json`, `.claude/skills/`, `.agents/` — the 36MB skill payload is regenerable from the newly-tracked `skills-lock.json`, and the two live git worktrees under `.claude/worktrees/` must never be committed.
 - Committed (`6608c00`). Not pushed — no GitHub auth configured in this environment.
+
+---
+
+## SESSION ADDENDUM — 2026-08-13 (Phase 4 execution: production build + PWA)
+
+Phase 4 of `docs/superpowers/plans/2026-08-13-chromeos-pwa-interface.md` (Tasks 9-10)
+executed and verified live.
+
+- Task 9: `app.py` now serves `web/dist/index.html` at `/`, mounts `web/dist/assets`
+  under `/assets`, and falls back unmatched non-`/api` paths to `index.html` for
+  client-side routing. Found and fixed a real gap in the plan's literal fallback
+  code: this repo's Vite build also copies `web/public/*`'s root-level files
+  (`favicon.svg`, `icons.svg`, and Task 10's `manifest.json`/`icon-*.png`) into
+  `web/dist/` directly, not under `/assets/` — the plan's unconditional
+  `index.html` fallback would have silently served the wrong content (still 200)
+  for all of those. Fixed by checking disk for a real file before falling back.
+- Task 10: added `web/public/manifest.json` + two placeholder PNG icons (192/512,
+  drawn with DejaVuSans-Bold — the plan's default-PIL-font snippet renders
+  invisibly small) + manifest/theme-color links in `web/index.html`. Root now
+  serves `<title>Jarvis-X</title>`; manifest and both icons confirmed reachable
+  with correct content-types and valid content.
+- Rebuilt and restarted `hermes-api` via `supervisorctl` after each task; no
+  manual uvicorn started, systemd unit and `config/supervisord.conf` untouched.
+- Could not perform the literal "click Install app in Chrome" step — no GUI
+  browser available to this agent. Everything checkable from the command line
+  was verified instead (manifest valid JSON + correct content-type, icons valid
+  PNGs at correct dimensions, all `web/index.html` `<head>` references resolving
+  with 200 through the running app).
+- Committed: `1df3903` (Task 9), `df5a8fd` (Task 10).
