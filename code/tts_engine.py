@@ -28,16 +28,31 @@ class TTSEngine:
         # Add ElevenLabs Egyptian if API key is available
         if self.elevenlabs_key:
             voices.append({"id": "ar_eg_elevenlabs", "name": "Arabic Egyptian (ElevenLabs)", "lang": "ar_EG", "quality": "premium"})
+        # Local Egyptian Arabic voice clone (EGTTS-V0.1) — CPU-viable but slow
+        # (3-10x real-time + a 90-220s cold load). Async use only, not for
+        # live replies. See project memory "egtts-egyptian-arabic-followup"
+        # for why: no CPU-viable option currently matches authentic Egyptian
+        # dialect quality; this is the closest available local trade-off.
+        voices.append({"id": "ar_eg_egtts", "name": "Arabic Egyptian (EGTTS, voice-cloned, slow/async)", "lang": "ar_EG", "quality": "async-only"})
         return voices
-    
+
     def synthesize(self, text, voice_id):
-        """Synthesize speech using Piper, Kokoro, or ElevenLabs"""
+        """Synthesize speech using Piper, Kokoro, ElevenLabs, or EGTTS"""
         if "elevenlabs" in voice_id:
             return self._synthesize_elevenlabs(text, voice_id)
+        elif "egtts" in voice_id:
+            return self._synthesize_egtts(text)
         elif "kokoro" in voice_id:
             return self._synthesize_kokoro(text, voice_id)
         else:
             return self._synthesize_piper(text, voice_id)
+
+    def _synthesize_egtts(self, text):
+        """Egyptian Arabic, voice-cloned, local — see code/egtts_engine.py.
+        BLOCKING and slow (15-90s warm, up to ~5min cold). Callers on an
+        async event loop must dispatch this off-thread themselves."""
+        from code.egtts_engine import synthesize as egtts_synthesize
+        return egtts_synthesize(text)
     
     def _synthesize_elevenlabs(self, text, voice_id):
         """Synthesize using ElevenLabs (cloud)"""

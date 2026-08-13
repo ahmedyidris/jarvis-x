@@ -3,7 +3,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import sys, logging, json, subprocess
+import sys, logging, json, subprocess, asyncio
 from pathlib import Path
 from datetime import datetime
 
@@ -68,7 +68,11 @@ async def ask(req: QueryRequest):
         if req.speak and response:
             try:
                 engine = get_engine()
-                audio_bytes, mime = engine.synthesize(response, voice)
+                # synthesize() blocks — most voices are fast, but EGTTS can
+                # take up to ~5 minutes on a cold load. Dispatch off-thread
+                # so a slow voice doesn't freeze the event loop for every
+                # other request.
+                audio_bytes = await asyncio.to_thread(engine.synthesize, response, voice)
                 ts = datetime.now().strftime("%Y%m%d-%H%M%S")
                 audio_path = Path.home() / ".hermes" / "audio" / f"response-{ts}.wav"
                 audio_path.parent.mkdir(parents=True, exist_ok=True)
