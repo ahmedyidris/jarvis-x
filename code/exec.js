@@ -14,4 +14,8 @@ function safePath(relativePath) {
   return fullPath;
 }
 
-module.exports = { safePath, BASE };
+function readFile(relativePath) {
+  return fs.readFileSync(safePath(relativePath), 'utf8');
+}
+
+module.exports = { safePath, BASE, readFile };
