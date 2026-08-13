@@ -94,6 +94,13 @@ async def get_audio(filename: str):
         raise HTTPException(status_code=404, detail="Audio not found")
     return FileResponse(audio_path, media_type="audio/wav")
 
+@app.get("/api/history")
+async def history(limit: int = 20):
+    hermes = hermes_module.HermesCore()
+    conversations = hermes.recall(limit)
+    hermes.close()
+    return {"conversations": conversations}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
