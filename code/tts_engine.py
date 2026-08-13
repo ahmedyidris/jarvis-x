@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
 """Professional TTS Engine — Piper, Kokoro, MMS-TTS, ElevenLabs"""
-import subprocess, json, tempfile, os, io, wave
+import subprocess, json, tempfile, os, io, wave, sys, shutil
 from pathlib import Path
+
+# A bare "piper" resolves via PATH, and on this machine /usr/bin/piper is an
+# unrelated GTK mouse-configuration tool that happens to share the name (dpkg
+# confirms it) -- it crashes on `gi.require_version('Gtk', ...)` with no
+# display. The real piper-tts binary lives next to whatever Python is running
+# this file (installed via `pip install piper-tts` into this venv), so resolve
+# it from sys.executable rather than trusting PATH -- this also survives the
+# supervised process's minimal systemd-inherited PATH, which never included
+# this venv's bin/ directory to begin with.
+_PIPER_BIN = str(Path(sys.executable).parent / "piper")
+if not Path(_PIPER_BIN).exists():
+    _PIPER_BIN = shutil.which("piper") or "piper"
 
 class TTSEngine:
     def __init__(self):
@@ -154,7 +166,7 @@ class TTSEngine:
                 raise RuntimeError(f"Piper voice not found on disk: {model_path}")
 
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                cmd = ["piper", "--model", str(model_path), "--config", str(config_path), "--output-file", tmp.name]
+                cmd = [_PIPER_BIN, "--model", str(model_path), "--config", str(config_path), "--output-file", tmp.name]
                 subprocess.run(cmd, input=text.encode(), check=True)
                 with open(tmp.name, "rb") as f:
                     wav_data = f.read()
