@@ -1,6 +1,6 @@
 # Jarvis X — Brand Guidelines
 
-**Status:** v0.1 — first pass, informed by CONSTITUTION.md, config/voice.json, and the existing CLI's visual vocabulary. Colors marked **[placeholder]** are working defaults, not final sign-off — swap freely.
+**Status:** v0.2 — accent color finalized (see Color section); everything else is still the v0.1 first pass informed by CONSTITUTION.md, config/voice.json, and the existing CLI's visual vocabulary.
 
 ## Positioning
 
@@ -22,18 +22,20 @@ Not a consumer chatbot skin. The brand has to carry three things at once:
 
 Dark-first, sci-fi HUD direction (Iron Man / Jarvis reference, chosen over minimal-SaaS / terminal-hacker / warm-consumer alternatives).
 
-| Token | Value **[placeholder]** | Use |
+| Token | Value | Use |
 |---|---|---|
 | `--bg-base` | `#0A0E14` | Page background — near-black, not pure black (avoids OLED smear, keeps glow effects visible) |
 | `--bg-panel` | `#111823` | Sidebar / card surfaces, one step up from base |
-| `--accent` | `#22D3EE` (cyan) | Primary accent — arc-reactor cyan. **Not yet confirmed by Ahmed — first thing to override if a specific hex is wanted.** |
-| `--accent-dim` | `#0E7490` | Accent at rest / inactive glow |
+| `--accent` | **`#2DE2FF`** (Arc Cyan) — **final, confirmed** | Primary accent — arc-reactor cyan. See rationale below. |
+| `--accent-dim` | `#0E7490` | Accent at rest / inactive glow, panel hairline borders |
 | `--text-primary` | `#E6F1FF` | Primary text on dark |
 | `--text-secondary` | `#7A8899` | Secondary/meta text |
 | `--success` | `#34D399` | Maps to existing CLI ✅ |
 | `--warning` | `#FBBF24` | Maps to existing CLI ⚠️ |
 | `--error` | `#F87171` | Maps to existing CLI ❌ |
 | `--blocked` | `#EF4444` (solid, no glow) | Kill-switch / ⛔ — deliberately the one color with no glow effect, so "blocked" never looks decorative |
+
+**Accent decision (closed 2026-08-13):** `#2DE2FF` — "Arc Cyan." Confirmed as the final pick, refined from the `#22D3EE` placeholder rather than reusing it as-is: `#22D3EE` is Tailwind's stock `cyan-400`, which shows up as-is across a lot of generic SaaS/AI-tool branding, and Brand Guidelines' own positioning explicitly rejects reading as "SaaS dashboard phoning home." `#2DE2FF` sits in the same arc-reactor-cyan family (the aesthetic direction was never in question) but is pulled slightly more electric/saturated so it reads as a chosen brand color rather than a framework default. Contrast-checked at 12.37:1 against `--bg-base` and 11.4:1 against `--bg-panel` (WCAG AAA territory, well past the 4.5:1 floor), and 12.37:1 for `--bg-base`-on-`--accent` button fills. `--accent-dim` (`#0E7490`) is kept as-is — it was already doing its job as a hairline/rest-state tone and didn't need to move with the accent refinement.
 
 Light theme is out of scope for v0.1 — the HUD aesthetic is dark-native; a light variant would need its own pass, not a mechanical inversion.
 

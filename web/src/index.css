@@ -37,6 +37,17 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+
+    /* HUD-specific tokens, exposed as Tailwind utilities via bg-(--hud-x) / text-(--hud-x) */
+    --color-hud-success: var(--hud-success);
+    --color-hud-warning: var(--hud-warning);
+    --color-hud-error: var(--hud-error);
+    --color-hud-blocked: var(--hud-blocked);
+    --color-hud-accent-dim: var(--hud-accent-dim);
+
+    --font-mono: var(--hud-font-mono);
+
+    /* Sharp instrument-cluster corners (2-4px). Chat bubbles override locally to 6-8px. */
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -46,83 +57,192 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Dark-only v0.1 (Design.md's "Theme" section). There is no light palette and no
+ * toggle mechanism yet — a light HUD variant needs its own design pass, not a
+ * mechanical inversion of these values, so we deliberately don't ship a `.dark`
+ * class / `:root` split here. `:root` *is* the (only) theme.
+ */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-}
+    color-scheme: dark;
 
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    /* ---- Brand tokens (see BrandGuidelines.md) ---- */
+    --hud-bg-base: #0a0e14;
+    --hud-bg-panel: #111823;
+    --hud-bg-panel-raised: #16202c;
+    --hud-accent: #2de2ff; /* Arc Cyan, confirmed final — see BrandGuidelines.md */
+    --hud-accent-dim: #0e7490;
+    --hud-text-primary: #e6f1ff;
+    --hud-text-secondary: #7a8899;
+    --hud-success: #34d399;
+    --hud-warning: #fbbf24;
+    --hud-error: #f87171;
+    --hud-blocked: #ef4444;
+
+    /* ---- Type stacks: system-first, no CDN. See Design.md implementation notes. ---- */
+    --hud-font-sans:
+        ui-sans-serif, "Inter", "IBM Plex Sans", "Segoe UI", "Noto Sans", Roboto,
+        "Helvetica Neue", Arial, "Noto Sans Arabic", "Noto Naskh Arabic", sans-serif;
+    --hud-font-mono:
+        "JetBrains Mono", "IBM Plex Mono", ui-monospace, "Noto Sans Mono", "DejaVu Sans Mono",
+        Menlo, Consolas, monospace;
+
+    /* ---- shadcn semantic mapping onto HUD tokens ---- */
+    --background: var(--hud-bg-base);
+    --foreground: var(--hud-text-primary);
+    --card: var(--hud-bg-panel);
+    --card-foreground: var(--hud-text-primary);
+    --popover: var(--hud-bg-panel-raised);
+    --popover-foreground: var(--hud-text-primary);
+    --primary: var(--hud-accent);
+    --primary-foreground: var(--hud-bg-base);
+    --secondary: var(--hud-bg-panel-raised);
+    --secondary-foreground: var(--hud-text-primary);
+    --muted: var(--hud-bg-panel);
+    --muted-foreground: var(--hud-text-secondary);
+    --accent: var(--hud-bg-panel-raised);
+    --accent-foreground: var(--hud-accent);
+    --destructive: var(--hud-blocked);
+    --border: color-mix(in oklch, var(--hud-accent-dim) 45%, transparent);
+    --input: color-mix(in oklch, var(--hud-accent-dim) 30%, transparent);
+    --ring: var(--hud-accent);
+    --chart-1: var(--hud-accent);
+    --chart-2: var(--hud-success);
+    --chart-3: var(--hud-warning);
+    --chart-4: var(--hud-error);
+    --chart-5: var(--hud-accent-dim);
+    --sidebar: var(--hud-bg-base);
+    --sidebar-foreground: var(--hud-text-primary);
+    --sidebar-primary: var(--hud-accent);
+    --sidebar-primary-foreground: var(--hud-bg-base);
+    --sidebar-accent: var(--hud-bg-panel);
+    --sidebar-accent-foreground: var(--hud-text-primary);
+    --sidebar-border: color-mix(in oklch, var(--hud-accent-dim) 45%, transparent);
+    --sidebar-ring: var(--hud-accent);
+
+    /* Sharp-to-slightly-rounded per Design.md: 3px base, ~4.2px at --radius-lg. */
+    --radius: 0.1875rem;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    html {
+        @apply font-sans;
+        font-family: var(--hud-font-sans);
     }
-  html {
-    @apply font-sans;
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings: "cv11", "ss01";
+    }
+
+    /* Browser surfaces carry the design too: selection, scrollbars, focus. */
+    ::selection {
+        background: color-mix(in oklch, var(--hud-accent) 35%, transparent);
+        color: var(--hud-text-primary);
+    }
+
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--hud-accent-dim) transparent;
+    }
+    *::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    *::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+        background-color: var(--hud-accent-dim);
+        border-radius: 2px;
+    }
+    *::-webkit-scrollbar-thumb:hover {
+        background-color: var(--hud-accent);
+    }
+
+    :focus-visible {
+        outline-color: var(--hud-accent);
+    }
+
+    /*
+     * Radix ScrollArea's inner content wrapper is `display: table` with only a
+     * `min-width: 100%` floor, so it grows to fit its widest descendant instead
+     * of being clamped to the viewport width — this silently defeats `truncate`
+     * on anything scrollable. Force it back to a normal block box.
+     */
+    [data-radix-scroll-area-viewport] > div {
+        display: block !important;
+        min-width: 0 !important;
+    }
+}
+
+@layer utilities {
+    .font-mono-hud {
+        font-family: var(--hud-font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Elevation is glow, never a drop shadow (Design.md "Depth & elevation"). */
+    .hud-glow {
+        box-shadow:
+            0 0 0 1px color-mix(in oklch, var(--hud-accent) 55%, transparent),
+            0 0 16px 1px color-mix(in oklch, var(--hud-accent) 35%, transparent);
+    }
+    .hud-glow-strong {
+        box-shadow:
+            0 0 0 1px color-mix(in oklch, var(--hud-accent) 75%, transparent),
+            0 0 22px 4px color-mix(in oklch, var(--hud-accent) 55%, transparent);
+    }
+    .hud-border-dim {
+        border: 1px solid color-mix(in oklch, var(--hud-accent-dim) 55%, transparent);
+    }
+
+    /* Processing: slow ~2s glow pulse. */
+    .hud-pulse-processing {
+        animation: hud-pulse-slow 2.1s ease-in-out infinite;
+    }
+    /* Voice-active: brighter, faster pulse, visually distinct from "processing." */
+    .hud-pulse-voice {
+        animation: hud-pulse-fast 0.9s ease-in-out infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .hud-pulse-processing,
+        .hud-pulse-voice {
+            animation: none;
+            box-shadow:
+                0 0 0 1px color-mix(in oklch, var(--hud-accent) 65%, transparent),
+                0 0 14px 2px color-mix(in oklch, var(--hud-accent) 40%, transparent);
+        }
+    }
+}
+
+@keyframes hud-pulse-slow {
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 1px color-mix(in oklch, var(--hud-accent) 45%, transparent),
+            0 0 10px 1px color-mix(in oklch, var(--hud-accent) 25%, transparent);
+    }
+    50% {
+        box-shadow:
+            0 0 0 1px color-mix(in oklch, var(--hud-accent) 75%, transparent),
+            0 0 22px 3px color-mix(in oklch, var(--hud-accent) 50%, transparent);
+    }
+}
+
+@keyframes hud-pulse-fast {
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 1px color-mix(in oklch, var(--hud-accent) 70%, transparent),
+            0 0 14px 2px color-mix(in oklch, var(--hud-accent) 45%, transparent);
+    }
+    50% {
+        box-shadow:
+            0 0 0 2px color-mix(in oklch, var(--hud-accent) 95%, transparent),
+            0 0 28px 6px color-mix(in oklch, var(--hud-accent) 75%, transparent);
     }
 }

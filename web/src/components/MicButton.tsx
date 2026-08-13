@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { Mic, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { transcribeAudio } from "@/lib/api"
 
@@ -29,8 +30,16 @@ export function MicButton({ onText }: { onText: (text: string) => void }) {
   }
 
   return (
-    <Button variant={recording ? "destructive" : "outline"} onClick={recording ? stop : start}>
-      {recording ? "⏹ stop" : "🎙 speak"}
+    <Button
+      variant={recording ? "destructive" : "outline"}
+      size="icon"
+      className={recording ? "rounded-[3px] hud-pulse-voice" : "rounded-[3px]"}
+      onClick={recording ? stop : start}
+      aria-pressed={recording}
+      aria-label={recording ? "Stop recording" : "Start voice input"}
+      title={recording ? "Stop recording" : "Start voice input"}
+    >
+      {recording ? <Square className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
     </Button>
   )
 }
