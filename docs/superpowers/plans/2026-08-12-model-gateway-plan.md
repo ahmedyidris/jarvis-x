@@ -1716,7 +1716,7 @@ git commit -m "code: add gateway-adapter, jarvis-x's glue to packages/model-gate
 - Consumes: `ask`, `classifyTier` from `code/gateway-adapter.js` (Task 10).
 - Produces: no new exports — this task only changes call sites. `voice.js` needs **no changes**: it never imports `router.js`/`gemini.js`/`local.js` directly, it calls `agent.js`'s `propose()`, which already goes through the adapter after this task.
 
-- [ ] **Step 1: Update `code/agent.js`**
+- [x] **Step 1: Update `code/agent.js`**
 
 Replace lines 1-19:
 ```js
@@ -1741,12 +1741,12 @@ const ask = async (prompt) => {
 ```
 (Everything from `function buildPrompt(goal)` onward is unchanged — `propose()`'s `let raw = await ask(prompt); if (typeof raw !== 'string') raw = raw?.text || JSON.stringify(raw);` still works since `ask()` here now always resolves to a string or throws.)
 
-- [ ] **Step 2: Manually verify `agent.js` still runs**
+- [x] **Step 2: Manually verify `agent.js` still runs**
 
 Run: `JX_BACKEND=local node code/agent.js "list files in code"` (requires Ollama running locally; skip if unavailable and rely on Step 6's automated suite)
 Expected: same proposal/execution behavior as before this task — a `list` action proposed and auto-approved.
 
-- [ ] **Step 3: Update `code/query.js`**
+- [x] **Step 3: Update `code/query.js`**
 
 Full replacement:
 ```js
@@ -1780,7 +1780,7 @@ async function main() {
 main().catch(e => console.error('Error:', e.message));
 ```
 
-- [ ] **Step 4: Update `code/scheduler.js`**
+- [x] **Step 4: Update `code/scheduler.js`**
 
 Replace line 11 (`const { guard, isStopped } = require('./guard.js');`) and line 15 (`const { run: route } = require('./router.js');`) with:
 ```js
@@ -1799,7 +1799,7 @@ async function ask(prompt) {
 ```
 (The rest of `scheduler.js` — `loadSchedules`, `logRun`, `queueForReview`, `runGoal`, `main` — is unchanged. `runGoal`'s existing `guard('scheduler_act', ...)` call on the *action-execution* side, separate from the model call, is untouched by this task — it still wraps `execute(a)`/`queueForReview`/`logRun`, which is a different concern from routing the LLM call.)
 
-- [ ] **Step 5: Delete the dead files**
+- [x] **Step 5: Delete the dead files**
 
 ```bash
 git rm code/models.js code/universal-router.js
@@ -1808,17 +1808,17 @@ git rm code/models.js code/universal-router.js
 Run: `grep -rn "models\.js\|universal-router" code/ --include='*.js' | grep -v node_modules`
 Expected: no output — confirms nothing still imports either file.
 
-- [ ] **Step 6: Run the full jarvis-x test suite**
+- [x] **Step 6: Run the full jarvis-x test suite**
 
 Run: `node jest-runner.js`
 Expected: all `code/test-*.js` files report PASSED, including `test-gateway-adapter.js`, `test-guard.js`, `test-scheduler.js`.
 
-- [ ] **Step 7: Run the package test suite one more time (nothing here should have touched it, this just confirms isolation)**
+- [x] **Step 7: Run the package test suite one more time (nothing here should have touched it, this just confirms isolation)**
 
 Run: `cd packages/model-gateway && npm test`
 Expected: PASS, same counts as Task 8.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add code/agent.js code/query.js code/scheduler.js
