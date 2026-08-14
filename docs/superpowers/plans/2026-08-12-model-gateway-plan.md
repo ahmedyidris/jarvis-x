@@ -1023,7 +1023,7 @@ git commit -m "model-gateway: add Gateway orchestrator"
 - Consumes: `Gateway` (Task 6), `createTierPolicy`/`createBreaker`/`createBudget`/`createStore`/`createTelemetry` (Tasks 1–5).
 - Produces: `createMockProvider({name, latencyMs?, failureRate?, forceFailure?, cost?}) -> Provider` (the `{call(input)}` shape Task 6 consumes). `run-demo.js` is a script, not a module other tasks import.
 
-- [ ] **Step 1: Write the failing test for the mock provider factory**
+- [x] **Step 1: Write the failing test for the mock provider factory**
 
 ```js
 // packages/model-gateway/demo/mock-providers.test.js
@@ -1051,12 +1051,12 @@ test('failureRate of 1 always throws, failureRate of 0 never does', async () => 
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test demo/mock-providers.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement the mock provider factory**
+- [x] **Step 3: Implement the mock provider factory**
 
 ```js
 // packages/model-gateway/demo/mock-providers.js
@@ -1078,12 +1078,12 @@ function createMockProvider({ name, latencyMs = 50, failureRate = 0, forceFailur
 module.exports = { createMockProvider };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test demo/mock-providers.test.js`
 Expected: PASS, 3/3
 
-- [ ] **Step 5: Write the demo script (no test — this is the manual/portfolio artifact)**
+- [x] **Step 5: Write the demo script (no test — this is the manual/portfolio artifact)**
 
 ```js
 // packages/model-gateway/demo/run-demo.js
@@ -1156,7 +1156,7 @@ main().catch(e => { console.error(e); process.exit(1); });
 Run: `cd packages/model-gateway && npm run demo`
 Expected: prints a summary (some calls degraded to `fast-reliable`, some exhausted during the induced-failure window), writes `demo/output/dashboard.html`. (`report.js` doesn't exist yet — this step's manual run happens after Task 8; commit the demo files now, verify the full run at the end of Task 8.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/model-gateway/demo/
