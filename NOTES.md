@@ -27,8 +27,9 @@ Deliberately **not** built: `paper.js`, `selfdebug.js`. See "Deferred" below.
 4. **Unattended means read-only.** `scheduler.js` may only execute
    list/read/git_log/git_status/answer. write/shell go to `logs/queue.jsonl`
    and wait for human review. Verified empirically, not just described.
-5. A degraded backend must never skip the gate. `router.js` decides gating by
-   *level*, never by which model actually answered.
+5. A degraded backend must never skip the gate. `gateway-adapter.js`'s tier
+   policy (backed by `packages/model-gateway`) decides gating by *level*,
+   never by which model actually answered.
 6. Memory is split: `memory/rules.md` is human-written and authoritative;
    `memory/observed.jsonl` is agent-written and injected as UNTRUSTED evidence.
    The agent must not be able to author its own future instructions.
@@ -46,7 +47,7 @@ Deliberately **not** built: `paper.js`, `selfdebug.js`. See "Deferred" below.
 | `lib.js` | shared helpers: `reEscape`, `parseJSONLoose`, `execute`, `confirm`, `yes` |
 | `local.js` | Ollama inference |
 | `gemini.js` | remote tiers + `askFallback` |
-| `router.js` | quick/hard/consequential → tier chains, gating by level |
+| `gateway-adapter.js` | tier classification + jarvis-x glue to `packages/model-gateway` (quick/hard/consequential → tier chains, gating by level) |
 | `memory.js` | two-tier memory (rules vs observations) |
 | `agent.js` | single-action proposal loop, every action gated |
 | `planner.js` | multi-step plans as hypotheses; each step re-proposed and re-gated |

@@ -14,4 +14,20 @@ function safePath(relativePath) {
   return fullPath;
 }
 
-module.exports = { safePath, BASE };
+function readFile(relativePath) {
+  return fs.readFileSync(safePath(relativePath), 'utf8');
+}
+
+function writeFile(relativePath, content) {
+  const full = safePath(relativePath);
+  const dir = path.dirname(full);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(full, content, 'utf8');
+  return full;
+}
+
+function listDir(relativePath) {
+  return fs.readdirSync(safePath(relativePath));
+}
+
+module.exports = { safePath, BASE, readFile, writeFile, listDir };

@@ -14,7 +14,9 @@ const { guard } = require('./guard.js');
 const CONSEQUENTIAL = new Set(['write', 'shell', 'trade']);
 const HARD_HINTS = /\b(plan|design|debug|why|analyz|strateg|refactor|architect|compare)\b/i;
 
-function classifyTier({ action = null, prompt = '', level = null } = {}) {
+function classifyTier(input) {
+  const { action = null, prompt = '', level = null } =
+    typeof input === 'string' ? { prompt: input } : (input || {});
   if (level) return level; // caller (or an explicit 'local') wins outright
   if (action && CONSEQUENTIAL.has(action)) return 'consequential';
   if (HARD_HINTS.test(prompt) || prompt.length > 600) return 'hard';
@@ -86,6 +88,11 @@ function getGateway() {
 
 async function ask(input, options = {}) {
   const tier = classifyTier(input);
+  if (!Object.keys(JARVIS_TIER_POLICY).includes(tier)) {
+    // Invalid tier: bail out before guardCheck/budget so a typo'd or unknown
+    // tier name produces zero side effects (no log entry, no reserved budget).
+    return { text: null, provider: null, degraded: false, gated: false, blocked: true, reason: `invalid tier: ${tier}`, cost: 0 };
+  }
   const prompt = typeof input === 'string' ? input : input.prompt;
   return getGateway().route(prompt, tier, options);
 }

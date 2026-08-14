@@ -110,7 +110,7 @@ async function voiceInteraction(duration = 5) {
   const routes = loadLanguageRoutes();
   const route = routes[language] || routes.en || 'en-us';
 
-  const result = await propose(text);
+  const result = await propose(text, { tag: 'voice' });
   if (result.error) {
     console.error('❌', result.error);
     return;

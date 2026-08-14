@@ -1,9 +1,13 @@
 const { test, finish, assert } = require('./test-helper.js');
 const fs = require('fs');
 const path = require('path');
-const { guard, isStopped } = require('./guard.js');
+const { guard, isStopped, STOP_FILE } = require('./guard.js');
 
-const STOP_FILE = path.join(__dirname, '..', '.jarvis-x-STOP');
+const EXPECTED_STOP_FILE = path.join(__dirname, '..', '.jarvis-x-STOP');
+
+test('guard.js exports STOP_FILE as the correct absolute path', () => {
+  assert.strictEqual(STOP_FILE, EXPECTED_STOP_FILE);
+});
 
 test('guard returns {blocked: false} when no STOP file is present', () => {
   if (fs.existsSync(STOP_FILE)) fs.unlinkSync(STOP_FILE); // ensure clean state

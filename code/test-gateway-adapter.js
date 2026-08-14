@@ -37,6 +37,26 @@ function freshAdapter() {
     assert.strictEqual(classifyTier({ prompt: 'anything', level: 'local' }), 'local');
   });
 
+  await test('classifyTier accepts a bare string and applies the heuristic to it (not just objects)', () => {
+    const { classifyTier } = freshAdapter();
+    assert.strictEqual(classifyTier('why is this broken'), 'hard');
+  });
+
+  await test('ask() rejects an unknown tier before guardCheck/budget/route: blocked, no exception, no provider call, no guard log entry', async () => {
+    const { ask } = freshAdapter();
+    const guardLog = path.join(__dirname, '..', 'logs', 'actions.jsonl');
+    const before = fs.existsSync(guardLog) ? fs.readFileSync(guardLog, 'utf8').split('\n').filter(Boolean).length : 0;
+
+    const result = await ask({ prompt: 'hi', level: 'not-a-real-tier' }, { tag: 'test' });
+
+    assert.strictEqual(result.blocked, true);
+    assert.match(result.reason, /^invalid tier: not-a-real-tier$/);
+    assert.strictEqual(result.provider, null, 'no provider should ever be reached for an invalid tier');
+
+    const after = fs.existsSync(guardLog) ? fs.readFileSync(guardLog, 'utf8').split('\n').filter(Boolean).length : 0;
+    assert.strictEqual(after, before, 'guardCheck must never run (and thus never log) for an invalid tier');
+  });
+
   await test('ask() blocks and never touches a provider when the STOP file is present', async () => {
     const { ask } = freshAdapter();
     fs.writeFileSync(STOP_FILE, '');

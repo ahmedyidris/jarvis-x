@@ -48,7 +48,7 @@ Bilingual (English + Arabic — see `config/voice.json`'s `en`/`ar` voice routes
 
 ## Iconography
 
-The CLI already has a consistent **emoji-as-status-vocabulary** (found in `code/jarvis-x.js`, `voice.js`, `guard.js`, `market-brief.js`, `models.js`):
+The CLI already has a consistent **emoji-as-status-vocabulary** (found in `code/jarvis-x.js`, `voice.js`, `guard.js`, `market-brief.js`, `gateway-adapter.js`):
 
 | Emoji | Meaning | Dashboard equivalent |
 |---|---|---|

@@ -26,4 +26,4 @@ function guard(action, level = 'quick') {
   return { blocked: false };
 }
 
-module.exports = { guard, isStopped };
+module.exports = { guard, isStopped, STOP_FILE };

@@ -6,7 +6,7 @@ Autonomous agent running on ASUS Chromebook CX5500FE (Crostini/Debian 12).
 
 - `code/local.js` — inference via Ollama (qwen2.5:1.5b, local, offline, unlimited)
 - `code/query.js` — loads Guidelines.md into every prompt, logs to decisions.jsonl
-- `code/models.js` — model routing. Local first; APIs are fallbacks
+- `code/gateway-adapter.js` — model routing/gating glue to `packages/model-gateway` (tier classification, breaker, budget, telemetry). Local first; APIs are fallbacks
 - `code/guard.js` — **kill switch + action log. Nothing acts without passing through this**
 - `code/exec.js` — file operations, jailed to ~/jarvis-x/
 - `code/stop.js` — `node code/stop.js [|off|status]`

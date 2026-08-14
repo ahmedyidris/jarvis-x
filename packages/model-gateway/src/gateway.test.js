@@ -103,6 +103,40 @@ test('an open breaker removes a provider from the chain without touching it', as
   assert.equal(max.calls.length, 0, 'open breaker means max is skipped entirely, not called-and-failed');
 });
 
+test('every provider in the chain having an open breaker blocks with reason breaker:open and touches no provider', async () => {
+  const max = mockProvider('max');
+  const flash = mockProvider('flash');
+  const breaker = createBreaker({ failureThreshold: 1 });
+  breaker.recordFailure('max'); // pre-open both breakers
+  breaker.recordFailure('flash');
+  const gateway = baseGateway({
+    breaker,
+    providers: new Map([['max', max.provider], ['flash', flash.provider]]),
+  });
+  const result = await gateway.route('do the trade', 'consequential', { tag: 'agent' });
+  assert.equal(result.blocked, true);
+  assert.equal(result.reason, 'breaker:open');
+  assert.equal(max.calls.length, 0, 'all-open breaker chain: no provider should ever be called');
+  assert.equal(flash.calls.length, 0, 'all-open breaker chain: no provider should ever be called');
+});
+
+test('a tier chain that references an unregistered provider throws a clear config error instead of crashing in the provider loop', async () => {
+  const flash = mockProvider('flash');
+  const tierPolicy = createTierPolicy({
+    quick: { chain: ['flash', 'ghost'], gate: false },
+  });
+  const gateway = new Gateway({
+    tierPolicy,
+    breaker: createBreaker(),
+    budget: createBudget({ rateLimit: { windowMs: 60_000, maxCalls: 1000 }, dailyCostCeiling: 1000 }),
+    providers: new Map([['flash', flash.provider]]), // 'ghost' is never registered
+  });
+  await assert.rejects(
+    () => gateway.route('hi', 'quick', { tag: 'test' }),
+    /Gateway misconfigured: tier "quick" references unknown provider "ghost"/
+  );
+});
+
 test('exhausting the entire chain throws, with each provider error included', async () => {
   const max = mockProvider('max', { fail: true });
   const flash = mockProvider('flash', { fail: true });

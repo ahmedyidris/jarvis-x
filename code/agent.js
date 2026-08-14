@@ -10,9 +10,9 @@ const { readFile, writeFile, listDir } = require('./exec.js');
 
 const BACKEND = process.env.JX_BACKEND || 'local';
 
-const ask = async (prompt) => {
+const ask = async (prompt, tag = 'agent') => {
   const level = BACKEND === 'local' ? 'local' : 'consequential';
-  const result = await gatewayAsk({ prompt, level }, { tag: 'agent' });
+  const result = await gatewayAsk({ prompt, level }, { tag });
   if (result.blocked) throw new Error(`blocked: ${result.reason}`);
   return result.text;
 };
@@ -31,9 +31,9 @@ Example: for "list files in memory", respond with {"type":"list","path":"memory/
 Goal: ${goal}`;
 }
 
-async function propose(goal) {
+async function propose(goal, { tag } = {}) {
   const prompt = buildPrompt(goal);
-  let raw = await ask(prompt);
+  let raw = await ask(prompt, tag);
   if (typeof raw !== 'string') raw = raw?.text || JSON.stringify(raw);
 
   let match = raw.match(/\{[\s\S]*\}/);

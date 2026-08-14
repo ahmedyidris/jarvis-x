@@ -44,7 +44,22 @@ class Gateway {
     }
 
     const { chain, gate } = this.tierPolicy.resolve(tier);
+
+    // Config integrity check: a tier whose chain names a provider that was
+    // never registered would otherwise crash deep inside the provider loop
+    // below (Cannot read properties of undefined), and get misreported as a
+    // breaker failure for a provider that doesn't exist. Fail loudly here
+    // instead, with a message that names the actual misconfiguration.
+    const missingProvider = chain.find(name => !this.providers.has(name));
+    if (missingProvider) {
+      throw new Error(`Gateway misconfigured: tier "${tier}" references unknown provider "${missingProvider}"`);
+    }
+
     const available = chain.filter(name => !this.breaker.isOpen(name));
+
+    if (chain.length > 0 && available.length === 0) {
+      return finish({ blocked: true, reason: 'breaker:open', cost: 0 });
+    }
 
     const errors = [];
     for (let i = 0; i < available.length; i++) {
