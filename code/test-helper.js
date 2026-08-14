@@ -2,13 +2,25 @@ const assert = require('assert');
 let passed = 0, failed = 0;
 
 function test(name, fn) {
-  try {
-    fn();
+  function onPass() {
     console.log(`✅ ${name}`);
     passed++;
-  } catch (e) {
+  }
+  function onFail(e) {
     console.error(`❌ ${name}: ${e.message}`);
     failed++;
+  }
+
+  try {
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      // Async test: return the promise so the caller can await it, and make
+      // sure a rejection is caught/counted the same way a sync throw is.
+      return result.then(onPass, onFail);
+    }
+    onPass();
+  } catch (e) {
+    onFail(e);
   }
 }
 

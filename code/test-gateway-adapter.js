@@ -16,36 +16,38 @@ function freshAdapter() {
   return require('./gateway-adapter.js');
 }
 
-test('classifyTier ports router.js\'s heuristic: consequential action wins', () => {
-  const { classifyTier } = freshAdapter();
-  assert.strictEqual(classifyTier({ action: 'shell', prompt: 'rm something' }), 'consequential');
-});
+(async () => {
+  await test('classifyTier ports router.js\'s heuristic: consequential action wins', () => {
+    const { classifyTier } = freshAdapter();
+    assert.strictEqual(classifyTier({ action: 'shell', prompt: 'rm something' }), 'consequential');
+  });
 
-test('classifyTier: hard hints route to "hard"', () => {
-  const { classifyTier } = freshAdapter();
-  assert.strictEqual(classifyTier({ prompt: 'why is the agent picking the wrong action' }), 'hard');
-});
+  await test('classifyTier: hard hints route to "hard"', () => {
+    const { classifyTier } = freshAdapter();
+    assert.strictEqual(classifyTier({ prompt: 'why is the agent picking the wrong action' }), 'hard');
+  });
 
-test('classifyTier: plain prompts default to "quick"', () => {
-  const { classifyTier } = freshAdapter();
-  assert.strictEqual(classifyTier({ prompt: 'what time is it' }), 'quick');
-});
+  await test('classifyTier: plain prompts default to "quick"', () => {
+    const { classifyTier } = freshAdapter();
+    assert.strictEqual(classifyTier({ prompt: 'what time is it' }), 'quick');
+  });
 
-test('classifyTier: an explicit level short-circuits the heuristic, including "local"', () => {
-  const { classifyTier } = freshAdapter();
-  assert.strictEqual(classifyTier({ prompt: 'anything', level: 'local' }), 'local');
-});
+  await test('classifyTier: an explicit level short-circuits the heuristic, including "local"', () => {
+    const { classifyTier } = freshAdapter();
+    assert.strictEqual(classifyTier({ prompt: 'anything', level: 'local' }), 'local');
+  });
 
-test('ask() blocks and never touches a provider when the STOP file is present', async () => {
-  const { ask } = freshAdapter();
-  fs.writeFileSync(STOP_FILE, '');
-  try {
-    const result = await ask({ prompt: 'hi', level: 'quick' }, { tag: 'test' });
-    assert.strictEqual(result.blocked, true);
-    assert.strictEqual(result.reason, 'STOP file present');
-  } finally {
-    fs.unlinkSync(STOP_FILE);
-  }
-});
+  await test('ask() blocks and never touches a provider when the STOP file is present', async () => {
+    const { ask } = freshAdapter();
+    fs.writeFileSync(STOP_FILE, '');
+    try {
+      const result = await ask({ prompt: 'hi', level: 'quick' }, { tag: 'test' });
+      assert.strictEqual(result.blocked, true);
+      assert.strictEqual(result.reason, 'STOP file present');
+    } finally {
+      fs.unlinkSync(STOP_FILE);
+    }
+  });
 
-finish();
+  finish();
+})();
