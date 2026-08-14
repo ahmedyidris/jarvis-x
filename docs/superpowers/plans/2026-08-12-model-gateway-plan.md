@@ -473,7 +473,7 @@ git commit -m "model-gateway: add budget (rate cap + daily cost ceiling)"
 - Consumes: `breaker.snapshot()`'s shape from Task 2, `budget.snapshot()`'s shape from Task 3 (as data, not by importing those modules).
 - Produces: `createStore(dbPath: string) -> { loadBreakerSnapshot() -> object, saveBreakerSnapshot(snap: object) -> void, loadBudgetSnapshot() -> object, saveBudgetSnapshot(snap: object) -> void, close() -> void }`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/store.test.js
@@ -536,12 +536,12 @@ test('state survives a full close and reopen against the same file', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/store.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/store.js
@@ -644,12 +644,12 @@ function createStore(dbPath) {
 module.exports = { createStore };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/store.test.js`
 Expected: PASS, 5/5
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/store.js packages/model-gateway/src/store.test.js packages/model-gateway/package.json packages/model-gateway/package-lock.json
