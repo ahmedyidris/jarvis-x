@@ -1176,7 +1176,7 @@ git commit -m "model-gateway: add demo mock providers + synthetic-traffic script
 - Consumes: telemetry entries in the shape Task 5/6 produce (`{tag, tier, provider, degraded, gated, blocked, cost, latencyMs, timestamp}`).
 - Produces: `summarize(entries) -> {total, blocked, gated, degraded, totalCost, byProvider: {[name]: {calls, cost}}}`, `printSummary(entries) -> void`, `renderHtml(entries) -> string`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/report.test.js
@@ -1218,12 +1218,12 @@ test('renderHtml embeds the total count and each entry as a table row', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/report.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/report.js
@@ -1292,17 +1292,17 @@ if (require.main === module) {
 module.exports = { summarize, printSummary, renderHtml };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/report.test.js`
 Expected: PASS, 4/4
 
-- [ ] **Step 5: Run the full package test suite and the demo end-to-end**
+- [x] **Step 5: Run the full package test suite and the demo end-to-end**
 
 Run: `cd packages/model-gateway && npm test && npm run demo`
 Expected: all `node --test` files pass; demo prints a summary and writes `demo/output/dashboard.html` with rows for the induced-failure window showing `exhausted` calls.
 
-- [ ] **Step 6: Write the package README**
+- [x] **Step 6: Write the package README**
 
 ```markdown
 <!-- packages/model-gateway/README.md -->
@@ -1367,7 +1367,7 @@ See [the design spec](../../docs/superpowers/specs/2026-08-12-model-gateway-desi
 and [the implementation plan](../../docs/superpowers/plans/2026-08-12-model-gateway-plan.md).
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/model-gateway/src/report.js packages/model-gateway/src/report.test.js packages/model-gateway/README.md
