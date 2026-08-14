@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `createTierPolicy(config: {[tierName]: {chain: string[], gate?: boolean}}) -> { resolve(tierName: string) -> {chain: string[], gate: boolean} }`. Throws `Error('unknown tier: ' + tierName)` for an unconfigured tier. `resolve()` returns a defensive copy of `chain` (callers must not mutate the policy's internal array).
 
-- [ ] **Step 1: Create the package scaffold**
+- [x] **Step 1: Create the package scaffold**
 
 `packages/model-gateway/package.json`:
 ```json
@@ -54,7 +54,7 @@
 Run: `mkdir -p packages/model-gateway/src packages/model-gateway/demo && cd packages/model-gateway && npm install`
 Expected: `node_modules/better-sqlite3` present, no errors.
 
-- [ ] **Step 2: Write the failing test for `tier-policy.js`**
+- [x] **Step 2: Write the failing test for `tier-policy.js`**
 
 ```js
 // packages/model-gateway/src/tier-policy.test.js
@@ -89,12 +89,12 @@ test('resolve returns a copy, not the internal array', () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `cd packages/model-gateway && node --test src/tier-policy.test.js`
 Expected: FAIL — `Cannot find module './tier-policy.js'`
 
-- [ ] **Step 4: Write minimal implementation**
+- [x] **Step 4: Write minimal implementation**
 
 ```js
 // packages/model-gateway/src/tier-policy.js
@@ -110,12 +110,12 @@ function createTierPolicy(config) {
 module.exports = { createTierPolicy };
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `cd packages/model-gateway && node --test src/tier-policy.test.js`
 Expected: PASS, 4/4
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/model-gateway/package.json packages/model-gateway/package-lock.json packages/model-gateway/src/tier-policy.js packages/model-gateway/src/tier-policy.test.js
@@ -134,7 +134,7 @@ git commit -m "model-gateway: scaffold package + tier-policy"
 - Consumes: nothing from earlier tasks.
 - Produces: `createBreaker({failureThreshold?: number, cooldownMs?: number, maxCooldownMs?: number, now?: () => number}) -> { isOpen(provider: string) -> boolean, recordSuccess(provider: string) -> void, recordFailure(provider: string) -> void, snapshot() -> object, load(snapshot: object) -> void }`. `snapshot()`/`load()` round-trip through `store.js` (Task 4) — the shape is `{[provider]: {status: 'CLOSED'|'OPEN'|'HALF_OPEN', consecutiveFailures: number, openCount: number, openedAt: number|null}}`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/breaker.test.js
@@ -213,12 +213,12 @@ test('providers are tracked independently', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/breaker.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/breaker.js
@@ -285,12 +285,12 @@ function createBreaker({ failureThreshold = 3, cooldownMs = 30_000, maxCooldownM
 module.exports = { createBreaker };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/breaker.test.js`
 Expected: PASS, 8/8
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/breaker.js packages/model-gateway/src/breaker.test.js
