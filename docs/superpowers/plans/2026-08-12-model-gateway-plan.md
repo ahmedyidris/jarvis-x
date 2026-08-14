@@ -1388,7 +1388,7 @@ git commit -m "model-gateway: add report/dashboard + package README"
 
 **Why this matters beyond the design spec:** today's `guard.js` accepts a third `fn` argument (as called by `gemini.js` and `test-guard.js`) but never invokes it — it just returns `{executed: true, action}` immediately. That means `gemini.js`'s `ask()` currently returns `{executed: true, action: 'gemini_call'}` instead of the actual model response, silently, on every call. This task both simplifies the contract per the spec and fixes that bug — `ask()` will call `guard()` as a preflight, then do the real fetch itself.
 
-- [ ] **Step 1: Write the failing test for the new contract**
+- [x] **Step 1: Write the failing test for the new contract**
 
 ```js
 // code/test-guard.js (replaces the existing file)
@@ -1431,12 +1431,12 @@ test('guard no longer accepts or runs a third callback argument', () => {
 finish();
 ```
 
-- [ ] **Step 2: Run to verify it fails against today's `guard.js`**
+- [x] **Step 2: Run to verify it fails against today's `guard.js`**
 
 Run: `node code/test-guard.js`
 Expected: FAIL on the first assertion — today's `guard()` returns `{executed: true, action: 'test_action'}`, not `{blocked: false}`.
 
-- [ ] **Step 3: Rewrite `guard.js`**
+- [x] **Step 3: Rewrite `guard.js`**
 
 ```js
 // code/guard.js
@@ -1471,7 +1471,7 @@ function guard(action, level = 'quick') {
 module.exports = { guard, isStopped };
 ```
 
-- [ ] **Step 4: Fix `gemini.js`'s `ask()` to preflight-check then execute itself**
+- [x] **Step 4: Fix `gemini.js`'s `ask()` to preflight-check then execute itself**
 
 In `code/gemini.js`, replace lines 34-51 (the whole `ask` function):
 
@@ -1499,17 +1499,17 @@ async function ask(prompt, tier = 'flash') {
 
 (The rest of `code/gemini.js` — `loadKey`, `MODELS`, `askFallback`, the `require.main` block, `module.exports` — is unchanged.)
 
-- [ ] **Step 5: Run to verify the new tests pass**
+- [x] **Step 5: Run to verify the new tests pass**
 
 Run: `node code/test-guard.js`
 Expected: all 4 assertions pass, `Passed: 4, Failed: 0`
 
-- [ ] **Step 6: Manually verify the Gemini bugfix (requires a real API key in `~/.jarvis-x/.env`)**
+- [x] **Step 6: Manually verify the Gemini bugfix (requires a real API key in `~/.jarvis-x/.env`)**
 
 Run: `node code/gemini.js flash "Say OK and nothing else."`
 Expected: prints an actual model reply (e.g. `OK`), not `{"executed":true,"action":"gemini_call"}`. If no key is configured, this step is skipped — Task 10's adapter test covers the contract with a mock instead.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add code/guard.js code/gemini.js code/test-guard.js
