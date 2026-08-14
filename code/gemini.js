@@ -35,19 +35,20 @@ async function ask(prompt, tier = 'flash') {
   const model = MODELS[tier];
   if (!model) throw new Error('unknown tier: ' + tier);
 
-  return guard('gemini_call', `${tier}:${model}`, async () => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': loadKey() },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
-    if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error('no text in response');
-    return text;
+  const check = guard('gemini_call', `${tier}:${model}`);
+  if (check.blocked) throw new Error(`blocked: ${check.reason}`);
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': loadKey() },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
+  if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('no text in response');
+  return text;
 }
 
 module.exports = { ask, askFallback, MODELS };

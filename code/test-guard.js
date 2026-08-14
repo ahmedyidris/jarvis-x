@@ -1,7 +1,37 @@
-const { guard } = require('./guard.js');
-try {
-  const r = guard('test', 'write a file', () => 'ACTION RAN');
-  console.log('Result:', r);
-} catch (e) {
-  console.log('Blocked:', e.message);
-}
+const { test, finish, assert } = require('./test-helper.js');
+const fs = require('fs');
+const path = require('path');
+const { guard, isStopped } = require('./guard.js');
+
+const STOP_FILE = path.join(__dirname, '..', '.jarvis-x-STOP');
+
+test('guard returns {blocked: false} when no STOP file is present', () => {
+  if (fs.existsSync(STOP_FILE)) fs.unlinkSync(STOP_FILE); // ensure clean state
+  const result = guard('test_action', 'quick');
+  assert.deepStrictEqual(result, { blocked: false });
+});
+
+test('guard returns {blocked: true, reason} when the STOP file is present', () => {
+  fs.writeFileSync(STOP_FILE, '');
+  const result = guard('test_action', 'quick');
+  assert.strictEqual(result.blocked, true);
+  assert.strictEqual(result.reason, 'STOP file present');
+  fs.unlinkSync(STOP_FILE);
+});
+
+test('isStopped mirrors the STOP file\'s presence', () => {
+  if (fs.existsSync(STOP_FILE)) fs.unlinkSync(STOP_FILE);
+  assert.strictEqual(isStopped(), false);
+  fs.writeFileSync(STOP_FILE, '');
+  assert.strictEqual(isStopped(), true);
+  fs.unlinkSync(STOP_FILE);
+});
+
+test('guard no longer accepts or runs a third callback argument', () => {
+  let ran = false;
+  const result = guard('test_action', 'quick', () => { ran = true; return 'should not matter'; });
+  assert.strictEqual(ran, false, 'guard is a pure preflight check now, it must not execute a callback');
+  assert.deepStrictEqual(result, { blocked: false });
+});
+
+finish();
