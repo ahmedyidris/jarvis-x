@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CLI entry point: sends a one-off prompt (plus Guidelines.md) to the local model and logs the exchange.
-const { ask, MODEL } = require('./local.js');
+const { ask } = require('./gateway-adapter.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -16,11 +16,12 @@ async function main() {
 
   const full = `You are Jarvis X. Operate within these constraints:\n\n${guidelines}\n\nUser: ${prompt}`;
 
-  const answer = await ask(full);
-  console.log(`\n${answer}\n`);
+  const result = await ask({ prompt: full, level: 'local' }, { tag: 'query' });
+  if (result.blocked) { console.error('Blocked:', result.reason); return; }
+  console.log(`\n${result.text}\n`);
 
   fs.appendFileSync(LOG, JSON.stringify({
-    timestamp: new Date().toISOString(), model: MODEL, prompt, answer
+    timestamp: new Date().toISOString(), model: result.provider, prompt, answer: result.text
   }) + '\n');
 }
 

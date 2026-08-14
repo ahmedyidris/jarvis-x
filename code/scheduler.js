@@ -9,10 +9,10 @@
 const fs = require('fs');
 const path = require('path');
 const { guard, isStopped } = require('./guard.js');
+const { ask: gatewayAsk } = require('./gateway-adapter.js');
 const { validate } = require('./validate.js');
 const { observe, forPrompt } = require('./memory.js');
 const { execute, parseJSONLoose } = require('./lib.js');
-const { run: route } = require('./router.js');
 const { readFile } = require('./exec.js');
 
 const ROOT = path.join(__dirname, '..');
@@ -50,8 +50,9 @@ RULES:
 Paths are relative to the project root. No markdown, no explanation.`;
 
 async function ask(prompt) {
-  const r = await route({ prompt, level: 'hard' });
-  return { text: r.text, model: `gemini:${r.tier}${r.degraded ? '(degraded)' : ''}` };
+  const result = await gatewayAsk({ prompt, level: 'hard' }, { tag: 'scheduler' });
+  if (result.blocked) throw new Error(`blocked: ${result.reason}`);
+  return { text: result.text, model: `${result.provider}${result.degraded ? '(degraded)' : ''}` };
 }
 
 function loadSchedules() {

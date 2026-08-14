@@ -2,8 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { ask: askLocal, MODEL: LOCAL_MODEL } = require('./local.js');
-const { run: route } = require('./router.js');
+const { ask: gatewayAsk } = require('./gateway-adapter.js');
 const { validate } = require('./validate.js');
 const { observe, forPrompt } = require('./memory.js');
 const { reEscape, parseJSONLoose, execute, confirm } = require('./lib.js');
@@ -12,10 +11,10 @@ const { readFile, writeFile, listDir } = require('./exec.js');
 const BACKEND = process.env.JX_BACKEND || 'local';
 
 const ask = async (prompt) => {
-  if (BACKEND === 'local') {
-    return askLocal(prompt);
-  }
-  return route(prompt, 'consequential');
+  const level = BACKEND === 'local' ? 'local' : 'consequential';
+  const result = await gatewayAsk({ prompt, level }, { tag: 'agent' });
+  if (result.blocked) throw new Error(`blocked: ${result.reason}`);
+  return result.text;
 };
 
 function buildPrompt(goal) {

@@ -1,4 +1,4 @@
-const universal = require('./universal-router.js');
+const { ask } = require('./gateway-adapter.js');
 
 const generateMarketBrief = async () => {
   const timestamp = new Date().toISOString();
@@ -15,7 +15,9 @@ const generateMarketBrief = async () => {
   for (const asset of assets) {
     const query = `Current USD price of ${asset} crypto and 24h change?`;
     try {
-      const answer = await universal.ask(query, 'smart');
+      const result = await ask({ prompt: query, level: 'local' }, { tag: 'market-brief' });
+      if (result.blocked) throw new Error(`blocked: ${result.reason}`);
+      const answer = result.text;
       brief.assets[asset] = answer;
       console.log(`\n${asset}:`);
       console.log(`  ${answer}`);
