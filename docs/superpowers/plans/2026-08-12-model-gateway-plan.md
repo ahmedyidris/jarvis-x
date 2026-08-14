@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `createTierPolicy(config: {[tierName]: {chain: string[], gate?: boolean}}) -> { resolve(tierName: string) -> {chain: string[], gate: boolean} }`. Throws `Error('unknown tier: ' + tierName)` for an unconfigured tier. `resolve()` returns a defensive copy of `chain` (callers must not mutate the policy's internal array).
 
-- [ ] **Step 1: Create the package scaffold**
+- [x] **Step 1: Create the package scaffold**
 
 `packages/model-gateway/package.json`:
 ```json
@@ -54,7 +54,7 @@
 Run: `mkdir -p packages/model-gateway/src packages/model-gateway/demo && cd packages/model-gateway && npm install`
 Expected: `node_modules/better-sqlite3` present, no errors.
 
-- [ ] **Step 2: Write the failing test for `tier-policy.js`**
+- [x] **Step 2: Write the failing test for `tier-policy.js`**
 
 ```js
 // packages/model-gateway/src/tier-policy.test.js
@@ -89,12 +89,12 @@ test('resolve returns a copy, not the internal array', () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `cd packages/model-gateway && node --test src/tier-policy.test.js`
 Expected: FAIL — `Cannot find module './tier-policy.js'`
 
-- [ ] **Step 4: Write minimal implementation**
+- [x] **Step 4: Write minimal implementation**
 
 ```js
 // packages/model-gateway/src/tier-policy.js
@@ -110,12 +110,12 @@ function createTierPolicy(config) {
 module.exports = { createTierPolicy };
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `cd packages/model-gateway && node --test src/tier-policy.test.js`
 Expected: PASS, 4/4
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/model-gateway/package.json packages/model-gateway/package-lock.json packages/model-gateway/src/tier-policy.js packages/model-gateway/src/tier-policy.test.js
@@ -134,7 +134,7 @@ git commit -m "model-gateway: scaffold package + tier-policy"
 - Consumes: nothing from earlier tasks.
 - Produces: `createBreaker({failureThreshold?: number, cooldownMs?: number, maxCooldownMs?: number, now?: () => number}) -> { isOpen(provider: string) -> boolean, recordSuccess(provider: string) -> void, recordFailure(provider: string) -> void, snapshot() -> object, load(snapshot: object) -> void }`. `snapshot()`/`load()` round-trip through `store.js` (Task 4) — the shape is `{[provider]: {status: 'CLOSED'|'OPEN'|'HALF_OPEN', consecutiveFailures: number, openCount: number, openedAt: number|null}}`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/breaker.test.js
@@ -213,12 +213,12 @@ test('providers are tracked independently', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/breaker.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/breaker.js
@@ -285,12 +285,12 @@ function createBreaker({ failureThreshold = 3, cooldownMs = 30_000, maxCooldownM
 module.exports = { createBreaker };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/breaker.test.js`
 Expected: PASS, 8/8
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/breaker.js packages/model-gateway/src/breaker.test.js
@@ -309,7 +309,7 @@ git commit -m "model-gateway: add circuit breaker"
 - Consumes: nothing from earlier tasks.
 - Produces: `createBudget({rateLimit?: {windowMs: number, maxCalls: number}, dailyCostCeiling?: number, now?: () => number}) -> { checkAndReserve(tag: string) -> {ok: boolean, reason?: 'rate'|'cost'}, recordCall(tag: string, cost?: number) -> void, snapshot() -> object, load(snapshot: object) -> void }`. `snapshot()` shape: `{dayKey: string|null, dailySpend: number, windows: {[tag]: number[]}}` — consumed by `store.js` (Task 4).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/budget.test.js
@@ -381,12 +381,12 @@ test('snapshot/load round-trips both rate windows and daily spend', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/budget.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/budget.js
@@ -449,12 +449,12 @@ function createBudget({ rateLimit = { windowMs: 60_000, maxCalls: 30 }, dailyCos
 module.exports = { createBudget, dayKeyOf };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/budget.test.js`
 Expected: PASS, 7/7
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/budget.js packages/model-gateway/src/budget.test.js
@@ -473,7 +473,7 @@ git commit -m "model-gateway: add budget (rate cap + daily cost ceiling)"
 - Consumes: `breaker.snapshot()`'s shape from Task 2, `budget.snapshot()`'s shape from Task 3 (as data, not by importing those modules).
 - Produces: `createStore(dbPath: string) -> { loadBreakerSnapshot() -> object, saveBreakerSnapshot(snap: object) -> void, loadBudgetSnapshot() -> object, saveBudgetSnapshot(snap: object) -> void, close() -> void }`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/store.test.js
@@ -536,12 +536,12 @@ test('state survives a full close and reopen against the same file', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/store.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/store.js
@@ -644,12 +644,12 @@ function createStore(dbPath) {
 module.exports = { createStore };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/store.test.js`
 Expected: PASS, 5/5
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/store.js packages/model-gateway/src/store.test.js packages/model-gateway/package.json packages/model-gateway/package-lock.json
@@ -668,7 +668,7 @@ git commit -m "model-gateway: add SQLite store for breaker + budget state"
 - Consumes: nothing from earlier tasks.
 - Produces: `createTelemetry(filePath: string) -> { record(entry: {tag, tier, provider, degraded, gated, blocked, latencyMs, cost, reason?}) -> void, readAll() -> Array<object> }`. `record()` stamps `timestamp` itself; never throws (write failures are caught and logged to stderr per Global Constraints).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/telemetry.test.js
@@ -716,12 +716,12 @@ test('record does not throw when the directory does not exist', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/telemetry.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/telemetry.js
@@ -747,12 +747,12 @@ function createTelemetry(filePath) {
 module.exports = { createTelemetry };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/telemetry.test.js`
 Expected: PASS, 4/4
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/telemetry.js packages/model-gateway/src/telemetry.test.js
@@ -771,7 +771,7 @@ git commit -m "model-gateway: add JSONL telemetry"
 - Consumes: `createTierPolicy` (Task 1), `createBreaker` (Task 2), `createBudget` (Task 3), `createStore` (Task 4), `createTelemetry` (Task 5). A "Provider" is any object shaped `{call(input: string) -> Promise<{text: string, cost?: number}>}`.
 - Produces: `class Gateway` — `new Gateway({tierPolicy, guardCheck?, budget, breaker, store?, telemetry?, providers: Map<string, Provider>})`, with `.route(input: string, tier: string, options?: {tag?: string}) -> Promise<{text: string|null, provider: string|null, tier: string, degraded: boolean, gated: boolean, blocked: boolean, reason?: string, cost: number, latencyMs: number}>`. `route()` rejects (throws) only when every provider in the resolved chain fails — `blocked` and a budget/guard short-circuit are normal return values, never exceptions.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/gateway.test.js
@@ -914,12 +914,12 @@ test('options.tag defaults to "default" when omitted', async () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/gateway.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/gateway.js
@@ -998,12 +998,12 @@ class Gateway {
 module.exports = { Gateway };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/gateway.test.js`
 Expected: PASS, 9/9
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/gateway.js packages/model-gateway/src/gateway.test.js
@@ -1023,7 +1023,7 @@ git commit -m "model-gateway: add Gateway orchestrator"
 - Consumes: `Gateway` (Task 6), `createTierPolicy`/`createBreaker`/`createBudget`/`createStore`/`createTelemetry` (Tasks 1–5).
 - Produces: `createMockProvider({name, latencyMs?, failureRate?, forceFailure?, cost?}) -> Provider` (the `{call(input)}` shape Task 6 consumes). `run-demo.js` is a script, not a module other tasks import.
 
-- [ ] **Step 1: Write the failing test for the mock provider factory**
+- [x] **Step 1: Write the failing test for the mock provider factory**
 
 ```js
 // packages/model-gateway/demo/mock-providers.test.js
@@ -1051,12 +1051,12 @@ test('failureRate of 1 always throws, failureRate of 0 never does', async () => 
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test demo/mock-providers.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement the mock provider factory**
+- [x] **Step 3: Implement the mock provider factory**
 
 ```js
 // packages/model-gateway/demo/mock-providers.js
@@ -1078,12 +1078,12 @@ function createMockProvider({ name, latencyMs = 50, failureRate = 0, forceFailur
 module.exports = { createMockProvider };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test demo/mock-providers.test.js`
 Expected: PASS, 3/3
 
-- [ ] **Step 5: Write the demo script (no test — this is the manual/portfolio artifact)**
+- [x] **Step 5: Write the demo script (no test — this is the manual/portfolio artifact)**
 
 ```js
 // packages/model-gateway/demo/run-demo.js
@@ -1156,7 +1156,7 @@ main().catch(e => { console.error(e); process.exit(1); });
 Run: `cd packages/model-gateway && npm run demo`
 Expected: prints a summary (some calls degraded to `fast-reliable`, some exhausted during the induced-failure window), writes `demo/output/dashboard.html`. (`report.js` doesn't exist yet — this step's manual run happens after Task 8; commit the demo files now, verify the full run at the end of Task 8.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/model-gateway/demo/
@@ -1176,7 +1176,7 @@ git commit -m "model-gateway: add demo mock providers + synthetic-traffic script
 - Consumes: telemetry entries in the shape Task 5/6 produce (`{tag, tier, provider, degraded, gated, blocked, cost, latencyMs, timestamp}`).
 - Produces: `summarize(entries) -> {total, blocked, gated, degraded, totalCost, byProvider: {[name]: {calls, cost}}}`, `printSummary(entries) -> void`, `renderHtml(entries) -> string`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/report.test.js
@@ -1218,12 +1218,12 @@ test('renderHtml embeds the total count and each entry as a table row', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/report.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/report.js
@@ -1292,17 +1292,17 @@ if (require.main === module) {
 module.exports = { summarize, printSummary, renderHtml };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/report.test.js`
 Expected: PASS, 4/4
 
-- [ ] **Step 5: Run the full package test suite and the demo end-to-end**
+- [x] **Step 5: Run the full package test suite and the demo end-to-end**
 
 Run: `cd packages/model-gateway && npm test && npm run demo`
 Expected: all `node --test` files pass; demo prints a summary and writes `demo/output/dashboard.html` with rows for the induced-failure window showing `exhausted` calls.
 
-- [ ] **Step 6: Write the package README**
+- [x] **Step 6: Write the package README**
 
 ```markdown
 <!-- packages/model-gateway/README.md -->
@@ -1367,7 +1367,7 @@ See [the design spec](../../docs/superpowers/specs/2026-08-12-model-gateway-desi
 and [the implementation plan](../../docs/superpowers/plans/2026-08-12-model-gateway-plan.md).
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/model-gateway/src/report.js packages/model-gateway/src/report.test.js packages/model-gateway/README.md
@@ -1388,7 +1388,7 @@ git commit -m "model-gateway: add report/dashboard + package README"
 
 **Why this matters beyond the design spec:** today's `guard.js` accepts a third `fn` argument (as called by `gemini.js` and `test-guard.js`) but never invokes it — it just returns `{executed: true, action}` immediately. That means `gemini.js`'s `ask()` currently returns `{executed: true, action: 'gemini_call'}` instead of the actual model response, silently, on every call. This task both simplifies the contract per the spec and fixes that bug — `ask()` will call `guard()` as a preflight, then do the real fetch itself.
 
-- [ ] **Step 1: Write the failing test for the new contract**
+- [x] **Step 1: Write the failing test for the new contract**
 
 ```js
 // code/test-guard.js (replaces the existing file)
@@ -1431,12 +1431,12 @@ test('guard no longer accepts or runs a third callback argument', () => {
 finish();
 ```
 
-- [ ] **Step 2: Run to verify it fails against today's `guard.js`**
+- [x] **Step 2: Run to verify it fails against today's `guard.js`**
 
 Run: `node code/test-guard.js`
 Expected: FAIL on the first assertion — today's `guard()` returns `{executed: true, action: 'test_action'}`, not `{blocked: false}`.
 
-- [ ] **Step 3: Rewrite `guard.js`**
+- [x] **Step 3: Rewrite `guard.js`**
 
 ```js
 // code/guard.js
@@ -1471,7 +1471,7 @@ function guard(action, level = 'quick') {
 module.exports = { guard, isStopped };
 ```
 
-- [ ] **Step 4: Fix `gemini.js`'s `ask()` to preflight-check then execute itself**
+- [x] **Step 4: Fix `gemini.js`'s `ask()` to preflight-check then execute itself**
 
 In `code/gemini.js`, replace lines 34-51 (the whole `ask` function):
 
@@ -1499,17 +1499,17 @@ async function ask(prompt, tier = 'flash') {
 
 (The rest of `code/gemini.js` — `loadKey`, `MODELS`, `askFallback`, the `require.main` block, `module.exports` — is unchanged.)
 
-- [ ] **Step 5: Run to verify the new tests pass**
+- [x] **Step 5: Run to verify the new tests pass**
 
 Run: `node code/test-guard.js`
 Expected: all 4 assertions pass, `Passed: 4, Failed: 0`
 
-- [ ] **Step 6: Manually verify the Gemini bugfix (requires a real API key in `~/.jarvis-x/.env`)**
+- [x] **Step 6: Manually verify the Gemini bugfix (requires a real API key in `~/.jarvis-x/.env`)**
 
 Run: `node code/gemini.js flash "Say OK and nothing else."`
 Expected: prints an actual model reply (e.g. `OK`), not `{"executed":true,"action":"gemini_call"}`. If no key is configured, this step is skipped — Task 10's adapter test covers the contract with a mock instead.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add code/guard.js code/gemini.js code/test-guard.js
@@ -1530,7 +1530,7 @@ git commit -m "guard.js: simplify to a pure preflight check, fixing the silently
 
 **Design note carried into this task:** the spec's Data Flow describes providers "in the chain," and router.js's chain values (`flash`, `pro`, `max`) are Gemini's own model tiers — so each becomes its own Provider (calling `gemini.ask(prompt, tier)` directly, not `askFallback`, since the gateway now owns the chain-walk). `local.js` (Ollama) becomes a fourth, single-entry tier (`'local'`) rather than being folded into the Gemini chain — it's a different model with a different cost/quality profile, and today's codebase never mixed the two. This keeps `query.js`'s and `agent.js`'s `BACKEND=local` behavior observably unchanged while still routing through the gateway (telemetry, budget, breaker all now see local calls too).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // code/test-gateway-adapter.js
@@ -1586,12 +1586,12 @@ test('ask() blocks and never touches a provider when the STOP file is present', 
 finish();
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `node code/test-gateway-adapter.js`
 Expected: FAIL — `Cannot find module './gateway-adapter.js'`
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // code/gateway-adapter.js
@@ -1689,12 +1689,12 @@ async function ask(input, options = {}) {
 module.exports = { ask, classifyTier, JARVIS_TIER_POLICY, getGateway };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `node code/test-gateway-adapter.js`
 Expected: `Passed: 5, Failed: 0`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add code/gateway-adapter.js code/test-gateway-adapter.js
@@ -1716,7 +1716,7 @@ git commit -m "code: add gateway-adapter, jarvis-x's glue to packages/model-gate
 - Consumes: `ask`, `classifyTier` from `code/gateway-adapter.js` (Task 10).
 - Produces: no new exports — this task only changes call sites. `voice.js` needs **no changes**: it never imports `router.js`/`gemini.js`/`local.js` directly, it calls `agent.js`'s `propose()`, which already goes through the adapter after this task.
 
-- [ ] **Step 1: Update `code/agent.js`**
+- [x] **Step 1: Update `code/agent.js`**
 
 Replace lines 1-19:
 ```js
@@ -1741,12 +1741,12 @@ const ask = async (prompt) => {
 ```
 (Everything from `function buildPrompt(goal)` onward is unchanged — `propose()`'s `let raw = await ask(prompt); if (typeof raw !== 'string') raw = raw?.text || JSON.stringify(raw);` still works since `ask()` here now always resolves to a string or throws.)
 
-- [ ] **Step 2: Manually verify `agent.js` still runs**
+- [x] **Step 2: Manually verify `agent.js` still runs**
 
 Run: `JX_BACKEND=local node code/agent.js "list files in code"` (requires Ollama running locally; skip if unavailable and rely on Step 6's automated suite)
 Expected: same proposal/execution behavior as before this task — a `list` action proposed and auto-approved.
 
-- [ ] **Step 3: Update `code/query.js`**
+- [x] **Step 3: Update `code/query.js`**
 
 Full replacement:
 ```js
@@ -1780,7 +1780,7 @@ async function main() {
 main().catch(e => console.error('Error:', e.message));
 ```
 
-- [ ] **Step 4: Update `code/scheduler.js`**
+- [x] **Step 4: Update `code/scheduler.js`**
 
 Replace line 11 (`const { guard, isStopped } = require('./guard.js');`) and line 15 (`const { run: route } = require('./router.js');`) with:
 ```js
@@ -1799,7 +1799,7 @@ async function ask(prompt) {
 ```
 (The rest of `scheduler.js` — `loadSchedules`, `logRun`, `queueForReview`, `runGoal`, `main` — is unchanged. `runGoal`'s existing `guard('scheduler_act', ...)` call on the *action-execution* side, separate from the model call, is untouched by this task — it still wraps `execute(a)`/`queueForReview`/`logRun`, which is a different concern from routing the LLM call.)
 
-- [ ] **Step 5: Delete the dead files**
+- [x] **Step 5: Delete the dead files**
 
 ```bash
 git rm code/models.js code/universal-router.js
@@ -1808,17 +1808,17 @@ git rm code/models.js code/universal-router.js
 Run: `grep -rn "models\.js\|universal-router" code/ --include='*.js' | grep -v node_modules`
 Expected: no output — confirms nothing still imports either file.
 
-- [ ] **Step 6: Run the full jarvis-x test suite**
+- [x] **Step 6: Run the full jarvis-x test suite**
 
 Run: `node jest-runner.js`
 Expected: all `code/test-*.js` files report PASSED, including `test-gateway-adapter.js`, `test-guard.js`, `test-scheduler.js`.
 
-- [ ] **Step 7: Run the package test suite one more time (nothing here should have touched it, this just confirms isolation)**
+- [x] **Step 7: Run the package test suite one more time (nothing here should have touched it, this just confirms isolation)**
 
 Run: `cd packages/model-gateway && npm test`
 Expected: PASS, same counts as Task 8.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add code/agent.js code/query.js code/scheduler.js

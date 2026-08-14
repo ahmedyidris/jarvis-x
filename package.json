@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Personal autonomous AI assistant",
   "main": "code/jarvis-x.js",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "test": "node ./jest-runner.js",
     "test:net": "JX_NET=1 node ./jest-runner.js"

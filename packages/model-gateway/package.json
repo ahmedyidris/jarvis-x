@@ -1,0 +1,14 @@
+{
+  "name": "model-gateway",
+  "version": "0.1.0",
+  "description": "Routing, circuit breaking, budget enforcement, and telemetry for multi-provider LLM calls.",
+  "main": "src/gateway.js",
+  "scripts": {
+    "test": "node --test src/ demo/",
+    "demo": "node demo/run-demo.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "license": "MIT"
+}
