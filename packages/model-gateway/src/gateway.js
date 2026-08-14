@@ -9,8 +9,16 @@ class Gateway {
     this.providers = providers;
 
     if (this.store) {
-      this.breaker.load(this.store.loadBreakerSnapshot());
-      this.budget.load(this.store.loadBudgetSnapshot());
+      try {
+        this.breaker.load(this.store.loadBreakerSnapshot());
+      } catch (e) {
+        console.error('model-gateway: persistence failed (using default breaker state):', e.message);
+      }
+      try {
+        this.budget.load(this.store.loadBudgetSnapshot());
+      } catch (e) {
+        console.error('model-gateway: persistence failed (using default budget state):', e.message);
+      }
     }
   }
 

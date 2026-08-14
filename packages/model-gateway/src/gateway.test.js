@@ -135,3 +135,27 @@ test('options.tag defaults to "default" when omitted', async () => {
   const result = await gateway.route('hi', 'quick');
   assert.equal(result.text, 'flash-reply');
 });
+
+test('constructor tolerates a store whose loadBreakerSnapshot() throws: construction succeeds and the gateway remains usable with default state', async () => {
+  const flash = mockProvider('flash');
+  const badStore = {
+    loadBreakerSnapshot() {
+      throw new Error('corrupt breaker snapshot file');
+    },
+    loadBudgetSnapshot() {
+      return {};
+    },
+    saveBreakerSnapshot() {},
+    saveBudgetSnapshot() {},
+  };
+
+  let gateway;
+  assert.doesNotThrow(() => {
+    gateway = baseGateway({ store: badStore, providers: new Map([['flash', flash.provider]]) });
+  }, 'a failing store load must not prevent Gateway construction (best-effort persistence)');
+
+  const result = await gateway.route('hi', 'quick', { tag: 'voice' });
+  assert.equal(result.text, 'flash-reply');
+  assert.equal(result.provider, 'flash');
+  assert.equal(result.blocked, false);
+});
