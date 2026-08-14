@@ -36,3 +36,15 @@ Verified: run → blocked → run, and jail refuses `../` and absolute-path esca
 - `sentinel/` — a separate portfolio project (AI incident-response copilot).
   Not part of the jarvis-x agent; doesn't go through `guard.js` or the kill
   switch. See `sentinel/README.md`.
+
+## Rebuilding on a new machine
+
+`bootstrap/` has a one-command installer that restores everything from this
+repo — system packages, Ollama models, the Python/Node environments, **all
+installed Claude Code skills and plugins**, the guardrail settings, and the
+systemd supervisor unit. See `bootstrap/README.md`.
+
+```bash
+git clone https://github.com/ahmedyidris/jarvis-x.git && cd jarvis-x
+bash bootstrap/install.sh
+```
