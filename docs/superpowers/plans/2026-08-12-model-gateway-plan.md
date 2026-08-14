@@ -668,7 +668,7 @@ git commit -m "model-gateway: add SQLite store for breaker + budget state"
 - Consumes: nothing from earlier tasks.
 - Produces: `createTelemetry(filePath: string) -> { record(entry: {tag, tier, provider, degraded, gated, blocked, latencyMs, cost, reason?}) -> void, readAll() -> Array<object> }`. `record()` stamps `timestamp` itself; never throws (write failures are caught and logged to stderr per Global Constraints).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/telemetry.test.js
@@ -716,12 +716,12 @@ test('record does not throw when the directory does not exist', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/telemetry.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/telemetry.js
@@ -747,12 +747,12 @@ function createTelemetry(filePath) {
 module.exports = { createTelemetry };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/telemetry.test.js`
 Expected: PASS, 4/4
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/telemetry.js packages/model-gateway/src/telemetry.test.js
