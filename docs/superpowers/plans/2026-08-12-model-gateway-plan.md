@@ -309,7 +309,7 @@ git commit -m "model-gateway: add circuit breaker"
 - Consumes: nothing from earlier tasks.
 - Produces: `createBudget({rateLimit?: {windowMs: number, maxCalls: number}, dailyCostCeiling?: number, now?: () => number}) -> { checkAndReserve(tag: string) -> {ok: boolean, reason?: 'rate'|'cost'}, recordCall(tag: string, cost?: number) -> void, snapshot() -> object, load(snapshot: object) -> void }`. `snapshot()` shape: `{dayKey: string|null, dailySpend: number, windows: {[tag]: number[]}}` — consumed by `store.js` (Task 4).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/budget.test.js
@@ -381,12 +381,12 @@ test('snapshot/load round-trips both rate windows and daily spend', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/budget.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/budget.js
@@ -449,12 +449,12 @@ function createBudget({ rateLimit = { windowMs: 60_000, maxCalls: 30 }, dailyCos
 module.exports = { createBudget, dayKeyOf };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/budget.test.js`
 Expected: PASS, 7/7
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/budget.js packages/model-gateway/src/budget.test.js
