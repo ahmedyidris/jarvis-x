@@ -771,7 +771,7 @@ git commit -m "model-gateway: add JSONL telemetry"
 - Consumes: `createTierPolicy` (Task 1), `createBreaker` (Task 2), `createBudget` (Task 3), `createStore` (Task 4), `createTelemetry` (Task 5). A "Provider" is any object shaped `{call(input: string) -> Promise<{text: string, cost?: number}>}`.
 - Produces: `class Gateway` — `new Gateway({tierPolicy, guardCheck?, budget, breaker, store?, telemetry?, providers: Map<string, Provider>})`, with `.route(input: string, tier: string, options?: {tag?: string}) -> Promise<{text: string|null, provider: string|null, tier: string, degraded: boolean, gated: boolean, blocked: boolean, reason?: string, cost: number, latencyMs: number}>`. `route()` rejects (throws) only when every provider in the resolved chain fails — `blocked` and a budget/guard short-circuit are normal return values, never exceptions.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // packages/model-gateway/src/gateway.test.js
@@ -914,12 +914,12 @@ test('options.tag defaults to "default" when omitted', async () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `cd packages/model-gateway && node --test src/gateway.test.js`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // packages/model-gateway/src/gateway.js
@@ -998,12 +998,12 @@ class Gateway {
 module.exports = { Gateway };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `cd packages/model-gateway && node --test src/gateway.test.js`
 Expected: PASS, 9/9
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/model-gateway/src/gateway.js packages/model-gateway/src/gateway.test.js
