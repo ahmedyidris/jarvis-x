@@ -1530,7 +1530,7 @@ git commit -m "guard.js: simplify to a pure preflight check, fixing the silently
 
 **Design note carried into this task:** the spec's Data Flow describes providers "in the chain," and router.js's chain values (`flash`, `pro`, `max`) are Gemini's own model tiers — so each becomes its own Provider (calling `gemini.ask(prompt, tier)` directly, not `askFallback`, since the gateway now owns the chain-walk). `local.js` (Ollama) becomes a fourth, single-entry tier (`'local'`) rather than being folded into the Gemini chain — it's a different model with a different cost/quality profile, and today's codebase never mixed the two. This keeps `query.js`'s and `agent.js`'s `BACKEND=local` behavior observably unchanged while still routing through the gateway (telemetry, budget, breaker all now see local calls too).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 // code/test-gateway-adapter.js
@@ -1586,12 +1586,12 @@ test('ask() blocks and never touches a provider when the STOP file is present', 
 finish();
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `node code/test-gateway-adapter.js`
 Expected: FAIL — `Cannot find module './gateway-adapter.js'`
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // code/gateway-adapter.js
@@ -1689,12 +1689,12 @@ async function ask(input, options = {}) {
 module.exports = { ask, classifyTier, JARVIS_TIER_POLICY, getGateway };
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `node code/test-gateway-adapter.js`
 Expected: `Passed: 5, Failed: 0`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add code/gateway-adapter.js code/test-gateway-adapter.js
