@@ -43,6 +43,12 @@
       "skillPath": "SKILL.md",
       "computedHash": "636ff50e17901f1809d9895c9ab15fc8cb5f4c3cc41cc93417da550613ce5e3b"
     },
+    "icm-architect": {
+      "source": "RinDig/icm-architect",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "172e9804f711e805fa0c8047874484e29943c47649a4d0326ed6938c86775028"
+    },
     "image-to-code": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",
