@@ -7,7 +7,8 @@ const { run: route } = require('./router.js');
 const { validate } = require('./validate.js');
 const { observe, forPrompt } = require('./memory.js');
 const { reEscape, parseJSONLoose, execute, confirm } = require('./lib.js');
-const { readFile, writeFile, listDir } = require('./exec.js');
+const { readFile } = require('./exec.js');
+const { ALLOWED: SHELL_ALLOWED } = require('./shell.js');
 
 const BACKEND = process.env.JX_BACKEND || 'local';
 
@@ -15,7 +16,12 @@ const ask = async (prompt) => {
   if (BACKEND === 'local') {
     return askLocal(prompt);
   }
-  return route(prompt, 'consequential');
+  // route() (router.js's run()) expects one {prompt, level} object, not two
+  // positional args -- this used to pass a bare string, which destructured to
+  // {action:null, prompt:'', level:null}, so classify() always fell through
+  // to 'quick' and the 'consequential' tier's human gate could never trigger.
+  // Matches scheduler.js's correct call: route({ prompt, level: 'hard' }).
+  return route({ prompt, level: 'consequential' });
 };
 
 function buildPrompt(goal) {
@@ -25,7 +31,7 @@ Valid action types: "list", "read", "write", "shell", "query", "answer".
 - For "list": include "path" (string)
 - For "read": include "path"
 - For "write": include "path" and "content"
-- For "shell": include "cmd"
+- For "shell": include "cmd" (must be one of: ${[...SHELL_ALLOWED].join(', ')}) and optionally "args" (array of strings)
 - For "query": include "q"
 - For "answer": include "text"
 Example: for "list files in memory", respond with {"type":"list","path":"memory/"}

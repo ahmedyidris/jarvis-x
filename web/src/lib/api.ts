@@ -18,30 +18,41 @@ export interface HistoryEntry {
   voice_id: string | null
 }
 
+// Only set when the backend has JARVIS_API_TOKEN configured (see app.py) --
+// unset by default, so this is a no-op until you opt in on both sides.
+const API_TOKEN = import.meta.env.VITE_JARVIS_API_TOKEN as string | undefined
+
+async function apiFetch(url: string, opts: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = { ...(opts.headers as Record<string, string> | undefined) }
+  if (API_TOKEN) headers["X-Jarvis-Token"] = API_TOKEN
+  const res = await fetch(url, { ...opts, headers })
+  if (!res.ok) throw new Error(`${url} failed: ${res.status}`)
+  return res
+}
+
 export async function askJarvis(question: string, tier: Tier, speak: boolean): Promise<AskResponse> {
-  const res = await fetch("/api/ask", {
+  const res = await apiFetch("/api/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, tier, speak }),
   })
-  if (!res.ok) throw new Error(`ask failed: ${res.status}`)
   return res.json()
 }
 
 export async function getHistory(limit = 20): Promise<HistoryEntry[]> {
-  const res = await fetch(`/api/history?limit=${limit}`)
+  const res = await apiFetch(`/api/history?limit=${limit}`)
   const data = await res.json()
   return data.conversations
 }
 
 export async function getKillswitch(): Promise<boolean> {
-  const res = await fetch("/api/killswitch")
+  const res = await apiFetch("/api/killswitch")
   const data = await res.json()
   return data.stopped
 }
 
 export async function setKillswitch(stopped: boolean): Promise<boolean> {
-  const res = await fetch("/api/killswitch", {
+  const res = await apiFetch("/api/killswitch", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ stopped }),
@@ -53,7 +64,7 @@ export async function setKillswitch(stopped: boolean): Promise<boolean> {
 export async function transcribeAudio(blob: Blob): Promise<string> {
   const form = new FormData()
   form.append("audio", blob, "recording.wav")
-  const res = await fetch("/api/transcribe", { method: "POST", body: form })
+  const res = await apiFetch("/api/transcribe", { method: "POST", body: form })
   const data = await res.json()
   return data.text
 }

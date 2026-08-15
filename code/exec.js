@@ -4,10 +4,19 @@ const path = require('path');
 const BASE = path.resolve(process.env.HOME || '~', 'jarvis-x');
 
 function safePath(relativePath) {
-  // Resolve the absolute path of the parent directory of the target
   const fullPath = path.resolve(BASE, relativePath);
   const realBase = fs.realpathSync(BASE);
-  const realFull = fs.realpathSync(path.dirname(fullPath)) + path.sep + path.basename(fullPath);
+  let realFull;
+  try {
+    // Resolve the full path INCLUDING the leaf, so a symlink placed directly
+    // in the jail (not just a symlinked ancestor directory) gets caught too.
+    realFull = fs.realpathSync(fullPath);
+  } catch (e) {
+    // Target doesn't exist yet (e.g. a new file about to be written) --
+    // nothing on disk to symlink-escape through at the leaf, so resolve as
+    // far as the path actually exists.
+    realFull = fs.realpathSync(path.dirname(fullPath)) + path.sep + path.basename(fullPath);
+  }
   if (!realFull.startsWith(realBase + path.sep) && realFull !== realBase) {
     throw new Error(`path escapes the jail: ${relativePath}`);
   }

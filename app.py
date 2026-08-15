@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """HERMES WEB API — Week 4"""
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Depends
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import sys, logging, json, subprocess, asyncio
+import os, re, sys, logging, json, subprocess, asyncio
 from pathlib import Path
 from datetime import datetime
 
@@ -24,6 +24,24 @@ router = Router()
 WEB_DIST = Path(__file__).parent / "web" / "dist"
 
 STOP_FILE = Path(__file__).parent / ".jarvis-x-STOP"
+
+# Optional shared-secret auth. Unset by default (matches current behavior --
+# nothing breaks for an existing setup); set JARVIS_API_TOKEN to require an
+# "X-Jarvis-Token" header on the sensitive endpoints below. If you enable it,
+# the web UI needs the same value baked in at build time as
+# VITE_JARVIS_API_TOKEN (see web/lib/api.ts) or its requests will 401.
+#
+# Caveat worth knowing: since the frontend is a static SPA served from this
+# same app, the token ends up in the built JS bundle -- this stops another
+# unrelated local process from hitting the API blind, but doesn't stop
+# anything that can load this page itself (same as the page today).
+API_TOKEN = os.environ.get("JARVIS_API_TOKEN")
+AUDIO_FILENAME_RE = re.compile(r"^response-\d{8}-\d{6}\.wav$")
+
+
+def require_token(x_jarvis_token: str = Header(default=None)):
+    if API_TOKEN and x_jarvis_token != API_TOKEN:
+        raise HTTPException(status_code=401, detail="missing or invalid X-Jarvis-Token header")
 
 class QueryRequest(BaseModel):
     question: str
@@ -60,7 +78,7 @@ async def list_voices():
     engine = get_engine()
     return {"voices": engine.list_voices()}
 
-@app.post("/api/ask")
+@app.post("/api/ask", dependencies=[Depends(require_token)])
 async def ask(req: QueryRequest):
     try:
         model, voice = router.resolve(req.tier, voice_override=req.voice)
@@ -99,25 +117,27 @@ async def ask(req: QueryRequest):
         logger.error(f"Query failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/audio/{filename}")
+@app.get("/api/audio/{filename}", dependencies=[Depends(require_token)])
 async def get_audio(filename: str):
+    if not AUDIO_FILENAME_RE.match(filename):
+        raise HTTPException(status_code=400, detail="invalid filename")
     audio_path = Path.home() / ".hermes" / "audio" / filename
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio not found")
     return FileResponse(audio_path, media_type="audio/wav")
 
-@app.get("/api/history")
+@app.get("/api/history", dependencies=[Depends(require_token)])
 async def history(limit: int = 20):
     hermes = hermes_module.HermesCore()
     conversations = hermes.recall(limit)
     hermes.close()
     return {"conversations": conversations}
 
-@app.get("/api/killswitch")
+@app.get("/api/killswitch", dependencies=[Depends(require_token)])
 async def killswitch_status():
     return {"stopped": STOP_FILE.exists()}
 
-@app.post("/api/killswitch")
+@app.post("/api/killswitch", dependencies=[Depends(require_token)])
 async def killswitch_set(req: KillSwitchRequest):
     if req.stopped:
         STOP_FILE.write_text(datetime.now().isoformat() + "\n")
@@ -125,7 +145,7 @@ async def killswitch_set(req: KillSwitchRequest):
         STOP_FILE.unlink(missing_ok=True)
     return {"stopped": STOP_FILE.exists()}
 
-@app.post("/api/transcribe")
+@app.post("/api/transcribe", dependencies=[Depends(require_token)])
 async def transcribe(audio: UploadFile = File(...)):
     wav_bytes = await audio.read()
     text = await asyncio.to_thread(get_stt_engine().transcribe, wav_bytes)

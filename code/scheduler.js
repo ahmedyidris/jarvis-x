@@ -91,17 +91,30 @@ async function runGoal(goal) {
   const a = parseJSONLoose(raw) || { action: 'answer', text: raw.trim() };
 
   // Structural check BEFORE anything else runs, same as agent.js: an invalid
-  // proposal never reaches execute(), gated or not.
-  const invalid = validate(a);
+  // proposal never reaches execute(), gated or not. validate.js's validate()
+  // expects a {type, ...} shape; this schema is flat with the type under
+  // "action" (e.g. {action:"list", path:...}). validate()'s own wrapper (not
+  // editable here -- see PASS1 report) pulls out proposal.action as THE
+  // WHOLE action whenever it's a truthy string, discarding everything else
+  // -- so simply adding a "type" field alongside "action" isn't enough; the
+  // "action" key has to be gone entirely, replaced by "type", before calling
+  // validate() or execute().
+  const { action: _actionType, ...rest } = a;
+  const normalized = { ...rest, type: _actionType };
+  const invalid = validate(normalized);
 
   try {
     // guard() is the real kill switch: every branch below runs inside it, so
     // a STOP that lands between the isStopped() check above and here still
     // catches it -- including the queue write, which is itself an action.
-    guard('scheduler_act', `${goal} -> ${JSON.stringify(a)}`, () => {
-      if (invalid) {
-        logRun({ goal, model, proposed: a, outcome: `rejected: ${invalid}` });
-        observe(goal, JSON.stringify(a), `rejected: ${invalid}`);
+    await guard('scheduler_act', `${goal} -> ${JSON.stringify(a)}`, async () => {
+      // Was `if (invalid)` -- validate() always returns an object (truthy),
+      // so every proposal, valid or not, hit the rejection branch below and
+      // nothing ever ran. Also logged the whole {valid,reason} object instead
+      // of the reason string.
+      if (!invalid.valid) {
+        logRun({ goal, model, proposed: a, outcome: `rejected: ${invalid.reason}` });
+        observe(goal, JSON.stringify(a), `rejected: ${invalid.reason}`);
         return;
       }
       if (!READ_ONLY.has(a.action)) {
@@ -111,7 +124,9 @@ async function runGoal(goal) {
         return;
       }
       let out;
-      try { out = execute(a); }
+      // execute() is async -- this was never awaited, so `out` was a pending
+      // Promise object by the time it got logged/observed below.
+      try { out = await execute(normalized); }
       catch (e) { out = `FAILED: ${e.message}`; }
       logRun({ goal, model, proposed: a, outcome: String(out).slice(0, 500) });
       observe(goal, JSON.stringify(a), String(out).slice(0, 200));

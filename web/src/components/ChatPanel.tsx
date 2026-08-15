@@ -32,6 +32,8 @@ export function ChatPanel({ tier }: { tier: Tier }) {
       const res: AskResponse = await askJarvis(question, tier, speak)
       setMessages((m) => [...m, { role: "jarvis", text: res.response, audio: res.audio }])
       if (res.audio) new Audio(res.audio).play()
+    } catch (e) {
+      setMessages((m) => [...m, { role: "jarvis", text: `Error: ${e instanceof Error ? e.message : "request failed"}` }])
     } finally {
       setBusy(false)
     }

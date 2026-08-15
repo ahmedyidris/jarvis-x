@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { exec: execSync } = require('child_process');
 const { BASE, safePath } = require('./exec.js');
+const { isStopped } = require('./guard.js');
+const { run: runShell } = require('./shell.js');
 
 function reEscape(str) {
   return str.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
@@ -15,34 +16,47 @@ function parseJSONLoose(raw) {
 // ACTUAL EXECUTION ENGINE
 async function execute(action) {
   const { type } = action;
+  // Kill switch: every action type is blocked while the STOP file exists.
+  // This path (agent.js) previously had no kill-switch check at all --
+  // scheduler.js was the only caller that actually respected it.
+  if (isStopped()) {
+    throw new Error('⛔ Kill switch active – action blocked');
+  }
   switch (type) {
     case 'list': {
-      const full = path.resolve(BASE, action.path);
+      const full = safePath(action.path);
       if (!fs.existsSync(full)) return `Directory not found: ${action.path}`;
       const files = fs.readdirSync(full);
       return files.join('\n');
     }
     case 'read': {
-      const full = path.resolve(BASE, action.path);
+      const full = safePath(action.path);
       if (!fs.existsSync(full)) return `File not found: ${action.path}`;
       const content = fs.readFileSync(full, 'utf8');
       return content;
     }
     case 'write': {
-      const full = path.resolve(BASE, action.path);
-      // Ensure directory exists
-      const dir = path.dirname(full);
+      // Reject ".." escapes lexically before creating any directories, then
+      // re-check with safePath (resolves symlinks) once the parent exists,
+      // right before the write itself.
+      const lexical = path.resolve(BASE, action.path);
+      if (lexical !== BASE && !(lexical + path.sep).startsWith(BASE + path.sep)) {
+        throw new Error(`path escapes the jail: ${action.path}`);
+      }
+      const dir = path.dirname(lexical);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const full = safePath(action.path);
       fs.writeFileSync(full, action.content, 'utf8');
       return `Written to ${action.path}`;
     }
     case 'shell': {
-      return new Promise((resolve, reject) => {
-        execSync(action.cmd, { cwd: BASE, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-          if (err) reject(stderr || err.message);
-          else resolve(stdout.trim());
-        });
-      });
+      // Routed through shell.js's allowlisted, shell:false spawner instead of
+      // child_process.exec on a raw string. Behavior change: action.cmd must
+      // now be one of shell.js's ALLOWED commands, and arguments go in
+      // action.args (an array of strings) rather than one shell-parsed string.
+      const r = runShell(action.cmd, action.args || []);
+      if (r.status !== 0) throw new Error(r.stderr || `exited with status ${r.status}`);
+      return r.stdout.trim();
     }
     case 'query': {
       // For now, just echo the query – later can route to model
