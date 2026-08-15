@@ -11,7 +11,12 @@ function createTelemetry(filePath) {
 
   function readAll() {
     if (!fs.existsSync(filePath)) return [];
-    return fs.readFileSync(filePath, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+    // One malformed/partial line (e.g. process killed mid-append) used to
+    // throw and take down the whole read; skip just that line instead,
+    // matching code/memory.js's readObserved().
+    return fs.readFileSync(filePath, 'utf8').trim().split('\n').filter(Boolean)
+      .map(line => { try { return JSON.parse(line); } catch { return null; } })
+      .filter(Boolean);
   }
 
   return { record, readAll };

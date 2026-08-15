@@ -2,10 +2,8 @@
 the hypothesis agent honest instead of trusting its first guess. This is
 the piece that turns "plausible-sounding" into "defensible."
 """
-import json
-import re
-
 from agents.llm import get_llm
+from agents.util import extract_json, format_evidence
 
 PROMPT = """You are a skeptical reviewer. Does the retrieved evidence below
 actually support the hypothesis? Be strict — an unsupported guess should
@@ -21,22 +19,15 @@ Respond with ONLY JSON: {{"grounded": true/false, "score": 1-5, "notes": "short 
 """
 
 
-def _format_evidence(retrieved: list[dict]) -> str:
-    if not retrieved:
-        return "(none retrieved)"
-    return "\n".join(f"- {r['text'][:300]}" for r in retrieved)
-
-
 def critic_node(state: dict) -> dict:
     llm = get_llm()
     resp = llm.invoke(
         PROMPT.format(
             hypothesis=state.get("hypothesis", ""),
-            evidence=_format_evidence(state.get("retrieved", [])),
+            evidence=format_evidence(state.get("retrieved", [])),
         )
     )
-    match = re.search(r"\{.*\}", resp.content, re.DOTALL)
-    critique = json.loads(match.group(0)) if match else {"grounded": False, "score": 1, "notes": "unparseable critic output"}
+    critique = extract_json(resp.content, default={"grounded": False, "score": 1, "notes": "unparseable critic output"})
     return {
         "critique": critique,
         "revisions": state.get("revisions", 0) + 1,
