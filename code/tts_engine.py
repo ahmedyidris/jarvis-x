@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Professional TTS Engine — Piper, Kokoro, MMS-TTS, ElevenLabs"""
-import subprocess, json, tempfile, os, io, wave, sys, shutil
+"""Professional TTS Engine — Piper, Kokoro, MMS-TTS"""
+import subprocess, json, tempfile, os, sys, shutil
 from pathlib import Path
 
 # A bare "piper" resolves via PATH, and on this machine /usr/bin/piper is an
@@ -19,15 +19,7 @@ class TTSEngine:
     def __init__(self):
         self.cache_dir = Path.home() / ".hermes" / "audio_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.elevenlabs_key = os.getenv("ELEVENLABS_API_KEY") or self._load_elevenlabs_key()
-    
-    def _load_elevenlabs_key(self):
-        """Load ElevenLabs API key from ~/.elevenlabs_key"""
-        key_file = Path.home() / ".elevenlabs_key"
-        if key_file.exists():
-            return key_file.read_text().strip()
-        return None
-    
+
     def list_voices(self):
         voices = [
             {"id": "en_us_piper", "name": "English US (Piper)", "lang": "en_US", "quality": "fast"},
@@ -37,9 +29,11 @@ class TTSEngine:
             {"id": "ar_msa_piper", "name": "Arabic MSA (Piper)", "lang": "ar", "quality": "balanced"},
             {"id": "ar_msa_mms", "name": "Arabic MSA (MMS)", "lang": "ar", "quality": "balanced"},
         ]
-        # Add ElevenLabs Egyptian if API key is available
-        if self.elevenlabs_key:
-            voices.append({"id": "ar_eg_elevenlabs", "name": "Arabic Egyptian (ElevenLabs)", "lang": "ar_EG", "quality": "premium"})
+        # ElevenLabs was dropped for Egyptian Arabic (decision made
+        # 2026-08-16): the only voice it was ever used for was a Bella
+        # (English) stand-in, since a real Egyptian voice was blocked by the
+        # free-tier "no library voices via API" restriction -- EGTTS-V0.1
+        # below is the sole Egyptian Arabic option now.
         # Local Egyptian Arabic voice clone (EGTTS-V0.1) — CPU-viable but slow
         # (3-10x real-time + a 90-220s cold load). Async use only, not for
         # live replies. See project memory "egtts-egyptian-arabic-followup"
@@ -49,10 +43,8 @@ class TTSEngine:
         return voices
 
     def synthesize(self, text, voice_id):
-        """Synthesize speech using Piper, Kokoro, ElevenLabs, or EGTTS"""
-        if "elevenlabs" in voice_id:
-            return self._synthesize_elevenlabs(text, voice_id)
-        elif "egtts" in voice_id:
+        """Synthesize speech using Piper, Kokoro, or EGTTS"""
+        if "egtts" in voice_id:
             return self._synthesize_egtts(text)
         elif "kokoro" in voice_id:
             return self._synthesize_kokoro(text, voice_id)
@@ -65,68 +57,6 @@ class TTSEngine:
         async event loop must dispatch this off-thread themselves."""
         from code.egtts_engine import synthesize as egtts_synthesize
         return egtts_synthesize(text)
-    
-    def _synthesize_elevenlabs(self, text, voice_id):
-        """Synthesize using ElevenLabs (cloud)"""
-        if not self.elevenlabs_key:
-            raise ValueError("ELEVENLABS_API_KEY not configured")
-        
-        try:
-            from elevenlabs.client import ElevenLabs
-        except ImportError:
-            raise ImportError("elevenlabs SDK not installed. Run: pip install elevenlabs")
-        
-        client = ElevenLabs(api_key=self.elevenlabs_key)
-
-        # Map our voice_id to a real ElevenLabs voice_id (the opaque hash,
-        # not a display name — "Zahra" doesn't exist on this account).
-        # Bella is a stock English voice; eleven_multilingual_v2 can still
-        # speak Arabic text through it, but the accent won't be authentically
-        # Egyptian.
-        #
-        # A real Egyptian voice was identified on 2026-08-13 — "Fatima -
-        # Smooth Audiobook Narrator" (voice_id vWDp3PLsTWjIhBxxUKh9),
-        # picked from ElevenLabs' shared voice library (language=ar,
-        # accent=egyptian, gender=female) — but swapping it in is BLOCKED:
-        # a live test confirmed ElevenLabs' free tier returns 402
-        # "Free users cannot use library voices via the API" for ANY
-        # shared/community voice_id, regardless of the per-voice
-        # `free_users_allowed` flag (which turned out to describe website
-        # preview eligibility, not API access). Bella, a premade voice,
-        # still works via the API on this account — confirmed live. Swap
-        # in vWDp3PLsTWjIhBxxUKh9 here once the ElevenLabs account is
-        # upgraded off the free tier (Starter plan or above).
-        voice_map = {
-            "ar_eg_elevenlabs": "hpp4J3VqNfWAUOO0d1Us"  # Bella (en, american, female) — see note above
-        }
-        elevenlabs_voice = voice_map.get(voice_id, "hpp4J3VqNfWAUOO0d1Us")
-
-        # Request raw PCM, not the default MP3 — callers (app.py) save this
-        # as .wav and serve it as audio/wav, so the bytes must actually be
-        # WAV, not MP3 wearing a .wav extension.
-        pcm_sample_rate = 24000
-        audio_stream = client.text_to_speech.convert(
-            text=text,
-            voice_id=elevenlabs_voice,
-            model_id="eleven_multilingual_v2",
-            output_format=f"pcm_{pcm_sample_rate}"
-        )
-
-        pcm_buffer = io.BytesIO()
-        for chunk in audio_stream:
-            pcm_buffer.write(chunk)
-        pcm_data = pcm_buffer.getvalue()
-
-        # ElevenLabs' pcm_* formats are headerless 16-bit mono PCM; wrap it
-        # in a real WAV container so the output matches its .wav extension.
-        wav_buffer = io.BytesIO()
-        with wave.open(wav_buffer, "wb") as wav_file:
-            wav_file.setnchannels(1)
-            wav_file.setsampwidth(2)
-            wav_file.setframerate(pcm_sample_rate)
-            wav_file.writeframes(pcm_data)
-
-        return wav_buffer.getvalue()
     
     def _synthesize_kokoro(self, text, voice_id):
         try:
