@@ -126,6 +126,32 @@ same fact twice under two verticals.
 **Outputs:** `output/commodities_macro/commodmacro_<slug>.json`, same
 schema as economic_facts (`duration_seconds` fixed at 25, same reasoning).
 
+## Vertical: geopolitical_risk (Week 4)
+
+Same economic-facts-shaped rule, applied by `geopolitical_risk_generator.py`.
+5 flashpoints: Red Sea/Houthi shipping attacks, Taiwan Strait tensions,
+US-China trade tariffs, Suez Canal traffic, South China Sea tensions.
+
+**Known gap, found while sourcing this vertical (2026-08-16):** the
+anti-invention instruction in the LLM prompt is not foolproof — 2 of the
+first 5 generated outputs invented a specific number not present in the
+sourced fact (a fabricated "40%" for Suez Canal traffic where the source
+only said "60% below 2023" and "16.7% year-over-year"; a fabricated
+"29.5%" for US-China tariffs where the source said "close to 30%"). The
+automated retry/validation in every economic-facts-shaped generator checks
+JSON shape and non-empty required fields, but never checks numeric
+fidelity to the source fact — so this class of error passes validation
+silently. Caught this time by manually reading every generated JSON
+against its source fact before shipping (see `commodities_macro`'s and
+`economic_facts`' generated content: checked the same way retroactively,
+found clean). **Until an automated fidelity check exists, manually spot-
+check every new fact's generated narration/caption against its
+`headline_fact` before treating a batch as done** — do not trust "valid
+JSON with non-empty fields" as equivalent to "factually faithful."
+
+**Outputs:** `output/geopolitical_risk/georisk_<slug>.json`, same schema as
+the other economic-facts-shaped verticals.
+
 ## Directory layout
 ```
 stages/01_source_content/
@@ -134,7 +160,8 @@ stages/01_source_content/
     letters/*.json
     economic_facts/*.json
     commodities_macro/*.json
+    geopolitical_risk/*.json
 ```
-All three `output/` subdirectories are git-tracked (this is sourced
+All four `output/` subdirectories are git-tracked (this is sourced
 *content*, not a regenerable render — see `automation/phase-b/.gitignore`,
 which only ignores stage 02's render output).

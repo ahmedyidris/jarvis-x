@@ -9,7 +9,7 @@ Methodology (ICM) workspace: numbered `stages/` folders, each with its own
 
 Generates short-form (9:16 vertical, ~15-25s) MP4 videos end to end —
 content scripting, then rendering — entirely with local tools (Ollama
-`qwen2.5:3b`, the local TTS engine, MoviePy). Three verticals exist today:
+`qwen2.5:3b`, the local TTS engine, MoviePy). Four verticals exist today:
 
 - **letters** — Week 1. Kids' educational "letter of the day" videos
   (e.g. "A is for Apple!"). LLM-invented content, no factual constraint.
@@ -23,6 +23,19 @@ content scripting, then rendering — entirely with local tools (Ollama
   Deliberately excludes a Fed-rate/FOMC fact since economic_facts already
   carries the most recent one — see commodities_macro_generator.py's
   module docstring.
+- **geopolitical_risk** — Week 4. Same economic-facts-shaped rule, 5
+  flashpoints (Red Sea/Houthi shipping attacks, Taiwan Strait tensions,
+  US-China trade tariffs, Suez Canal traffic, South China Sea tensions).
+  **2 of the first 5 LLM-scripted outputs invented a specific number not
+  present in the sourced fact** (a fabricated "40%" and a fabricated
+  "29.5%") despite the explicit anti-invention instruction — caught by
+  manual review, not by the automated JSON-shape validation (which checks
+  structure, not numeric fidelity), and hand-corrected before shipping. See
+  `geopolitical_risk_generator.py`'s module docstring and
+  `REMAINING_WORK.md` for the full note — this is a real, general gap in
+  the pattern all economic-facts-shaped verticals share, not unique to this
+  one; every vertical's LLM output should be spot-checked against its
+  source fact before shipping until an automated check exists.
 
 ## Pipeline stages
 
@@ -48,7 +61,9 @@ organized by stage:
 - `commodities_macro_generator.py` — commodities_macro vertical, stage 01,
   same shape as economic_facts_generator.py (also calls into stage 02 the
   same way).
-- `video_renderer.py` — stage 02, shared by all three verticals via one
+- `geopolitical_risk_generator.py` — geopolitical_risk vertical, stage 01,
+  same shape as the other economic-facts-shaped verticals.
+- `video_renderer.py` — stage 02, shared by all four verticals via one
   generic `render_video()` function (see `stages/02_render_video/CONTEXT.md`).
 
 ## Persistent reference material
