@@ -77,23 +77,33 @@ class PaperTradingEnv {
     fs.appendFileSync(JOURNAL_FILE, line);
   }
 
-  // Get current P&L (assumes current price = last entry price for simplicity)
-  getPortfolioStats() {
+  // Get current P&L. `currentPrices` (optional): { SYMBOL: currentPrice }.
+  // Previously this always used entryPrice for currentValue too, so it was
+  // subtracted from an identical cost-basis figure and pnl was 0 no matter
+  // what the market actually did. A symbol missing from `currentPrices`
+  // still falls back to its entryPrice (no live price known -> no
+  // unrealized gain/loss can be claimed for it), same as calling this with
+  // no argument at all -- that keeps existing callers working unchanged.
+  getPortfolioStats(currentPrices = {}) {
     let currentValue = this.capital;
     const positionDetails = [];
 
     Object.entries(this.positions).forEach(([symbol, pos]) => {
-      const positionValue = pos.qty * pos.entryPrice;
+      const currentPrice = currentPrices[symbol] ?? pos.entryPrice;
+      const positionValue = pos.qty * currentPrice;
       currentValue += positionValue;
       positionDetails.push({
         symbol,
         qty: pos.qty,
         entryPrice: pos.entryPrice,
-        currentValue: positionValue
+        currentPrice,
+        currentValue: positionValue,
+        pnl: positionValue - (pos.qty * pos.entryPrice)
       });
     });
 
-    const pnl = currentValue - (this.capital + Object.values(this.positions).reduce((sum, p) => sum + p.qty * p.entryPrice, 0));
+    const costBasisValue = this.capital + Object.values(this.positions).reduce((sum, p) => sum + p.qty * p.entryPrice, 0);
+    const pnl = currentValue - costBasisValue;
 
     return {
       startCapital: 10000,
