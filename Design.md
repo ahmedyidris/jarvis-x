@@ -36,7 +36,7 @@ Dark only for v0.1 (see Brand Guidelines — no light theme yet). This is a deli
 
 - Sidebar width: fixed, ~280–320px on desktop; collapses to an overlay drawer below a mobile breakpoint (this is the PWA's mobile-install case from the blueprint's platform table — iOS/Android via PWA).
 - **RTL mirroring:** when the active language is Arabic, the sidebar flips to the right edge and the whole layout mirrors (`dir="rtl"` at the document root, not per-component flips) — this is a structural requirement, not a CSS afterthought, because the sidebar-left assumption is baked into the layout grid above.
-- Kill switch (⛔) is always visible in the sidebar, never nested in a menu — it maps directly to `~/.jarvis-x/STOP` and must be reachable in one tap per the Constitution's "one-tap approval" language.
+- Kill switch (⛔) is always visible in the sidebar, never nested in a menu — it maps directly to `.jarvis-x-STOP` (repo root) and must be reachable in one tap per the Constitution's "one-tap approval" language.
 
 ## Corner radius & shape language
 
