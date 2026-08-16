@@ -69,6 +69,7 @@ async def status():
     return {
         "status": "online",
         "version": "Hermes v1",
+        "conversations": status_data["conversations"],
         "available_tiers": router.valid_tiers,
         "available_voices": voices
     }
