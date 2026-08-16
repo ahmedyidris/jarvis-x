@@ -227,6 +227,23 @@ def render_economic_video(content: dict, output_path: str, voice_id: str = "en_u
     )
 
 
+def render_commodities_macro_video(content: dict, output_path: str, voice_id: str = "en_us_kokoro") -> str:
+    """Render one commodities/macro MP4 (Week 3) from its content dict.
+
+    Same shape as render_economic_video() -- on_screen_text is the
+    headline, same font sizes, same default voice (adult-audience factual
+    content, same tone as Week 2).
+    """
+    return render_video(
+        content,
+        output_path,
+        voice_id=voice_id,
+        headline_field="on_screen_text",
+        headline_font_size=85,
+        caption_font_size=60,
+    )
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python3 video_renderer.py <LETTER>", file=sys.stderr)

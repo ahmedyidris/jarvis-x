@@ -9,7 +9,7 @@ Methodology (ICM) workspace: numbered `stages/` folders, each with its own
 
 Generates short-form (9:16 vertical, ~15-25s) MP4 videos end to end —
 content scripting, then rendering — entirely with local tools (Ollama
-`qwen2.5:3b`, the local TTS engine, MoviePy). Two verticals exist today:
+`qwen2.5:3b`, the local TTS engine, MoviePy). Three verticals exist today:
 
 - **letters** — Week 1. Kids' educational "letter of the day" videos
   (e.g. "A is for Apple!"). LLM-invented content, no factual constraint.
@@ -17,6 +17,12 @@ content scripting, then rendering — entirely with local tools (Ollama
   general adult audience, built around real, WebSearch-sourced facts. The
   local LLM is never allowed to invent the fact itself — see stage 01's
   contract for the exact rule and why it exists.
+- **commodities_macro** — Week 3. Same economic-facts-shaped rule as
+  above, covering 5 core commodities (oil, natural gas, copper, gold,
+  wheat) and 2 US macro data releases (jobs report, CPI inflation).
+  Deliberately excludes a Fed-rate/FOMC fact since economic_facts already
+  carries the most recent one — see commodities_macro_generator.py's
+  module docstring.
 
 ## Pipeline stages
 
@@ -39,8 +45,11 @@ organized by stage:
 - `economic_facts_generator.py` — economic_facts vertical, stage 01 (also
   calls into stage 02's `video_renderer.py` for its `generate_and_render_all()`
   convenience entrypoint).
-- `video_renderer.py` — stage 02, shared by both verticals via one generic
-  `render_video()` function (see `stages/02_render_video/CONTEXT.md`).
+- `commodities_macro_generator.py` — commodities_macro vertical, stage 01,
+  same shape as economic_facts_generator.py (also calls into stage 02 the
+  same way).
+- `video_renderer.py` — stage 02, shared by all three verticals via one
+  generic `render_video()` function (see `stages/02_render_video/CONTEXT.md`).
 
 ## Persistent reference material
 

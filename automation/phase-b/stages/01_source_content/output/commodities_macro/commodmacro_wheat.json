@@ -1,0 +1,10 @@
+{
+  "topic": "Wheat",
+  "headline_fact": "Wheat futures rose to $6.75 a bushel on August 14, 2026 (up 3.37% on the day), close to the two-year high of $7.08 set on July 22, after Ukrainian drone strikes halted operations at Russia's Novorossiysk grain export terminal and consultancy IKAR cut its 2026/27 Russian wheat export forecast.",
+  "source_name": "Trading Economics",
+  "source_url": "https://tradingeconomics.com/commodity/wheat",
+  "narration_script": "According to Trading Economics, wheat futures reached $6.75 per bushel on August 14, up by 3.37% from the previous day, marking a return close to the two-year high of $7.08 set on July 22.",
+  "on_screen_text": "Wheat Futures Reach $6.75 Per Bushel Amid Ukraine-Russia Tensions",
+  "image_prompt": "Harvested wheat field with bin",
+  "duration_seconds": 25
+}

@@ -90,7 +90,7 @@ block). This was observed empirically: qwen2.5:3b occasionally emits
 well-formed JSON that's simply missing the `image_prompt` key outright,
 stochastically, not from truncation.
 
-**New vertical checklist**, if adding a third one under this stage: decide
+**New vertical checklist**, if adding another one under this stage: decide
 up front whether it is letters-shaped (LLM may invent) or
 economic-facts-shaped (LLM may only script around a pre-sourced, traceable
 fact) — do not default to "LLM invents" without an explicit decision, per
@@ -106,6 +106,26 @@ the precedent set by economic_facts.
 a short-form vertical video... comfortably fits a fact + 2-4 sentences of
 narration without feeling rushed or dragging.")
 
+## Vertical: commodities_macro (Week 3)
+
+Same economic-facts-shaped rule as above, applied by
+`commodities_macro_generator.py` — see its module docstring for the
+verbatim rationale and the exact WebSearch queries used to source
+`SOURCED_FACTS` (run 2026-08-16).
+
+**Inputs:** a hardcoded `SOURCED_FACTS` list of 7 entries: 5 core
+commodities (crude oil, natural gas, copper, gold, wheat) and 2 US macro
+data releases (July 2026 jobs report, July 2026 CPI inflation).
+
+**Deliberately excluded:** a Fed funds rate / FOMC decision fact.
+economic_facts_generator.py's `SOURCED_FACTS` already carries the most
+recent one (the July 29, 2026 hold — there was no August FOMC meeting, the
+next is September 15-16). Adding the same event here would just be the
+same fact twice under two verticals.
+
+**Outputs:** `output/commodities_macro/commodmacro_<slug>.json`, same
+schema as economic_facts (`duration_seconds` fixed at 25, same reasoning).
+
 ## Directory layout
 ```
 stages/01_source_content/
@@ -113,8 +133,8 @@ stages/01_source_content/
   output/
     letters/*.json
     economic_facts/*.json
+    commodities_macro/*.json
 ```
-Both `letters/` and `economic_facts/` under `output/` are git-tracked (this
-is sourced *content*, not a regenerable render — see
-`automation/phase-b/.gitignore`, which only ignores stage 02's render
-output).
+All three `output/` subdirectories are git-tracked (this is sourced
+*content*, not a regenerable render — see `automation/phase-b/.gitignore`,
+which only ignores stage 02's render output).

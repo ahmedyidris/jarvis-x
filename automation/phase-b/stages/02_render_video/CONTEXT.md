@@ -54,6 +54,7 @@ MoviePy/TTS composition logic is never forked per-vertical:
 See `_config/voices.md` for the full table and rationale. Summary:
 - letters → `en_us_piper` (fast, kid-friendly)
 - economic_facts → `en_us_kokoro` (higher-quality, adult-audience tone)
+- commodities_macro → `en_us_kokoro` (same adult-audience tone as economic_facts)
 
 ## Per-vertical wrapper differences (the only things that vary)
 
@@ -61,23 +62,26 @@ See `_config/voices.md` for the full table and rationale. Summary:
 |---|---|---|---|---|
 | letters (`render_letter_video`) | `"letter"` (single glyph) | 700 | 90 | `en_us_piper` |
 | economic_facts (`render_economic_video`) | `"on_screen_text"` (short phrase) | 85 | 60 | `en_us_kokoro` |
+| commodities_macro (`render_commodities_macro_video`) | `"on_screen_text"` (short phrase) | 85 | 60 | `en_us_kokoro` |
 
 A new vertical adds one more thin wrapper function choosing these four
 values — it does not touch `render_video()` itself.
 
 ## Outputs
 
-`output/letters/letter_<LETTER>.mp4` or `output/economic_facts/econ_<slug>.mp4`.
-This directory is git-ignored (regenerable from stage 01's JSON at any
-time via `video_renderer.py` — see `automation/phase-b/.gitignore`).
+`output/letters/letter_<LETTER>.mp4`, `output/economic_facts/econ_<slug>.mp4`,
+or `output/commodities_macro/commodmacro_<slug>.mp4`. This directory is
+git-ignored (regenerable from stage 01's JSON at any time via
+`video_renderer.py` — see `automation/phase-b/.gitignore`).
 
 ## Directory layout
 ```
 stages/02_render_video/
-  CONTEXT.md          # this file
+  CONTEXT.md              # this file
   output/
-    letters/*.mp4         # gitignored, regenerable
-    economic_facts/*.mp4  # gitignored, regenerable
+    letters/*.mp4              # gitignored, regenerable
+    economic_facts/*.mp4       # gitignored, regenerable
+    commodities_macro/*.mp4    # gitignored, regenerable
 ```
 
 ## Verifying a render
