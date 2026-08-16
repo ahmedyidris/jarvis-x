@@ -53,13 +53,13 @@ Every action logged to `logs/actions.jsonl`:
 Logs are never edited, only appended. Jarvis cannot delete history.
 
 ## VI. KILL SWITCH
-Ahmed may create `~/.jarvis-x/STOP` at any time. Upon detection:
+Ahmed may create `.jarvis-x-STOP` (repo root) at any time. Upon detection:
 1. Jarvis halts within 10 seconds
 2. No new actions queued
 3. Systemd service stops
 4. All running processes exit cleanly
 
-Resume: `rm ~/.jarvis-x/STOP && systemctl start jarvis-core`
+Resume: `rm .jarvis-x-STOP && supervisord restart`
 
 ## VII. AMENDMENTS
 Changes to this Constitution require:
