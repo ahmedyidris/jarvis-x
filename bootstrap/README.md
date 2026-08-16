@@ -52,11 +52,11 @@ those don't usually drift.
 
 ## What this does NOT restore (by design)
 
-- **Secrets** — `~/.jarvis-x/.env` and `~/.elevenlabs_key` are never committed
-  or backed up anywhere. Copy `bootstrap/env.template` to `~/.jarvis-x/.env`
-  and fill in real values by hand. (`.jarvis-x/.env` is also Read+Edit-denied
-  for Claude Code sessions, per the guardrails re-applied in step 8 — an
-  agent can't read these back out even after you fill them in.)
+- **Secrets** — `~/.jarvis-x/.env` is never committed or backed up anywhere.
+  Copy `bootstrap/env.template` to `~/.jarvis-x/.env` and fill in real values
+  by hand. (`.jarvis-x/.env` is also Read+Edit-denied for Claude Code
+  sessions, per the guardrails re-applied in step 8 — an agent can't read
+  these back out even after you fill them in.)
 - **`models/`** (340MB, gitignored) — whatever pipeline generated these needs
   to be re-run; not captured here.
 - **`node_modules/`** (root + `web/`) — reinstalled fresh by `npm install`,

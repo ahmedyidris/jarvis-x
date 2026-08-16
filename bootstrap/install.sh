@@ -92,7 +92,6 @@ cat <<'EOF'
 ==> Install script done. Still needs a human:
   1. Fill in secrets: mkdir -p ~/.jarvis-x && cp bootstrap/env.template ~/.jarvis-x/.env
      then edit ~/.jarvis-x/.env by hand (never committed/backed up on purpose).
-     Also recreate ~/.elevenlabs_key if you use ElevenLabs TTS.
   2. models/ (340MB, gitignored) is NOT restored by this script — regenerate
      per whatever pipeline produced it.
   3. Verify: curl -s localhost:8000/api/killswitch
