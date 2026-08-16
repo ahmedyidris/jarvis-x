@@ -44,6 +44,10 @@ Three verticals existed (`letters`, `economic_facts`, `commodities_macro`), each
 - Kill switch (`guard.js`'s `isStopped()`) and `scheduler.js`'s respect for it — **already fixed and verified** this session (`5079aab`: `lib.js`'s `execute()` now checks it for every action type; `scheduler.js`'s gate bug fixed same commit). Re-verified working in this session's Phase 4 (see below).
 - Broader sweep for other "always returns a constant/0/null regardless of input" bugs: see Phase 4 findings below.
 
+## Resolved after this doc was written
+
+- `app.py`'s `/api/ask` not checking the kill switch (was flagged above and in `SESSION_FINAL_REPORT.md`'s "what remains" #1) — **resolved 2026-08-16**: `/api/ask` now returns `503` when `.jarvis-x-STOP` exists. Decision: `CONSTITUTION.md`'s kill-switch guarantee carves out no exception for chat, and a silently-excluded path undermines the whole point of a "one tap, everything stops" kill switch. Verified live (baseline works, switch blocks, clearing restores it). See `docs/architecture.md`'s kill-switch section.
+
 ## Explicitly corrected assumption from the original task brief
 
 The originating instructions assumed `code/router.py` might be "genuinely dead" and asked to kill it if so. **It is not dead** — confirmed via `CONTEXT.md` (already-accurate reference doc) and direct read of `app.py`: `router.py` is the actual, live routing file the real web-chat production path (`app.py` → `/api/ask`) imports and uses (100% local Ollama, `local`/`quality` tiers). This is a *different file* from `code/router.js` (the JS agent-autonomy path, Gemini-tiered) — same name pattern, different systems, explicitly called out in `CONTEXT.md` as "do not conflate." Not touched.

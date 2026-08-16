@@ -81,6 +81,14 @@ async def list_voices():
 
 @app.post("/api/ask", dependencies=[Depends(require_token)])
 async def ask(req: QueryRequest):
+    # Kill switch: CONSTITUTION.md's guarantee ("Jarvis halts... all running
+    # processes exit cleanly") carves out no exception for chat, and
+    # /api/killswitch already checks this exact file -- an /api/ask that
+    # kept answering while the switch was set would be a silent exception to
+    # what's otherwise treated as an unconditional stop everywhere else in
+    # this codebase (code/guard.js, code/lib.js's execute()).
+    if STOP_FILE.exists():
+        raise HTTPException(status_code=503, detail="Kill switch active — Jarvis is halted")
     try:
         model, voice = router.resolve(req.tier, voice_override=req.voice)
         hermes = hermes_module.HermesCore()
