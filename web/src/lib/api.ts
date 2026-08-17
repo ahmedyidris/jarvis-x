@@ -20,9 +20,14 @@ export interface HistoryEntry {
 
 // Only set when the backend has JARVIS_API_TOKEN configured (see app.py) --
 // unset by default, so this is a no-op until you opt in on both sides.
-const API_TOKEN = import.meta.env.VITE_JARVIS_API_TOKEN as string | undefined
+// Exported: the native browser WebSocket API can't send custom headers, so
+// dashboard-api.ts's WebSocket connection needs this to pass the token as
+// a query param instead (app.py's /ws/dashboard accepts either).
+export const API_TOKEN = import.meta.env.VITE_JARVIS_API_TOKEN as string | undefined
 
-async function apiFetch(url: string, opts: RequestInit = {}): Promise<Response> {
+// Exported so other modules (e.g. dashboard-api.ts) reuse the same
+// token/error-handling behavior instead of duplicating it.
+export async function apiFetch(url: string, opts: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = { ...(opts.headers as Record<string, string> | undefined) }
   if (API_TOKEN) headers["X-Jarvis-Token"] = API_TOKEN
   const res = await fetch(url, { ...opts, headers })

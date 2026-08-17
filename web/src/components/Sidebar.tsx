@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Cpu, History, OctagonX, Radio } from "lucide-react"
+import { Cpu, Gauge, History, MessageSquare, OctagonX, Radio } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -8,9 +8,11 @@ import { getHistory, getKillswitch, setKillswitch, type HistoryEntry, type Tier 
 interface SidebarProps {
   tier: Tier
   onTierChange: (tier: Tier) => void
+  view: "chat" | "dashboard"
+  onViewChange: (view: "chat" | "dashboard") => void
 }
 
-export function Sidebar({ tier, onTierChange }: SidebarProps) {
+export function Sidebar({ tier, onTierChange, view, onViewChange }: SidebarProps) {
   const [stopped, setStopped] = useState(false)
   const [history, setHistory] = useState<HistoryEntry[]>([])
 
@@ -32,6 +34,28 @@ export function Sidebar({ tier, onTierChange }: SidebarProps) {
         <span className="font-mono-hud text-sm font-semibold tracking-[0.08em] text-foreground">
           JARVIS X
         </span>
+      </div>
+
+      {/* Chat / Dashboard view switcher — Ctrl+G/Ctrl+R (App.tsx) jump here automatically */}
+      <div className="flex gap-1.5">
+        <Button
+          size="sm"
+          variant={view === "chat" ? "default" : "outline"}
+          className="flex-1 rounded-[3px] font-mono-hud text-xs"
+          onClick={() => onViewChange("chat")}
+        >
+          <MessageSquare className="size-3.5" aria-hidden="true" />
+          Chat
+        </Button>
+        <Button
+          size="sm"
+          variant={view === "dashboard" ? "default" : "outline"}
+          className="flex-1 rounded-[3px] font-mono-hud text-xs"
+          onClick={() => onViewChange("dashboard")}
+        >
+          <Gauge className="size-3.5" aria-hidden="true" />
+          Dashboard
+        </Button>
       </div>
 
       {/* Model tier */}
