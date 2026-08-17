@@ -1,0 +1,47 @@
+# Single service, on purpose -- see Dockerfile's top comment for why
+# Ollama isn't a separate compose service (code/local.js, code/vision.js,
+# and hermes.py all call Ollama at a hardcoded localhost address with no
+# OLLAMA_HOST override, so a sibling "ollama" service would be
+# unreachable by hostname without modifying those files).
+services:
+  jarvis-x:
+    build: .
+    ports:
+      - "8000:8000"
+      # Only expose 11434 if you actually want to hit Ollama directly for
+      # debugging -- otherwise this line can be removed; hermes-api talks
+      # to it over the container's own loopback regardless.
+      - "11434:11434"
+    volumes:
+      # Named volume: Ollama's model store (~8.6GB) persists across
+      # container recreation instead of re-downloading every time.
+      - ollama-models:/root/.ollama
+      # Bind mounts: things that should survive a container rebuild and
+      # stay visible/editable from the host.
+      - ./logs:/app/logs
+      - ./memory:/app/memory
+      - ./models:/app/models
+      # Secrets: never baked into the image (see bootstrap/README.md's
+      # "what this does NOT restore" section for why) -- mount the real
+      # file from the host. Create it first: cp bootstrap/env.template
+      # ~/.jarvis-x/.env, fill in real values, then point this at it.
+      - ${HOME}/.jarvis-x/.env:/root/.jarvis-x/.env:ro
+    env_file:
+      - ${HOME}/.jarvis-x/.env
+    restart: unless-stopped
+    healthcheck:
+      # /api/status, not /api/killswitch: the latter is auth-gated by
+      # JARVIS_API_TOKEN (recommended on for this Docker deployment, see
+      # docker/supervisord.conf's comment) -- a plain curl with no token
+      # would get 401 and Docker would report the container unhealthy even
+      # when it's actually fine. /api/status is unauthenticated and
+      # confirms more anyway (Hermes, router, and the TTS engine all
+      # responding, not just "the port is open").
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s  # model pulls on first start can take a while
+
+volumes:
+  ollama-models:
