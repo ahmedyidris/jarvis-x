@@ -14,11 +14,17 @@ services:
     image: ghcr.io/ahmedyidris/jarvis-x:latest
     build: .
     ports:
-      - "8000:8000"
-      # Only expose 11434 if you actually want to hit Ollama directly for
-      # debugging -- otherwise this line can be removed; hermes-api talks
-      # to it over the container's own loopback regardless.
-      - "11434:11434"
+      # Host port 8001, not 8000: this same machine's bare-metal deployment
+      # (config/supervisord.conf) already has a live hermes-api bound to
+      # 127.0.0.1:8000 -- mapping to 8001 lets this container run
+      # side-by-side for verification without touching the live service.
+      # Container-internal port is still 8000 (app.py's own bind, unaffected).
+      - "8001:8000"
+      # 11434 dropped entirely: the host's bare-metal Ollama already owns
+      # 127.0.0.1:11434, and this container's hermes-api talks to its own
+      # internal Ollama over the container's own loopback regardless --
+      # exposing 11434 to the host was only ever for optional direct
+      # debugging (see git history), never a functional requirement.
     volumes:
       # Bind-mount the HOST's real Ollama model store (~8.1GB, standard
       # ~/.ollama layout, world-readable) instead of a fresh named volume --
