@@ -1,6 +1,13 @@
 name: test
 
-on: [push, pull_request]
+# Runs on every push/PR to master. Scoped deliberately to what's actually
+# fair to run on a clean GitHub-hosted runner -- see "Portable vs. local
+# infra" below before adding anything here.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 
 jobs:
   js-suite:
@@ -11,9 +18,27 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
-      - name: Run portable test suite
+      # code/exec.js's BASE constant resolves as path.resolve(HOME,
+      # 'jarvis-x') -- correct for the real deployment (the app genuinely
+      # lives at ~/jarvis-x on the dev machine), but actions/checkout puts
+      # the code at $GITHUB_WORKSPACE, not $HOME/jarvis-x, so BASE points
+      # nowhere on a hosted runner ("ENOENT ... /home/runner/jarvis-x").
+      # Symlinking is simpler and less fragile than overriding HOME for
+      # the job (which would also affect npm/other tooling's own HOME use).
+      - name: Symlink $HOME/jarvis-x -> checkout dir (matches exec.js's BASE)
+        run: ln -sfn "$GITHUB_WORKSPACE" "$HOME/jarvis-x"
+      # Portable vs. local infra: jest-runner.js runs every code/test-*.js
+      # indiscriminately, but 5 of the 11 (test-kokoro.js, test-vision.js,
+      # test-voice.js, test-voice-interaction.js, test-voice-router.js) call
+      # real local Ollama/Piper/Kokoro binaries and downloaded model files
+      # that don't exist on a clean runner -- they'd fail here every single
+      # time through no fault of the code, which is worse than not running
+      # CI at all (a perpetually-red badge nobody trusts). Run only the
+      # 6 that are genuinely self-contained instead.
+      - name: Run portable test suite (excludes voice/vision tests needing local Ollama/Piper/Kokoro)
         run: |
           for f in test-exec test-guard test-helper test-scheduler test-shell test-validate; do
+            echo "▶ code/$f.js"
             node "code/$f.js"
           done
 
