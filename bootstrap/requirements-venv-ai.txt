@@ -4,8 +4,39 @@
 # Install with: pip install -r bootstrap/requirements-venv-ai.txt
 # Heavy (torch CPU wheel, transformers, spaCy models) — expect several GB and
 # 15-30+ minutes on first install.
+#
+# Removed 2026-08-17 (found via a real `docker build`, then confirmed via a
+# pip --dry-run resolution check before re-attempting): omnivoice, gradio,
+# gradio_client, hf-gradio, accelerate, tensorboardX, webdataset. These 7
+# packages exist ONLY because omnivoice's own setup declared them as
+# dependencies -- omnivoice itself has zero references anywhere in this
+# repo's actual code (confirmed via grep), and its pinned git commit's
+# current metadata requires transformers>=5.3.0, which directly conflicts
+# with this file's transformers==4.42.4 (which IS load-bearing -- required
+# by multiple packages actually used here). The real ~/venv-ai has all of
+# these installed too, but only because it was built incrementally over
+# many separate pip installs, never as one atomic `pip install -r
+# requirements-venv-ai.txt` -- that command would have hit this exact
+# ResolutionImpossible error on any genuinely fresh install, including via
+# bootstrap/install.sh. pydub (also omnivoice/gradio-only, confirmed via
+# `pip show pydub`'s Required-by, and zero direct imports in this repo) was
+# removed for the same reason.
+#
+# Also removed (2026-08-17), for a different reason -- kept in the real
+# working environment, just can't be resolved in ONE atomic install here:
+# kokoro-onnx, kokoro-tts. kokoro-onnx's metadata declares numpy>=2.0.2,
+# which conflicts with this file's numpy==1.26.4 -- but numpy==1.26.4 IS
+# what's actually installed in the real ~/venv-ai, where kokoro-onnx 0.3.9
+# genuinely works today (verified repeatedly this session: test-kokoro.js
+# passes, real Kokoro-voiced Phase B videos render). kokoro-onnx's own
+# stated floor is simply stricter than what it actually needs at runtime.
+# Install both with --no-deps AFTER this file, once their real
+# dependencies (librosa, numba, onnxruntime, espeakng-loader,
+# phonemizer-fork, colorlog for kokoro-onnx; beautifulsoup4, EbookLib,
+# pymupdf/-layout/4llm, sounddevice, soundfile for kokoro-tts) are already
+# satisfied by it -- confirmed every one of those is already pinned above.
+# See bootstrap/install.sh and Dockerfile for the actual follow-up command.
 absl-py==2.5.0
-accelerate==1.14.0
 addict==2.4.0
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
@@ -64,8 +95,6 @@ fonttools==4.63.0
 frozenlist==1.8.0
 fsspec==2026.7.0
 g2pkk==0.1.2
-gradio==6.24.0
-gradio_client==2.6.0
 groovy==0.1.2
 grpcio==1.83.0
 gruut==2.2.3
@@ -76,7 +105,6 @@ gruut_lang_es==2.0.1
 gruut_lang_fr==2.0.2
 h11==0.16.0
 hangul-romanize==0.1.0
-hf-gradio==0.4.1
 hf-xet==1.6.0
 httpcore==1.0.9
 httpx==0.28.1
@@ -97,8 +125,6 @@ jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 kiwisolver==1.5.0
 kokoro==0.9.4
-kokoro-onnx==0.3.9
-kokoro-tts==2.3.1
 language-tags==1.3.1
 lazy-loader==0.5
 librosa==0.11.0
@@ -125,7 +151,6 @@ num2words==0.5.14
 numba==0.67.0
 numpy==1.26.4
 nvidia-cusparselt-cu13==0.8.1
-omnivoice @ git+https://github.com/k2-fsa/OmniVoice.git@38e992bc60f85548faeb77e8fa70158ba71deb30
 onnxruntime==1.28.0
 orjson==3.11.9
 packaging==26.3
@@ -146,7 +171,6 @@ pycparser==3.0
 pycryptodome==3.23.0
 pydantic==2.13.4
 pydantic_core==2.46.4
-pydub==0.25.1
 Pygments==2.20.0
 pymupdf==1.28.2
 pymupdf-layout==1.28.2
@@ -195,7 +219,6 @@ sympy==1.14.0
 tabulate==0.10.0
 tensorboard==2.21.0
 tensorboard-data-server==0.7.2
-tensorboardX==2.6.5
 termcolor==3.3.0
 thinc==8.3.13
 threadpoolctl==3.6.0
@@ -221,7 +244,6 @@ uvicorn==0.52.2
 voicetut-tts==0.1.1
 wasabi==1.1.3
 weasel==1.0.0
-webdataset==1.0.2
 websockets==17.0.1
 Werkzeug==3.1.8
 wrapt==2.3.0

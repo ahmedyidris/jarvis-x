@@ -13,9 +13,14 @@ services:
       # to it over the container's own loopback regardless.
       - "11434:11434"
     volumes:
-      # Named volume: Ollama's model store (~8.6GB) persists across
-      # container recreation instead of re-downloading every time.
-      - ollama-models:/root/.ollama
+      # Bind-mount the HOST's real Ollama model store (~8.1GB, standard
+      # ~/.ollama layout, world-readable) instead of a fresh named volume --
+      # a named volume starts empty, so entrypoint.sh's model pull would
+      # otherwise re-download every model that's already sitting right
+      # here, doubling real disk usage for no reason. Not :ro: if a future
+      # model gets added to entrypoint.sh's pull list, the container needs
+      # to be able to write it back to the same real store.
+      - /usr/share/ollama/.ollama:/root/.ollama
       # Bind mounts: things that should survive a container rebuild and
       # stay visible/editable from the host.
       - ./logs:/app/logs
@@ -41,7 +46,4 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 120s  # model pulls on first start can take a while
-
-volumes:
-  ollama-models:
+      start_period: 30s  # models are bind-mounted from the host, already present -- no real pull wait

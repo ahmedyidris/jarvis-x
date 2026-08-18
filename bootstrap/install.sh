@@ -51,6 +51,12 @@ fi
 "$HOME/venv-ai/bin/pip" install \
   --extra-index-url https://download.pytorch.org/whl/cpu \
   -r "$REPO_DIR/bootstrap/requirements-venv-ai.txt"
+# kokoro-onnx/-tts install separately, --no-deps: kokoro-onnx's metadata
+# declares numpy>=2.0.2, conflicting with numpy==1.26.4 above -- but that's
+# stricter than what it actually needs at runtime (see the comment in
+# requirements-venv-ai.txt). Their real deps are all satisfied by the
+# install above already.
+"$HOME/venv-ai/bin/pip" install --no-deps kokoro-onnx==0.3.9 kokoro-tts==2.3.1
 
 echo "==> [5/9] Node deps (root + web/) + frontend build"
 npm install --prefix "$REPO_DIR"

@@ -38,6 +38,14 @@ COPY --from=node-stage /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
   && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
+# zstd: ollama's own install.sh hard-requires it for extraction (confirmed
+# via a real build attempt -- "ERROR: This version requires zstd for
+# extraction" otherwise). Kept as its own RUN rather than folded into the
+# earlier apt-get line above, so adding it doesn't bust that layer's cache
+# and force re-installing ffmpeg's large dependency tree on every rebuild.
+RUN apt-get update && apt-get install -y --no-install-recommends zstd \
+  && rm -rf /var/lib/apt/lists/*
+
 # Ollama itself (the binary only -- models are pulled at container start
 # into a volume-backed directory, not baked into this image layer, so a
 # rebuild doesn't re-download 8.6GB every time).
@@ -46,13 +54,22 @@ RUN curl -fsSL https://ollama.com/install.sh | sh
 WORKDIR /app
 
 # Python deps first (changes less often than app code -- better layer
-# caching). Matches bootstrap/install.sh's real install command exactly.
+# caching). Matches bootstrap/install.sh's real install command, plus
+# --no-cache-dir: confirmed via a real build attempt that pip's build-time
+# wheel cache (downloaded .whl + unpacked site-packages coexisting
+# simultaneously) roughly doubles peak disk usage during this one step --
+# went from 11GB free to under 1.5GB and triggered a disk-safety abort.
+# The cache serves no purpose in a throwaway Docker layer anyway (not
+# reused across separate `docker build` invocations without BuildKit cache
+# mounts, which this Dockerfile doesn't use) -- disabling it costs nothing
+# functionally.
 COPY bootstrap/requirements-venv-ai.txt bootstrap/requirements-venv-ai.txt
 ENV VENV_PATH=/root/venv-ai
 RUN python3 -m venv "$VENV_PATH" \
-  && "$VENV_PATH/bin/pip" install --upgrade pip \
-  && "$VENV_PATH/bin/pip" install --extra-index-url https://download.pytorch.org/whl/cpu \
-       -r bootstrap/requirements-venv-ai.txt
+  && "$VENV_PATH/bin/pip" install --no-cache-dir --upgrade pip \
+  && "$VENV_PATH/bin/pip" install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+       -r bootstrap/requirements-venv-ai.txt \
+  && "$VENV_PATH/bin/pip" install --no-cache-dir --no-deps kokoro-onnx==0.3.9 kokoro-tts==2.3.1
 
 # Node deps (root workspace + packages/model-gateway via the workspaces
 # field) -- packages/ must be copied before `npm ci` runs: the root
