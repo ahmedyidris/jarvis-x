@@ -5,6 +5,13 @@
 # unreachable by hostname without modifying those files).
 services:
   jarvis-x:
+    # image + build together: `docker-compose up` uses the pulled GHCR
+    # image directly if present (see .github/workflows/docker-build.yml --
+    # built there because this repo's own dev machine hits a real disk
+    # ceiling during the pip-install layer's commit step); `docker-compose
+    # build` / `up --build` still works locally from the same Dockerfile
+    # if you ever want to build here instead.
+    image: ghcr.io/ahmedyidris/jarvis-x:latest
     build: .
     ports:
       - "8000:8000"
