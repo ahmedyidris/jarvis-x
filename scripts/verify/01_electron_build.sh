@@ -35,7 +35,7 @@ run_once() {
 }
 
 run_once "initial launch"
-pkill -f "electron \." 2>/dev/null || true
+pkill -f "$(pwd)/electron/node_modules/electron/dist/electron" 2>/dev/null || true
 sleep 1
 run_once "relaunch after kill (restart survival)"
 
