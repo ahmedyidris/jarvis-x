@@ -40,3 +40,52 @@ A post-implementation review then found two more real gaps, fixed in a follow-up
 | geopolitical_risk | ✅ done, 596.0s | 5 files regenerated (Red Sea, Taiwan Strait, US-China tariffs, Suez Canal, South China Sea) | ✅ (all 5) | ✅ 5/5 mp4s exist, 371,109–584,842 bytes | ⚠️ — 4/5 clean (numbers match their `headline_fact` exactly: 6 deaths, 150 transits/16.7%, etc.); **1/5 has a real fidelity defect**: `georisk_us-china-trade-tariffs.json`'s `narration_script` reads "a 90-day pause was placed on increasing tariffs on Chinese goods **from 125% to 125%**" — logically incoherent (states no change happened) and misstates the source, which says the pause prevents the tariff from *rising to* 125% (implying it's currently below that). This is the same class of bug `REMAINING_WORK.md` P4 already flagged (LLM garbling a real number under an anti-invention prompt) — not a new fabricated digit this time, but a garbled restatement of an existing one that changes its meaning. **Confirms P4's gap is still open**: the shared retry/validation logic checks JSON shape and non-empty fields only, still has no numeric/logical-fidelity check, so this passed silently and would have shipped un-reviewed. Verbatim evidence preserved in `scripts/verify/output/02_verticals_output.json`'s `georisk_us-china-trade-tariffs.json` entry's `narration_script_excerpt`. |
 
 **Result:** ⚠️ (4/4 verticals produced real, on-disk, valid-JSON output with working rendered video — the core claim under test — but manual review caught a live recurrence of the P4 numeric-fidelity gap in 1 of geopolitical_risk's 5 facts. Not something to fix in this task per the brief; flagged here, with durable verbatim evidence in the raw results JSON, and left as an open item for `REMAINING_WORK.md`.)
+
+## Task 3: E2E flow test (query → decision → content+TTS+video → API response)
+
+Ran `scripts/verify/03_e2e_flow_test.py` against the `letters` vertical (the
+one vertical with a real decision + separate render step).
+
+Same environment fix carried forward from Task 2: since `hermes-api` actually
+runs `uvicorn app:app` with `directory=/home/ahmedyidris/jarvis-x` (the main
+checkout, per `config/supervisord.conf`), the script pins `LIVE_ROOT` to
+`/home/ahmedyidris/jarvis-x` explicitly rather than deriving `CONTENT_DIR`/
+`RENDER_DIR` from the verify script's own location — the latter would
+silently point at this worktree instead of where generated content and
+video actually land.
+
+The run exercised the full path end to end: `POST /api/dashboard/generate/letters`
+(agent decision — `_next_letter_to_generate()` picked the next un-generated
+letter, `E`) → `content_generator.py E` (content JSON) → separate render step
+(TTS narration baked into an mp4) → polled `/api/dashboard/overview` until the
+job reported `done` (75s) → verified the new content file's shape, verified
+the rendered video exists with a real audio track via `ffprobe`, then read
+both the content JSON and the video back through the dashboard API
+(`GET /api/dashboard/content/letters/letter_E.json`,
+`GET /api/dashboard/video/letters/letter_E.mp4`).
+
+```
+=== 1. Baseline state before triggering generation ===
+
+=== 2. Agent decision: POST /api/dashboard/generate/letters ===
+
+=== 3. Poll until content+video render completes (up to 340s) ===
+job done in 75s
+
+=== 4. Identify which letter this run generated ===
+generated letter: E
+
+=== 5. Content artifact: valid JSON, expected shape ===
+
+=== 6. Video artifact: exists, non-trivial size, has an audio track (TTS) ===
+video ok: 161555 bytes, 1 audio stream(s)
+
+=== 7. API response: read the artifact back through the dashboard API ===
+
+=== E2E FLOW: PASS (query -> decision -> content+TTS+video -> API response) ===
+```
+
+**Result:** ✅ (query → agent decision → content generation → TTS-narrated
+video render → API-served response, confirmed end to end against real
+processes in a single run; letter `E`, video `letter_E.mp4`, 161,555 bytes,
+1 audio stream, job completed in 75s — well inside the 340s budget)
