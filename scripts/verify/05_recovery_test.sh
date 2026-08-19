@@ -21,12 +21,21 @@ echo "--- 5.1 engage kill switch (against live main checkout: $MAIN_CHECKOUT) --
 (cd "$MAIN_CHECKOUT" && node code/stop.js) | tee -a "$LOG"
 (cd "$MAIN_CHECKOUT" && node code/stop.js status) | tee -a "$LOG"   # expect STOPPED
 
+# Safety net: from here on, the live main checkout's kill switch is engaged.
+# Guarantee it gets disengaged on ANY exit path (normal completion, an
+# assertion failure below, or set -euo pipefail aborting on an unexpected
+# error) so a bug in this script can never leave the live system halted.
+# Silenced (both streams) since step 5.4 already disengages explicitly and
+# logs that on the success path -- this trap firing there too is a harmless,
+# idempotent no-op (node code/stop.js off uses rmSync force:true) and should
+# not appear as a second, confusing "disengage" line in the log.
+trap '(cd "$MAIN_CHECKOUT" && node code/stop.js off) >/dev/null 2>&1 || true' EXIT
+
 echo "--- 5.2 confirm the API refuses a generate request while stopped ---" | tee -a "$LOG"
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/api/dashboard/generate/letters)
 echo "generate/letters while stopped -> HTTP $CODE" | tee -a "$LOG"
 if [ "$CODE" != "503" ]; then
   echo "FAIL: expected 503, got $CODE" | tee -a "$LOG"
-  (cd "$MAIN_CHECKOUT" && node code/stop.js off)
   exit 1
 fi
 
