@@ -89,3 +89,18 @@ video ok: 161555 bytes, 1 audio stream(s)
 video render → API-served response, confirmed end to end against real
 processes in a single run; letter `E`, video `letter_E.mp4`, 161,555 bytes,
 1 audio stream, job completed in 75s — well inside the 340s budget)
+
+---
+
+## Task 4: Failure-mode tests
+
+Ran `scripts/verify/04_failure_modes.py`. Raw results: `scripts/verify/output/04_failure_modes.json`.
+
+| Failure mode | Graceful? | Notes |
+|---|---|---|
+| Ollama down | ❌ | Real `supervisorctl stop ollama`, then `POST /api/ask`. Returned **HTTP 200**, not 500/503: `{"question":"ping","response":"Error: ","tier":"local","model":"qwen2.5:3b","voice":null,"audio":null}`. No traceback leaked, no crash — `hermes.py`'s `ask()` catches the failed `curl` subprocess (`returncode != 0`) and returns `f"Error: {result.stderr}"` as ordinary answer text with a 200 status; `stderr` was empty here because the underlying `curl` call uses `-s` (silent), which also suppresses curl's own connection-refused message. Net effect: a caller checking only the HTTP status code cannot detect this failure — it looks like a successful answer whose text happens to be `"Error: "`. Ollama was restarted immediately after in the script's `finally` block and confirmed back up (new pid, fresh `RUNNING` state, and a live follow-up query returned a real answer, `"OK"`). |
+| Malformed input | ✅ | `POST /api/ask` with `question` omitted → HTTP 422 with a proper pydantic validation body (`{"detail":[{"type":"missing","loc":["body","question"],"msg":"Field required",...}]}`). No crash. |
+| Ollama call timeout | ✅ | Verified by reading `hermes.py`, not reproduced live (would need an artificially slow model to force a real 120s hang): line 67 bounds the `curl`→Ollama subprocess call at `timeout=120`; on `TimeoutExpired` (line 91-92) it returns `"Error: Query timeout (120s)"` as the answer text over a normal HTTP 200 — no hang, no 500. |
+| Disk full | ✅ | Simulated via a throwaway 1MB tmpfs at `/tmp/jarvis-verify-diskfull` (not the real disk), then wrote 5MB into it. The write raised `OSError` with `errno=28` (`ENOSPC`), as expected — no half-written file left behind. tmpfs was unmounted and the directory removed in the script's `finally` block; confirmed gone afterward (`mount` shows no entry, `ls` reports "No such file or directory"). |
+
+**Result:** ❌ *(3/4 failure modes degrade gracefully; script exited 1: `FAIL (non-graceful): ['ollama_down']`)* — the ollama-down path is a genuine finding, not a script bug: `hermes-api` answers with HTTP 200 and an essentially empty `"Error: "` string instead of a 5xx status when the local LLM backend is unreachable, so a client relying on status codes alone would treat a hard backend outage as a successful (if oddly blank) answer. Ollama and hermes-api were both confirmed healthy again immediately after the run; no live system was left degraded. Worth a follow-up item in `REMAINING_WORK.md`: either surface curl's stderr without `-s`/with `-S`, or have `hermes.py` return a distinct error signal (status field, or raise) instead of folding backend failures into the answer text.
