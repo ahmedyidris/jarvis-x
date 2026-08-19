@@ -104,3 +104,16 @@ Ran `scripts/verify/04_failure_modes.py`. Raw results: `scripts/verify/output/04
 | Disk full | ✅ | Simulated via a throwaway 1MB tmpfs at `/tmp/jarvis-verify-diskfull` (not the real disk), then wrote 5MB into it. The write raised `OSError` with `errno=28` (`ENOSPC`), as expected — no half-written file left behind. tmpfs was unmounted and the directory removed in the script's `finally` block; confirmed gone afterward (`mount` shows no entry, `ls` reports "No such file or directory"). |
 
 **Result:** ❌ *(3/4 failure modes degrade gracefully; script exited 1: `FAIL (non-graceful): ['ollama_down']`)* — the ollama-down path is a genuine finding, not a script bug: `hermes-api` answers with HTTP 200 and an essentially empty `"Error: "` string instead of a 5xx status when the local LLM backend is unreachable, so a client relying on status codes alone would treat a hard backend outage as a successful (if oddly blank) answer. Ollama and hermes-api were both confirmed healthy again immediately after the run; no live system was left degraded. Worth a follow-up item in `REMAINING_WORK.md`: either surface curl's stderr without `-s`/with `-S`, or have `hermes.py` return a distinct error signal (status field, or raise) instead of folding backend failures into the answer text.
+
+**Post-run health confirmation (real output, captured after the script finished and again re-confirmed independently of the script's own recovery logic):**
+
+```
+$ supervisorctl -c config/supervisord.conf status
+hermes-api                       RUNNING   pid 711, uptime 1 day, 22:51:42
+ollama                           RUNNING   pid 11999, uptime 0:06:06
+
+$ curl -s http://localhost:8000/api/status
+{"status":"online","version":"Hermes v1","conversations":41,"available_tiers":["local","quality"],"available_voices":{"en_us_piper":"English US (Piper)","en_gb_piper":"English UK (Piper)","en_us_kokoro":"English US (Kokoro)","en_gb_kokoro":"English UK (Kokoro)","ar_msa_piper":"Arabic MSA (Piper)","ar_msa_mms":"Arabic MSA (MMS)","ar_eg_egtts":"Arabic Egyptian (EGTTS, voice-cloned, slow/async)"}}
+```
+
+`ollama`'s pid (11999) and short uptime confirm it is the process the script's `finally` block restarted, not a stale one left over from before the test; `hermes-api` (pid 711) never went down and kept serving (`conversations` climbed 40→41 across the run). tmpfs cleanup was confirmed the same way: `mount | grep jarvis-verify-diskfull` matched nothing and `ls /tmp/jarvis-verify-diskfull` reported "No such file or directory".
