@@ -117,3 +117,35 @@ $ curl -s http://localhost:8000/api/status
 ```
 
 `ollama`'s pid (11999) and short uptime confirm it is the process the script's `finally` block restarted, not a stale one left over from before the test; `hermes-api` (pid 711) never went down and kept serving (`conversations` climbed 40→41 across the run). tmpfs cleanup was confirmed the same way: `mount | grep jarvis-verify-diskfull` matched nothing and `ls /tmp/jarvis-verify-diskfull` reported "No such file or directory".
+
+## Task 5: Recovery test (kill-switch, supervisord restart, restore.sh)
+
+Ran `scripts/verify/05_recovery_test.sh` against the *live* deployed system. Full log: `scripts/verify/output/05_recovery_test.log`.
+
+**Same class of bug as Tasks 2 and 3, specific to this task, fixed before running:** `hermes-api` runs from the main checkout (`/home/ahmedyidris/jarvis-x`, per `config/supervisord.conf`'s `directory=`), and both `app.py`'s `STOP_FILE` and `code/guard.js`'s `STOP_FILE` resolve relative to wherever those files physically live — the main checkout's `.jarvis-x-STOP`, not this worktree's copy. Running `node code/stop.js` from this worktree would have created/touched a `.jarvis-x-STOP` file here that the live service never sees, making step 5.2's 503 check (and 5.3's guard check) silently test nothing. Fixed by running the kill-switch-touching commands (steps 5.1, 5.3, 5.4) with the main checkout as the working directory (`cd /home/ahmedyidris/jarvis-x && node code/stop.js ...`), while steps 5.2 (curl to `localhost:8000`), 5.5 (`supervisorctl`), and 5.6 (`restore.sh --dest`) were left as-is since they already target the live service or an explicit throwaway path. Confirmed after the run that no `.jarvis-x-STOP` file was left in either checkout, and that `config/supervisord.conf` is byte-identical between the worktree and the main checkout (same `unix:///tmp/jarvis-supervisor.sock`), so `supervisorctl -c config/supervisord.conf` from this worktree really does control the live `hermes-api`/`ollama` processes.
+
+```
+=== Phase 1A / Task 5: kill-switch + supervisord restart + restore ===
+--- 5.1 engage kill switch (against live main checkout: /home/ahmedyidris/jarvis-x) ---
+Kill switch ENGAGED. All actions halted.
+STOPPED
+--- 5.2 confirm the API refuses a generate request while stopped ---
+generate/letters while stopped -> HTTP 503
+--- 5.3 confirm guard.js blocks a guarded JS action while stopped (against live main checkout) ---
+blocked as expected: ⛔ Kill switch active – action blocked
+--- 5.4 disengage kill switch (against live main checkout) ---
+Kill switch CLEARED. Jarvis X may act.
+RUNNING
+--- 5.5 supervisord restart resilience ---
+hermes-api: stopped
+hermes-api: started
+PASS: hermes-api healthy after restart (attempt 1)
+--- 5.6 restore.sh against a throwaway destination (never touches the live install) ---
+using backup: /home/ahmedyidris/jarvis-x-backup-20260819_023409.tar.gz -> /tmp/jarvis-restore-verify-13079
+✅ Checksum verified
+✅ Extracted
+PASS: restore produced a real, complete tree at /tmp/jarvis-restore-verify-13079
+=== Task 5: ALL PASS ===
+```
+
+**Result:** ✅ `=== Task 5: ALL PASS ===` — kill switch, engaged against the live main checkout, produced a real HTTP 503 from `hermes-api` on `POST /api/dashboard/generate/letters` and a real thrown error from `code/lib.js`'s `execute()`; disengaging restored normal operation. `supervisorctl restart hermes-api` came back healthy (`"status":"online"`) within 1 second (fresh pid, replacing the pre-restart pid). `restore.sh` against the latest real backup (`jarvis-x-backup-20260819_023409.tar.gz`, checksum-verified) with `--dest /tmp/jarvis-restore-verify-$$` produced a complete tree (`app.py` and `.git` present) and exited without touching the live install; the throwaway destination was removed afterward. Post-run health check confirmed the live system undisturbed: no `.jarvis-x-STOP` left on disk in either checkout, `supervisorctl status` shows both `hermes-api` (new pid, fresh restart, e.g. pid 13140 in a re-run of this check) and `ollama` `RUNNING`, and `curl http://localhost:8000/api/status` returns `"status":"online"`.
