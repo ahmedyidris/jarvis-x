@@ -1,0 +1,18 @@
+{
+  "startup_s": 3.74,
+  "decision_latency_ms": {
+    "n": 41,
+    "min_ms": 5,
+    "max_ms": 97603,
+    "avg_ms": 14621.8,
+    "p95_ms": 51398
+  },
+  "memory": {
+    "hermes_api_mb": 281.8,
+    "ollama_mb": 38.8
+  },
+  "letters_video_gen": {
+    "status": "done",
+    "wallclock_s": 65.4
+  }
+}

@@ -151,3 +151,61 @@ PASS: restore produced a real, complete tree at /tmp/jarvis-restore-verify-13786
 ```
 
 **Result:** ✅ `=== Task 5: ALL PASS ===` — kill switch, engaged against the live main checkout, produced a real HTTP 503 from `hermes-api` on `POST /api/dashboard/generate/letters` and a real thrown error from `code/lib.js`'s `execute()`; disengaging restored normal operation. `supervisorctl restart hermes-api` came back healthy (`"status":"online"`) within 1 second (fresh pid, replacing the pre-restart pid). `restore.sh` against the latest real backup (`jarvis-x-backup-20260819_023409.tar.gz`, checksum-verified) with `--dest /tmp/jarvis-restore-verify-$$` produced a complete tree (`app.py` and `.git` present) and exited without touching the live install; the throwaway destination was removed afterward. Post-run health check confirmed the live system undisturbed: no `.jarvis-x-STOP` left on disk in either checkout, `supervisorctl status` shows both `hermes-api` (new pid, fresh restart, e.g. pid 13846 in this final run) and `ollama` `RUNNING`, and `curl http://localhost:8000/api/status` returns `"status":"online"`.
+
+## Task 6: Performance baseline
+
+Ran `scripts/verify/06_performance_baseline.py`. Raw results: `scripts/verify/output/06_performance_baseline.json`.
+
+**Same class of bug as Tasks 2, 3, and 5, specific to this task, fixed before running:** the brief's `measure_video_gen_wallclock()` derived `letters_dir` relative to this script's own location (this worktree), but `hermes-api` runs from the main checkout (`/home/ahmedyidris/jarvis-x`, per `config/supervisord.conf`'s `directory=`), and `app.py`'s `CONTENT_ROOT` is likewise derived relative to `app.py`'s own file location — the main checkout, not this worktree. Confirmed the two had already diverged: the main checkout's `letters` output dir held 5 real files (newest from today, 01:50), while this worktree's copy held only 2 stale ones (both timestamped to worktree creation, 00:34). Fixed by pointing `letters_dir` at an explicit `MAIN_CHECKOUT = Path("/home/ahmedyidris/jarvis-x")` constant instead of deriving it from the script's own `REPO`. The other three measurement functions were left as written in the brief — `measure_startup`/`measure_decision_latency`/`measure_memory` use `supervisorctl`, `~/.hermes/state.db` (already an absolute path outside any checkout), and `pgrep`/`ps` by process name, none of which are worktree-relative.
+
+**A second, unrelated bug found during the first live run and fixed before the numbers below:** `measure_memory()`'s `pgrep -f "uvicorn app:app"` / `"ollama serve"` patterns are not scoped to jarvis-x — this host's process table also contains an unrelated pair of root-owned processes inside a separate Docker container (`/root/venv-ai/bin/uvicorn app:app --host 0.0.0.0 --port 8000` and a second `ollama serve`, both confirmed via `/proc/<pid>/cgroup` showing a `/docker/...` path distinct from this host's own cgroup) that happen to share the same command substrings. The first run measured `hermes_api_mb: 472.4` / `ollama_mb: 62.0` — inflated by that stray container's ~190MB and ~23MB respectively. Fixed by adding `pgrep -u <current user>` (the real, supervised jarvis-x processes run as `ahmedyidris`; the stray container processes run as `root`) before re-running for the real numbers below. Hand-verified the fix: `ps -o rss= -p 14386` (the real hermes-api pid) reported 289284 KB ≈ 282.5 MB, matching the corrected script output of `281.8` almost exactly, and `ps -o rss= -p 11999` (the real ollama pid) reported 39708 KB ≈ 38.8 MB, exactly matching the corrected `38.8`.
+
+```
+$ ~/venv-ai/bin/python3 scripts/verify/06_performance_baseline.py
+hermes-api: stopped
+hermes-api: started
+{
+  "startup_s": 3.74,
+  "decision_latency_ms": {
+    "n": 41,
+    "min_ms": 5,
+    "max_ms": 97603,
+    "avg_ms": 14621.8,
+    "p95_ms": 51398
+  },
+  "memory": {
+    "hermes_api_mb": 281.8,
+    "ollama_mb": 38.8
+  },
+  "letters_video_gen": {
+    "status": "done",
+    "wallclock_s": 65.4
+  }
+}
+
+Wrote /home/ahmedyidris/jarvis-x/.claude/worktrees/phase1a-verification/scripts/verify/output/06_performance_baseline.json
+```
+
+| Metric | Value |
+|---|---|
+| Startup time | 3.74s (`supervisorctl stop` → `start` → first healthy `/api/status`) |
+| Per-decision latency (avg / p95, last 41 of 50 requested — only 41 conversation rows exist total) | avg 14621.8ms (14.6s) / p95 51398ms (51.4s); min 5ms, max 97603ms (97.6s) |
+| Memory ceiling (hermes-api / ollama) | hermes-api 281.8MB RSS / ollama 38.8MB RSS |
+| Letters video-gen wall-clock | 65.4s (`status: done`, one new letter fully content-generated + video-rendered) |
+
+**Result:** ✅ *(numbers recorded — this task always "passes" by having real numbers, even if the numbers themselves are concerning; a concerning number becomes a REMAINING_WORK.md entry, same as any other ❌ above)*
+
+The per-decision latency spread (5ms to 97.6s across the same 41-row sample) is the one number here worth flagging as a candidate `REMAINING_WORK.md` entry: `hermes.py`'s `--tier` flag (`local` vs `quality`) and optional `--speak` (TTS synthesis) both run through the same `latency_ms` column with no way to separate them in this aggregate, so a 51.4s p95 could mean "quality tier + voice synthesis is inherently slow" (expected) or "something is occasionally hanging" (not expected) — this baseline can't distinguish the two from the numbers alone; a follow-up breakdown by tier/voice would need to be a new query column or an `hermes.py`-level tag, not a change to this script.
+
+**Post-run health confirmation (real output, captured after the script's own live `hermes-api` restart):**
+
+```
+$ supervisorctl -c config/supervisord.conf status
+hermes-api                       RUNNING   pid 15477, uptime 0:01:17
+ollama                           RUNNING   pid 11999, uptime 0:32:03
+
+$ curl -s http://localhost:8000/api/status
+{"status":"online","version":"Hermes v1","conversations":41,"available_tiers":["local","quality"],"available_voices":{"en_us_piper":"English US (Piper)","en_gb_piper":"English UK (Piper)","en_us_kokoro":"English US (Kokoro)","en_gb_kokoro":"English UK (Kokoro)","ar_msa_piper":"Arabic MSA (Piper)","ar_msa_mms":"Arabic MSA (MMS)","ar_eg_egtts":"Arabic Egyptian (EGTTS, voice-cloned, slow/async)"}}
+```
+
+`hermes-api`'s pid (15477) is fresh from this run's own `supervisorctl stop`/`start`, and `ollama`'s long uptime (0:32:03, unchanged pid 11999) confirms it was never touched by this task, only read. The video-gen check against the main checkout confirmed a new `letter_G.json` (02:29) and matching `letter_G.mp4` (195027 bytes ≈ 190KB, under `02_render_video/output/letters/`, 02:30) landed there, timestamped to this run.
