@@ -1,0 +1,255 @@
+[
+  {
+    "vertical": "letters",
+    "ok": true,
+    "elapsed_s": 60.3,
+    "new_files": [
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/letters/letter_D.json",
+        "valid_json": true,
+        "keys": [
+          "letter",
+          "example_word",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ],
+        "video_path": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/02_render_video/output/letters/letter_D.mp4",
+        "video_exists": true,
+        "video_size_bytes": 122302
+      }
+    ]
+  },
+  {
+    "vertical": "economic_facts",
+    "ok": true,
+    "elapsed_s": 297.2,
+    "new_files": [
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/economic_facts/econ_egypt-inflation.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/economic_facts/econ_us-federal-reserve-interest-rates.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/economic_facts/econ_egypt-fuel-prices.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      }
+    ]
+  },
+  {
+    "vertical": "commodities_macro",
+    "ok": true,
+    "elapsed_s": 782.7,
+    "new_files": [
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/commodities_macro/commodmacro_us-jobs-report.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/commodities_macro/commodmacro_wheat.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/commodities_macro/commodmacro_gold.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/commodities_macro/commodmacro_natural-gas-henry-hub.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/commodities_macro/commodmacro_us-inflation-cpi.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/commodities_macro/commodmacro_copper.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/commodities_macro/commodmacro_crude-oil-wti-brent.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      }
+    ]
+  },
+  {
+    "vertical": "geopolitical_risk",
+    "ok": true,
+    "elapsed_s": 596.0,
+    "new_files": [
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/geopolitical_risk/georisk_suez-canal-traffic.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/geopolitical_risk/georisk_us-china-trade-tariffs.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/geopolitical_risk/georisk_red-sea-shipping-attacks.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/geopolitical_risk/georisk_south-china-sea-tensions.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      },
+      {
+        "file": "/home/ahmedyidris/jarvis-x/automation/phase-b/stages/01_source_content/output/geopolitical_risk/georisk_taiwan-strait-tensions.json",
+        "valid_json": true,
+        "keys": [
+          "topic",
+          "headline_fact",
+          "source_name",
+          "source_url",
+          "narration_script",
+          "on_screen_text",
+          "image_prompt",
+          "duration_seconds"
+        ]
+      }
+    ]
+  }
+]
