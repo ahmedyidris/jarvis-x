@@ -30,6 +30,16 @@ VERTICALS = {
     "geopolitical_risk": 1830,
 }
 
+# How much of headline_fact/narration_script to snapshot verbatim into this
+# script's own output JSON. This is the only durable copy of what a manual
+# review actually judged -- the generated files themselves live under the
+# main checkout and get unconditionally overwritten by the next run of
+# economic_facts/commodities_macro/geopolitical_risk (see existing_files()'s
+# docstring). 400 chars comfortably covers every narration_script observed so
+# far (all under 300 chars) with margin; if a future narration_script runs
+# long enough that a numeric claim near the end gets cut off, raise this.
+EXCERPT_LEN = 400
+
 
 def existing_files(vertical):
     """Snapshot {filename: mtime_ns} for a vertical's content dir.
@@ -61,6 +71,41 @@ def poll_job(vertical, max_wait):
     return None, time.time() - start
 
 
+def build_entry(vertical, name):
+    """Build one new_files[] entry for content file `name` in `vertical`'s
+    content dir: JSON validity, a durable excerpt of its key claims, and the
+    matching rendered video's existence/size. Pulled out of run_vertical() so
+    it can be exercised directly (e.g. against already-generated files)
+    without re-triggering a real ~30min generation job."""
+    path = CONTENT_ROOT / vertical / name
+    try:
+        data = json.loads(path.read_text())
+        valid_json = True
+    except json.JSONDecodeError:
+        data, valid_json = None, False
+    entry = {"file": str(path), "valid_json": valid_json, "keys": list(data.keys()) if data else []}
+    if data:
+        # Durable evidence for manual-review claims (numeric fidelity etc.)
+        # that outlives the next run overwriting these files on disk.
+        if "headline_fact" in data:
+            entry["headline_fact_excerpt"] = data["headline_fact"][:EXCERPT_LEN]
+        if "narration_script" in data:
+            entry["narration_script_excerpt"] = data["narration_script"][:EXCERPT_LEN]
+    # Video check for every vertical, not just letters: all 4 verticals'
+    # generators (content_generator.py + video_renderer.py for letters;
+    # generate_and_render_all() for the other 3) render to the SAME
+    # filename stem under RENDER_ROOT/<vertical>/ as the content JSON
+    # uses under CONTENT_ROOT/<vertical>/ -- confirmed by listing both
+    # dirs for all 4 verticals (e.g. econ_egypt-inflation.json /
+    # econ_egypt-inflation.mp4, georisk_us-china-trade-tariffs.json /
+    # georisk_us-china-trade-tariffs.mp4, letter_D.json / letter_D.mp4).
+    video = RENDER_ROOT / vertical / f"{Path(name).stem}.mp4"
+    entry["video_path"] = str(video)
+    entry["video_exists"] = video.is_file()
+    entry["video_size_bytes"] = video.stat().st_size if video.is_file() else 0
+    return entry
+
+
 def run_vertical(vertical, max_wait):
     before = existing_files(vertical)
     r = requests.post(f"{BASE}/api/dashboard/generate/{vertical}", timeout=10)
@@ -77,20 +122,7 @@ def run_vertical(vertical, max_wait):
         return {"vertical": vertical, "ok": False, "reason": "job reported done but no new/changed content file appeared"}
     result = {"vertical": vertical, "ok": True, "elapsed_s": round(elapsed, 1), "new_files": []}
     for name in new_files:
-        path = CONTENT_ROOT / vertical / name
-        try:
-            data = json.loads(path.read_text())
-            valid_json = True
-        except json.JSONDecodeError:
-            data, valid_json = None, False
-        entry = {"file": str(path), "valid_json": valid_json, "keys": list(data.keys()) if data else []}
-        if vertical == "letters":
-            letter = Path(name).stem.replace("letter_", "")
-            video = RENDER_ROOT / "letters" / f"letter_{letter}.mp4"
-            entry["video_path"] = str(video)
-            entry["video_exists"] = video.is_file()
-            entry["video_size_bytes"] = video.stat().st_size if video.is_file() else 0
-        result["new_files"].append(entry)
+        result["new_files"].append(build_entry(vertical, name))
     return result
 
 
