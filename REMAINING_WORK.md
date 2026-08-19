@@ -38,11 +38,54 @@ Three verticals existed (`letters`, `economic_facts`, `commodities_macro`), each
 
 **Real finding while building it:** 2 of the first 5 LLM-scripted outputs invented a specific number not present in the sourced fact (a fabricated "40%", a fabricated "29.5%"), despite the prompt's explicit anti-invention instruction. The shared retry/validation logic (used by all three economic-facts-shaped generators) checks JSON shape and non-empty fields, but has **no check for numeric fidelity to the source fact** — this class of error passes silently. Caught this time by manually reading every generated JSON against its source before shipping; hand-corrected the 2 bad ones. Retroactively checked `economic_facts`' and `commodities_macro`'s already-shipped content the same way — both clean, no invented numbers found there. **This is a real gap in the shared pattern, not fixed this session** (would need either an automated fact-fidelity checker — a second LLM pass or regex/number-extraction diff against the source — or a standing rule to always manually spot-check before shipping a new batch). Documented in `geopolitical_risk_generator.py`'s docstring and `automation/phase-b/stages/01_source_content/CONTEXT.md` as a standing caution for future verticals.
 
+**2026-08-20 — second confirmed occurrence (Phase 1A verification, Task 2):** re-running `geopolitical_risk`'s generator regenerated all 5 facts fresh, and manual review again caught a live fidelity defect — this time not a fabricated digit, but a *garbled restatement* of a real one: `georisk_us-china-trade-tariffs.json`'s `narration_script` reads "a 90-day pause was placed on increasing tariffs on Chinese goods **from 125% to 125%**" — logically incoherent (states no change happened) and misstates the source, which says the pause prevents the tariff from *rising to* 125%. Same root cause as above (shared retry/validation logic checks JSON shape only, no numeric/logical-fidelity check), still open, still un-fixed. Verbatim evidence preserved in `scripts/verify/output/02_verticals_output.json`'s `georisk_us-china-trade-tariffs.json` entry (`narration_script_excerpt`). See "Task 2" in `docs/VERIFICATION_2026-08.md` for full detail. Two confirmed occurrences now (this task's original build, and this independent re-run) — raises confidence this is a systemic gap in the shared generator pattern, not a one-off LLM fluke, and should be prioritized accordingly.
+
 ## P5 — Correctness audit (this session's earlier fixes + new sweep)
 
 - `code/paper-trading.js`'s always-0 P&L — **already fixed** (`397ea77`, prior turn this session).
 - Kill switch (`guard.js`'s `isStopped()`) and `scheduler.js`'s respect for it — **already fixed and verified** this session (`5079aab`: `lib.js`'s `execute()` now checks it for every action type; `scheduler.js`'s gate bug fixed same commit). Re-verified working in this session's Phase 4 (see below).
 - Broader sweep for other "always returns a constant/0/null regardless of input" bugs: see Phase 4 findings below.
+
+## P6 — Ollama-down failure is invisible to status-code-only clients (2026-08-20)
+
+Found while running `docs/superpowers/plans/2026-08-20-phase1a-verification.md`
+Task 4. See the "Task 4" section of `docs/VERIFICATION_2026-08.md` for full
+output. Blocks Phase 1A exit criteria until resolved.
+
+A real `supervisorctl stop ollama`, then `POST /api/ask`, returned **HTTP
+200** — not a 5xx — with the body `{"question":"ping","response":"Error: ","tier":"local","model":"qwen2.5:3b","voice":null,"audio":null}`. `hermes.py`'s
+`ask()` catches the failed `curl` subprocess (`returncode != 0`) and returns
+`f"Error: {result.stderr}"` as ordinary answer text over a 200 status;
+`stderr` was empty here because the underlying `curl` call uses `-s`
+(silent), which also suppresses curl's own connection-refused message. Net
+effect: a caller checking only the HTTP status code cannot tell a hard
+backend outage from a normal (if oddly blank) answer. The other 3/4 failure
+modes tested in the same task (malformed input → 422, Ollama timeout →
+handled, disk full → clean `ENOSPC`) all degrade gracefully; this one does
+not. Fix would be either surfacing curl's stderr without `-s`/with `-S`, or
+having `hermes.py` return a distinct error signal (a status field, or a
+raised exception the route layer turns into a 5xx) instead of folding
+backend failures into the answer text. Not fixed as part of verification —
+Ollama and hermes-api were both confirmed healthy again immediately after
+the test; no live system was left degraded.
+
+## P7 — Decision-latency baseline can't distinguish expected-slow from anomalous (2026-08-20)
+
+Found while running `docs/superpowers/plans/2026-08-20-phase1a-verification.md`
+Task 6. See the "Task 6" section of `docs/VERIFICATION_2026-08.md` for full
+output. Does not block Phase 1A exit criteria (Task 6's own check passed —
+this is an observability gap, not a functional failure) but worth tracking.
+
+The recorded per-decision latency spans 5ms to 97.6s across the same 41-row
+sample (avg 14.6s, p95 51.4s). `hermes.py`'s `--tier` flag (`local` vs
+`quality`) and optional `--speak` (TTS synthesis) both write into the same
+`latency_ms` column with no way to separate them in the aggregate, so a
+51.4s p95 could mean "quality tier + voice synthesis is inherently slow"
+(expected) or "something is occasionally hanging" (not expected) — the
+baseline can't distinguish the two from the numbers alone. A follow-up would
+need a new query column or an `hermes.py`-level tag recording tier/voice
+alongside each latency sample, not a change to the verification script
+itself.
 
 ## Resolved after this doc was written
 

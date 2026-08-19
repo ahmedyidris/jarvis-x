@@ -5,6 +5,19 @@ Each section below is real command output, not a manual assertion. A ❌ here
 becomes a new dated entry in `REMAINING_WORK.md`, not something silently
 marked done.
 
+## Summary
+
+| # | Check | Result |
+|---|---|---|
+| 1A.1 | Electron builds + launches + survives restart | ✅ |
+| 1A.2 | 4 verticals produce real, usable output | ⚠️ — 4/4 verticals produced real, valid-JSON, working-video output (the core claim), but manual review caught a real narration fidelity defect in 1 of geopolitical_risk's 5 facts ("from 125% to 125%" — logically incoherent, garbled from its source). Confirms the P4 numeric-fidelity gap in `REMAINING_WORK.md` is still open. |
+| 1A.3 | E2E flow (query→decision→TTS→video→API) | ✅ |
+| 1A.4 | Failure modes degrade gracefully | ❌ — 3/4 graceful (malformed input, Ollama timeout, disk full); Ollama-down returns HTTP 200 with an essentially empty `{"response":"Error: "}` body instead of a 5xx, invisible to any client checking only status codes. |
+| 1A.5 | Kill-switch + restart + restore recovery | ✅ |
+| 1A.6 | Performance baseline recorded | ✅ — numbers recorded (startup 3.74s, decision latency avg 14.6s/p95 51.4s over a 5ms–97.6s range, hermes-api 281.8MB/ollama 38.8MB RSS, letters video-gen 65.4s). The wide, unexplained latency spread is flagged as a separate observability gap, not a failure of this check itself. |
+
+**Phase 1A exit criteria met:** NO — Task 4's Ollama-down path is a confirmed ❌, and Task 2's geopolitical_risk fidelity defect is a confirmed real content-quality gap (⚠️, not a clean pass). Both are filed below in `REMAINING_WORK.md`; see that file for full detail and status.
+
 ## Task 1: Electron build + launch + restart
 
 - Fixed `electron/package.json`'s invalid `^latest` version pins → pinned to `electron@43.4.1`, `electron-builder@26.15.3`.
