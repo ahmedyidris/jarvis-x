@@ -10,13 +10,13 @@ marked done.
 | # | Check | Result |
 |---|---|---|
 | 1A.1 | Electron builds + launches + survives restart | ✅ |
-| 1A.2 | 4 verticals produce real, usable output | ⚠️ — 4/4 verticals produced real, valid-JSON, working-video output (the core claim), but manual review caught a real narration fidelity defect in 1 of geopolitical_risk's 5 facts ("from 125% to 125%" — logically incoherent, garbled from its source). Confirms the P4 numeric-fidelity gap in `REMAINING_WORK.md` is still open. |
+| 1A.2 | 4 verticals produce real, usable output | ⚠️ — 4/4 verticals produced real, valid-JSON, working-video output (the core claim), but manual review caught real narration fidelity defects in 2 of geopolitical_risk's 5 facts ("from 125% to 125%" — logically incoherent, garbled from its source; and a second fact restating "since the previous fall" as "since earlier this year", changing when the event happened). Confirms the P4 numeric/semantic-fidelity gap in `REMAINING_WORK.md` is still open. |
 | 1A.3 | E2E flow (query→decision→TTS→video→API) | ✅ |
 | 1A.4 | Failure modes degrade gracefully | ❌ — 3/4 graceful (malformed input, Ollama timeout, disk full); Ollama-down returns HTTP 200 with an essentially empty `{"response":"Error: "}` body instead of a 5xx, invisible to any client checking only status codes. |
 | 1A.5 | Kill-switch + restart + restore recovery | ✅ |
-| 1A.6 | Performance baseline recorded | ✅ — numbers recorded (startup 3.74s, decision latency avg 14.6s/p95 51.4s over a 5ms–97.6s range, hermes-api 281.8MB/ollama 38.8MB RSS, letters video-gen 65.4s). The wide, unexplained latency spread is flagged as a separate observability gap, not a failure of this check itself. |
+| 1A.6 | Performance baseline recorded | ✅ — numbers recorded (startup 3.63s, decision latency avg 14.6s/p95 51.4s over a 5ms–97.6s range across a mixed/stale 41-row sample — see Task 6 for its real composition, hermes-api 282.5MB / ollama 4,328.6MB point-in-time RSS during active generation (not a ceiling), letters video-gen 60.3s). The intra-tier latency variance, a `model="--tier"` recording bug, and the mixed sample are filed as a separate observability gap (P7), not a failure of this check itself. |
 
-**Phase 1A exit criteria met:** NO — Task 4's Ollama-down path is a confirmed ❌, and Task 2's geopolitical_risk fidelity defect is a confirmed real content-quality gap (⚠️, not a clean pass). Both are filed below in `REMAINING_WORK.md`; see that file for full detail and status.
+**Phase 1A exit criteria met:** NO — Task 4's Ollama-down path is a confirmed ❌, and Task 2's geopolitical_risk fidelity defects (2/5 facts, both semantic restatements — see Task 2 below) are a confirmed real content-quality gap (⚠️, not a clean pass). Both are filed below in `REMAINING_WORK.md`; see that file for full detail and status.
 
 ## Task 1: Electron build + launch + restart
 
@@ -50,9 +50,9 @@ A post-implementation review then found two more real gaps, fixed in a follow-up
 | letters | ✅ done, 60.3s | `letter_D.json` | ✅ | ✅ `letter_D.mp4`, 122,302 bytes, 1080×1920 h264/aac, 15.0s | ✅ — "D is for Dog", narration/on-screen text/video duration all coherent and on-topic, no garbling |
 | economic_facts | ✅ done, 297.2s | 3 files regenerated (Egypt inflation, Egypt fuel prices, US Fed rates) | ✅ (all 3) | ✅ 3/3 mp4s exist, 358,043–464,636 bytes | ✅ — all numbers in `narration_script`/`on_screen_text` (14.9%, 12%, 3.5–3.75%, EGP 24.00/22.25) match `headline_fact` exactly, no invention |
 | commodities_macro | ✅ done, 782.7s | 7 files regenerated (oil, nat gas, copper, gold, wheat, jobs report, CPI) | ✅ (all 7) | ✅ 7/7 mp4s exist, 332,059–432,626 bytes | ✅ — spot-checked all 7 against their `headline_fact`; every cited number ($88.38, $2.79, $6.59/47%, $4,400, $6.75/3.37%, -23,000/4.1%, 3.4%/3.5%) matches, no invention found |
-| geopolitical_risk | ✅ done, 596.0s | 5 files regenerated (Red Sea, Taiwan Strait, US-China tariffs, Suez Canal, South China Sea) | ✅ (all 5) | ✅ 5/5 mp4s exist, 371,109–584,842 bytes | ⚠️ — 4/5 clean (numbers match their `headline_fact` exactly: 6 deaths, 150 transits/16.7%, etc.); **1/5 has a real fidelity defect**: `georisk_us-china-trade-tariffs.json`'s `narration_script` reads "a 90-day pause was placed on increasing tariffs on Chinese goods **from 125% to 125%**" — logically incoherent (states no change happened) and misstates the source, which says the pause prevents the tariff from *rising to* 125% (implying it's currently below that). This is the same class of bug `REMAINING_WORK.md` P4 already flagged (LLM garbling a real number under an anti-invention prompt) — not a new fabricated digit this time, but a garbled restatement of an existing one that changes its meaning. **Confirms P4's gap is still open**: the shared retry/validation logic checks JSON shape and non-empty fields only, still has no numeric/logical-fidelity check, so this passed silently and would have shipped un-reviewed. Verbatim evidence preserved in `scripts/verify/output/02_verticals_output.json`'s `georisk_us-china-trade-tariffs.json` entry's `narration_script_excerpt`. |
+| geopolitical_risk | ✅ done, 596.0s | 5 files regenerated (Red Sea, Taiwan Strait, US-China tariffs, Suez Canal, South China Sea) | ✅ (all 5) | ✅ 5/5 mp4s exist, 371,109–584,842 bytes | ⚠️ — 3/5 clean (numbers match their `headline_fact` exactly: 150 transits/16.7%, etc.); **2/5 have real fidelity defects**, both *semantic* — a meaning-changing restatement of a sourced claim, not an invented number: (1) `georisk_us-china-trade-tariffs.json`'s `narration_script` reads "a 90-day pause was placed on increasing tariffs on Chinese goods **from 125% to 125%**" — logically incoherent (states no change happened) and misstates the source, which says the pause prevents the tariff from *rising to* 125% (implying it's currently below that). (2) `georisk_red-sea-shipping-attacks.json`'s `headline_fact` says the six shipping deaths mark the first since "**the previous fall**" (i.e. fall 2025), but its own `narration_script` restates the same claim as "since **earlier this year**" (2026) — a different, incorrect time frame for the same sourced fact. Both are the same class of bug `REMAINING_WORK.md` P4 already flagged (LLM garbling a sourced claim under an anti-invention prompt) — not fabricated digits this time, but garbled restatements that change meaning. **Confirms P4's gap is still open, and broadens its scope**: the defect class is semantic (meaning-changing restatement), not purely numeric — the shared retry/validation logic checks JSON shape and non-empty fields only, still has no fidelity check of any kind, so both of these passed silently and would have shipped un-reviewed. Verbatim evidence for both preserved in `scripts/verify/output/02_verticals_output.json`'s `georisk_us-china-trade-tariffs.json` and `georisk_red-sea-shipping-attacks.json` entries' `narration_script_excerpt`/`headline_fact_excerpt` fields. |
 
-**Result:** ⚠️ (4/4 verticals produced real, on-disk, valid-JSON output with working rendered video — the core claim under test — but manual review caught a live recurrence of the P4 numeric-fidelity gap in 1 of geopolitical_risk's 5 facts. Not something to fix in this task per the brief; flagged here, with durable verbatim evidence in the raw results JSON, and left as an open item for `REMAINING_WORK.md`.)
+**Result:** ⚠️ (4/4 verticals produced real, on-disk, valid-JSON output with working rendered video — the core claim under test — but manual review caught a live recurrence of the P4 numeric/semantic-fidelity gap in 2 of geopolitical_risk's 5 facts. Not something to fix in this task per the brief; flagged here, with durable verbatim evidence in the raw results JSON, and left as an open item for `REMAINING_WORK.md`.)
 
 ## Task 3: E2E flow test (query → decision → content+TTS+video → API response)
 
@@ -114,7 +114,7 @@ Ran `scripts/verify/04_failure_modes.py`. Raw results: `scripts/verify/output/04
 | Ollama down | ❌ | Real `supervisorctl stop ollama`, then `POST /api/ask`. Returned **HTTP 200**, not 500/503: `{"question":"ping","response":"Error: ","tier":"local","model":"qwen2.5:3b","voice":null,"audio":null}`. No traceback leaked, no crash — `hermes.py`'s `ask()` catches the failed `curl` subprocess (`returncode != 0`) and returns `f"Error: {result.stderr}"` as ordinary answer text with a 200 status; `stderr` was empty here because the underlying `curl` call uses `-s` (silent), which also suppresses curl's own connection-refused message. Net effect: a caller checking only the HTTP status code cannot detect this failure — it looks like a successful answer whose text happens to be `"Error: "`. Ollama was restarted immediately after in the script's `finally` block and confirmed back up (new pid, fresh `RUNNING` state, and a live follow-up query returned a real answer, `"OK"`). |
 | Malformed input | ✅ | `POST /api/ask` with `question` omitted → HTTP 422 with a proper pydantic validation body (`{"detail":[{"type":"missing","loc":["body","question"],"msg":"Field required",...}]}`). No crash. |
 | Ollama call timeout | ✅ | Verified by reading `hermes.py`, not reproduced live (would need an artificially slow model to force a real 120s hang): line 67 bounds the `curl`→Ollama subprocess call at `timeout=120`; on `TimeoutExpired` (line 91-92) it returns `"Error: Query timeout (120s)"` as the answer text over a normal HTTP 200 — no hang, no 500. |
-| Disk full | ✅ | Simulated via a throwaway 1MB tmpfs at `/tmp/jarvis-verify-diskfull` (not the real disk), then wrote 5MB into it. The write raised `OSError` with `errno=28` (`ENOSPC`), as expected — no half-written file left behind. tmpfs was unmounted and the directory removed in the script's `finally` block; confirmed gone afterward (`mount` shows no entry, `ls` reports "No such file or directory"). |
+| Disk full — **Python-level ENOSPC sanity check only** | ✅ (as what it actually tests) | This check mounts a throwaway 1MB tmpfs at `/tmp/jarvis-verify-diskfull` (not the real disk) and writes 5MB directly **in this verification script's own Python process** — proving Python's `OSError(ENOSPC)` behavior (which it does: `errno=28`, no half-written file left behind, tmpfs cleanly unmounted afterward), but proving nothing about how `hermes-api`, `content_generator.py`, or `video_renderer.py` actually behave when their real output directory fills up. **Jarvis-X's own behavior under a full disk (partial writes, job status on failure, truncated video files) remains untested.** See `REMAINING_WORK.md` P8. |
 
 **Result:** ❌ *(3/4 failure modes degrade gracefully; script exited 1: `FAIL (non-graceful): ['ollama_down']`)* — the ollama-down path is a genuine finding, not a script bug: `hermes-api` answers with HTTP 200 and an essentially empty `"Error: "` string instead of a 5xx status when the local LLM backend is unreachable, so a client relying on status codes alone would treat a hard backend outage as a successful (if oddly blank) answer. Ollama and hermes-api were both confirmed healthy again immediately after the run; no live system was left degraded. Worth a follow-up item in `REMAINING_WORK.md`: either surface curl's stderr without `-s`/with `-S`, or have `hermes.py` return a distinct error signal (status field, or raise) instead of folding backend failures into the answer text.
 
@@ -171,14 +171,16 @@ Ran `scripts/verify/06_performance_baseline.py`. Raw results: `scripts/verify/ou
 
 **Same class of bug as Tasks 2, 3, and 5, specific to this task, fixed before running:** the brief's `measure_video_gen_wallclock()` derived `letters_dir` relative to this script's own location (this worktree), but `hermes-api` runs from the main checkout (`/home/ahmedyidris/jarvis-x`, per `config/supervisord.conf`'s `directory=`), and `app.py`'s `CONTENT_ROOT` is likewise derived relative to `app.py`'s own file location — the main checkout, not this worktree. Confirmed the two had already diverged: the main checkout's `letters` output dir held 5 real files (newest from today, 01:50), while this worktree's copy held only 2 stale ones (both timestamped to worktree creation, 00:34). Fixed by pointing `letters_dir` at an explicit `MAIN_CHECKOUT = Path("/home/ahmedyidris/jarvis-x")` constant instead of deriving it from the script's own `REPO`. The other three measurement functions were left as written in the brief — `measure_startup`/`measure_decision_latency`/`measure_memory` use `supervisorctl`, `~/.hermes/state.db` (already an absolute path outside any checkout), and `pgrep`/`ps` by process name, none of which are worktree-relative.
 
-**A second, unrelated bug found during the first live run and fixed before the numbers below:** `measure_memory()`'s `pgrep -f "uvicorn app:app"` / `"ollama serve"` patterns are not scoped to jarvis-x — this host's process table also contains an unrelated pair of root-owned processes inside a separate Docker container (`/root/venv-ai/bin/uvicorn app:app --host 0.0.0.0 --port 8000` and a second `ollama serve`, both confirmed via `/proc/<pid>/cgroup` showing a `/docker/...` path distinct from this host's own cgroup) that happen to share the same command substrings. The first run measured `hermes_api_mb: 472.4` / `ollama_mb: 62.0` — inflated by that stray container's ~190MB and ~23MB respectively. Fixed by adding `pgrep -u <current user>` (the real, supervised jarvis-x processes run as `ahmedyidris`; the stray container processes run as `root`) before re-running for the real numbers below. Hand-verified the fix: `ps -o rss= -p 14386` (the real hermes-api pid) reported 289284 KB ≈ 282.5 MB, matching the corrected script output of `281.8` almost exactly, and `ps -o rss= -p 11999` (the real ollama pid) reported 39708 KB ≈ 38.8 MB, exactly matching the corrected `38.8`.
+**A second, unrelated bug found during the first live run and fixed before the numbers below:** `measure_memory()`'s `pgrep -f "uvicorn app:app"` / `"ollama serve"` patterns are not scoped to jarvis-x — this host's process table also contains an unrelated pair of root-owned processes inside a separate Docker container (`/root/venv-ai/bin/uvicorn app:app --host 0.0.0.0 --port 8000` and a second `ollama serve`, both confirmed via `/proc/<pid>/cgroup` showing a `/docker/...` path distinct from this host's own cgroup) that happen to share the same command substrings. The first run measured `hermes_api_mb: 472.4` / `ollama_mb: 62.0` — inflated by that stray container's ~190MB and ~23MB respectively. Fixed by adding `pgrep -u <current user>` (the real, supervised jarvis-x processes run as `ahmedyidris`; the stray container processes run as `root`).
+
+**Third bug, found during whole-branch review and fixed 2026-08-20:** `measure_memory()`'s `"ollama serve"` pattern only matches ollama's own long-lived supervisor process, not the separate `ollama runner`/`llama-server` child process that actually holds a loaded model's weights in memory — and the original `main()` called `measure_memory()` *before* `measure_video_gen_wallclock()` ran, i.e. before any model had ever been loaded, so the "memory ceiling" numbers above (`ollama_mb: 38.8`) were always an idle-process sample, not a ceiling of anything. Confirmed live: `ps aux | grep -i ollama` while a real `letters` generation job was in flight showed a second, transient process — `/usr/local/lib/ollama/llama-server --model ... --port 46445 ...` — using **~2.05GB RSS**, dwarfing the `ollama serve` supervisor's ~40-60MB. Fixed by (a) reordering `main()` to trigger the `letters` job first and sample memory once partway through it, while a model is actually loaded and generating, and (b) broadening the pgrep pattern from `"ollama serve"` to plain `"ollama"` (still owner-scoped, so it doesn't re-admit the unrelated Docker container) so it catches the runner child too. Relabeled below from "memory ceiling" to "point-in-time RSS during active generation" — a single sample mid-job still isn't a true ceiling (peak-over-time), just an honest reading taken while work was actually happening, unlike the original idle sample.
 
 ```
 $ ~/venv-ai/bin/python3 scripts/verify/06_performance_baseline.py
 hermes-api: stopped
 hermes-api: started
 {
-  "startup_s": 3.74,
+  "startup_s": 3.63,
   "decision_latency_ms": {
     "n": 41,
     "min_ms": 5,
@@ -187,12 +189,13 @@ hermes-api: started
     "p95_ms": 51398
   },
   "memory": {
-    "hermes_api_mb": 281.8,
-    "ollama_mb": 38.8
+    "hermes_api_mb": 282.5,
+    "ollama_mb": 4328.6
   },
+  "memory_note": "point-in-time RSS sampled during an active `letters` generation job (not before -- a model was actually loaded and generating at sample time), broadened to also match ollama's separate runner/llama-server child process, not just its own supervisor process. Not a true ceiling: a single sample, not a peak-over-time observation.",
   "letters_video_gen": {
     "status": "done",
-    "wallclock_s": 65.4
+    "wallclock_s": 60.3
   }
 }
 
@@ -201,24 +204,32 @@ Wrote /home/ahmedyidris/jarvis-x/.claude/worktrees/phase1a-verification/scripts/
 
 | Metric | Value |
 |---|---|
-| Startup time | 3.74s (`supervisorctl stop` → `start` → first healthy `/api/status`) |
-| Per-decision latency (avg / p95, last 41 of 50 requested — only 41 conversation rows exist total) | avg 14621.8ms (14.6s) / p95 51398ms (51.4s); min 5ms, max 97603ms (97.6s) |
-| Memory ceiling (hermes-api / ollama) | hermes-api 281.8MB RSS / ollama 38.8MB RSS |
-| Letters video-gen wall-clock | 65.4s (`status: done`, one new letter fully content-generated + video-rendered) |
+| Startup time | 3.63s (`supervisorctl stop` → `start` → first healthy `/api/status`) |
+| Per-decision latency (last 41 of 50 requested — only 41 conversation rows exist total; **sample composition disclosed below, not a clean measurement**) | avg 14621.8ms (14.6s) / p95 51398ms (51.4s); min 5ms, max 97603ms (97.6s) |
+| Point-in-time RSS during active generation (hermes-api / ollama) — **not a memory ceiling** | hermes-api 282.5MB RSS / ollama **4,328.6MB RSS** (sampled while a `letters` job was running and a model was loaded; broadened pattern now also catches ollama's runner/llama-server child, which is where nearly all of this is) |
+| Letters video-gen wall-clock | 60.3s (`status: done`, one new letter — `letter_I` — fully content-generated + video-rendered) |
 
 **Result:** ✅ *(numbers recorded — this task always "passes" by having real numbers, even if the numbers themselves are concerning; a concerning number becomes a REMAINING_WORK.md entry, same as any other ❌ above)*
 
-The per-decision latency spread (5ms to 97.6s across the same 41-row sample) is the one number here worth flagging as a candidate `REMAINING_WORK.md` entry: `hermes.py`'s `--tier` flag (`local` vs `quality`) and optional `--speak` (TTS synthesis) both run through the same `latency_ms` column with no way to separate them in this aggregate, so a 51.4s p95 could mean "quality tier + voice synthesis is inherently slow" (expected) or "something is occasionally hanging" (not expected) — this baseline can't distinguish the two from the numbers alone; a follow-up breakdown by tier/voice would need to be a new query column or an `hermes.py`-level tag, not a change to this script.
+**The per-decision latency row is not a clean measurement — its sample composition, checked directly against `~/.hermes/state.db`, is:**
+- **n=41** total rows (all conversation rows that exist; the query asked for the last 50 but only 41 exist).
+- **`voice_id` is `NULL` in all 41 rows** — TTS/voice synthesis was never exercised in this sample at all, ruling out "quality tier + voice synthesis is slow" as an explanation for the high end of the range.
+- **Model mix:** 35/41 `qwen2.5:3b` (local tier), 4/41 `qwen2.5:7b` (quality tier), and **2/41 rows where `model` is literally the string `--tier`** — an argv-parsing bug in whatever wrote those two rows, unrelated to anything else tested in Task 6.
+- **The max (97,603ms) and p95 (51,398ms) values both belong to `qwen2.5:3b` rows on trivial prompts** ("Hello. Hello. Hello. Hello." and "hello, who are you"), not to the quality tier — the variance is intra-tier, on the fast model, not explained by tier choice.
+- **4/41 rows are degenerate `"No response"` results at single-digit-millisecond latencies** (the 2 `--tier` rows plus 2 more `qwen2.5:3b` rows) — these are averaged in with real answers by the raw query, understating what a real answer actually costs.
+- **Most rows predate this verification session by days:** 38/41 rows are timestamped 2026-08-12 through 2026-08-16; only 3/41 are from this session (2026-08-20).
 
-**Post-run health confirmation (real output, captured after the script's own live `hermes-api` restart):**
+This is filed in full as `REMAINING_WORK.md` P7 (rewritten 2026-08-20 to match what the data actually shows, replacing an earlier guess that turned out to be contradicted by it).
+
+**Post-run health confirmation (real output, captured after this re-run's own live `hermes-api` restart):**
 
 ```
 $ supervisorctl -c config/supervisord.conf status
-hermes-api                       RUNNING   pid 15477, uptime 0:01:17
-ollama                           RUNNING   pid 11999, uptime 0:32:03
+hermes-api                       RUNNING   pid 21131, uptime 0:02:40
+ollama                           RUNNING   pid 20931, uptime 0:03:29
 
 $ curl -s http://localhost:8000/api/status
 {"status":"online","version":"Hermes v1","conversations":41,"available_tiers":["local","quality"],"available_voices":{"en_us_piper":"English US (Piper)","en_gb_piper":"English UK (Piper)","en_us_kokoro":"English US (Kokoro)","en_gb_kokoro":"English UK (Kokoro)","ar_msa_piper":"Arabic MSA (Piper)","ar_msa_mms":"Arabic MSA (MMS)","ar_eg_egtts":"Arabic Egyptian (EGTTS, voice-cloned, slow/async)"}}
 ```
 
-`hermes-api`'s pid (15477) is fresh from this run's own `supervisorctl stop`/`start`, and `ollama`'s long uptime (0:32:03, unchanged pid 11999) confirms it was never touched by this task, only read. The video-gen check against the main checkout confirmed a new `letter_G.json` (02:29) and matching `letter_G.mp4` (195027 bytes ≈ 190KB, under `02_render_video/output/letters/`, 02:30) landed there, timestamped to this run.
+`hermes-api`'s pid (21131) is fresh from this run's own `supervisorctl stop`/`start`. The video-gen check against the main checkout confirmed a new `letter_I.json` (03:00) and matching `letter_I.mp4` (179,980 bytes, under `02_render_video/output/letters/`, 03:01) landed there, timestamped to this run.
