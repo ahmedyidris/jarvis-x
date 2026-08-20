@@ -1,5 +1,5 @@
 {
-  "startup_s": 3.74,
+  "startup_s": 3.63,
   "decision_latency_ms": {
     "n": 41,
     "min_ms": 5,
@@ -8,11 +8,12 @@
     "p95_ms": 51398
   },
   "memory": {
-    "hermes_api_mb": 281.8,
-    "ollama_mb": 38.8
+    "hermes_api_mb": 282.5,
+    "ollama_mb": 4328.6
   },
+  "memory_note": "point-in-time RSS sampled during an active `letters` generation job (not before -- a model was actually loaded and generating at sample time), broadened to also match ollama's separate runner/llama-server child process, not just its own supervisor process. Not a true ceiling: a single sample, not a peak-over-time observation.",
   "letters_video_gen": {
     "status": "done",
-    "wallclock_s": 65.4
+    "wallclock_s": 60.3
   }
 }

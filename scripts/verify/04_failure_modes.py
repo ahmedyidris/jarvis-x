@@ -2,6 +2,7 @@
 """Phase 1A Task 4: failure-mode checks. Restores normal state (ollama
 running, no stray tmpfs mount) in all cases, including on failure."""
 import json
+import os
 import subprocess
 import sys
 import time
@@ -12,6 +13,13 @@ import requests
 BASE = "http://localhost:8000"
 SUPERVISORCTL = ["supervisorctl", "-c", "config/supervisord.conf"]
 REPO = Path(__file__).resolve().parents[2]
+# hermes-api (per config/supervisord.conf: `directory=/home/ahmedyidris/jarvis-x`,
+# `uvicorn app:app`) runs from the MAIN checkout, not necessarily from
+# wherever this script happens to be checked out -- call_timeout() reads
+# hermes.py to check a property of the *live* service, so it must read the
+# main checkout's copy, not this script's own REPO-relative one (they are
+# byte-identical today, but that's not guaranteed to stay true).
+LIVE_ROOT = Path("/home/ahmedyidris/jarvis-x")
 
 results = {}
 
@@ -28,10 +36,20 @@ def ollama_down():
             "graceful": r.status_code in (500, 503) and "Traceback" not in r.text,
         }
     finally:
-        subprocess.run(SUPERVISORCTL + ["start", "ollama"], check=True)
+        # Restart ollama, but don't let a failure *here* raise inside this
+        # finally block and replace/swallow whatever exception (if any) is
+        # already propagating from the try block above.
+        try:
+            subprocess.run(SUPERVISORCTL + ["start", "ollama"], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"ERROR: failed to restart ollama via supervisorctl: {e}", file=sys.stderr)
+        # Poll ollama's own health endpoint directly -- BASE (hermes-api,
+        # :8000) never went down in this test, so polling it here would just
+        # pass on the first check without ever confirming ollama itself came
+        # back up. http://localhost:11434/api/tags is ollama's real endpoint.
         for _ in range(15):
             try:
-                if requests.get(f"{BASE}/api/status", timeout=5).ok:
+                if requests.get("http://localhost:11434/api/tags", timeout=5).ok:
                     break
             except requests.exceptions.RequestException:
                 pass
@@ -55,7 +73,7 @@ def call_timeout():
     # the Ollama subprocess call at timeout=120; on expiry hermes.py:92
     # returns "Error: Query timeout (120s)" as the *answer text*, HTTP 200
     # -- not a hang, not a 500.
-    hermes_src = (REPO / "hermes.py").read_text()
+    hermes_src = (LIVE_ROOT / "hermes.py").read_text()
     has_timeout = "timeout=120" in hermes_src
     has_graceful_message = "Query timeout" in hermes_src
     results["ollama_call_timeout"] = {
@@ -94,6 +112,11 @@ def disk_full():
 
 
 def main():
+    # SUPERVISORCTL uses a bare relative "config/supervisord.conf" -- cd to
+    # this script's repo root first (same pattern as 01_electron_build.sh /
+    # 05_recovery_test.sh) so that resolves correctly regardless of the
+    # directory this script happened to be invoked from.
+    os.chdir(REPO)
     ollama_down()
     malformed_input()
     call_timeout()
