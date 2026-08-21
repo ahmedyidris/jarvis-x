@@ -24,3 +24,4 @@ sentinel/eval/eval_report.json
 .claude/settings.local.json
 .claude/skills/
 .agents/
+electron/dist/
