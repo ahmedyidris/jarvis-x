@@ -10,10 +10,17 @@
     "test": "node ./jest-runner.js",
     "test:net": "JX_NET=1 node ./jest-runner.js"
   },
-  "keywords": ["ai", "agent", "autonomous"],
+  "keywords": [
+    "ai",
+    "agent",
+    "autonomous"
+  ],
   "author": "Ahmed",
   "license": "MIT",
   "dependencies": {
-    "dotenv": "^16.0.3"
+    "axios": "^1.19.0",
+    "cache-manager": "^7.2.9",
+    "dotenv": "^16.6.1",
+    "sqlite3": "^6.0.1"
   }
 }
