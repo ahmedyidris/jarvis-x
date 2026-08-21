@@ -1,1 +1,14 @@
-{ "name": "jarvis-x", "version": "1.0.0", "main": "main.js", "scripts": { "start": "electron .", "build": "electron-builder" }, "devDependencies": { "electron": "latest", "electron-builder": "latest" } }
+{
+  "name": "jarvis-x",
+  "version": "1.0.0",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "43.4.1",
+    "electron-builder": "26.15.3"
+  }
+}

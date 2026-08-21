@@ -1,0 +1,24 @@
+{
+  "ollama_down": {
+    "status_code": 200,
+    "leaked_traceback": false,
+    "body": "{\"question\":\"ping\",\"response\":\"Error: \",\"tier\":\"local\",\"model\":\"qwen2.5:3b\",\"voice\":null,\"audio\":null}",
+    "graceful": false
+  },
+  "malformed_input": {
+    "status_code": 422,
+    "graceful": true,
+    "body": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"question\"],\"msg\":\"Field required\",\"input\":{\"tier\":\"local\"}}]}"
+  },
+  "ollama_call_timeout": {
+    "note": "hermes.py subprocess.run(..., timeout=120), catches TimeoutExpired, returns 'Error: Query timeout (120s)' as the response text (HTTP 200).",
+    "confirmed_in_source": true,
+    "graceful": true
+  },
+  "disk_full": {
+    "graceful": true,
+    "errno": 28,
+    "errno_was_enospc": true,
+    "note": "write raised OSError(ENOSPC) as expected -- no half-written file left"
+  }
+}

@@ -1,0 +1,23 @@
+=== Phase 1A / Task 5: kill-switch + supervisord restart + restore ===
+--- 5.0 checking prior kill-switch state (against live main checkout) ---
+prior state: RUNNING
+--- 5.1 engage kill switch (against live main checkout: /home/ahmedyidris/jarvis-x) ---
+Kill switch ENGAGED. All actions halted.
+STOPPED
+--- 5.2 confirm the API refuses a generate request while stopped ---
+generate/letters while stopped -> HTTP 503
+--- 5.3 confirm guard.js blocks a guarded JS action while stopped (against live main checkout) ---
+blocked as expected: ⛔ Kill switch active – action blocked
+--- 5.4 disengage kill switch (against live main checkout) ---
+Kill switch CLEARED. Jarvis X may act.
+RUNNING
+--- 5.5 supervisord restart resilience ---
+hermes-api: stopped
+hermes-api: started
+PASS: hermes-api healthy after restart (attempt 1)
+--- 5.6 restore.sh against a throwaway destination (never touches the live install) ---
+using backup: /home/ahmedyidris/jarvis-x-backup-20260819_023409.tar.gz -> /tmp/jarvis-restore-verify-21589
+✅ Checksum verified
+✅ Extracted
+PASS: restore produced a real, complete tree at /tmp/jarvis-restore-verify-21589
+=== Task 5: ALL PASS ===

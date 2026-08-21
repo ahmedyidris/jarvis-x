@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=jarvis-x
+Exec=jarvis-x %U
+Terminal=false
+Type=Application
+Icon=${SNAP}/meta/gui/icon.png
+StartupWMClass=jarvis-x
+Categories=Utility;
