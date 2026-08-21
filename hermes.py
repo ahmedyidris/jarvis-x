@@ -55,7 +55,7 @@ class HermesCore:
         
         try:
             cmd = [
-                "curl", "-s", "http://localhost:11434/api/generate",
+                "curl", "-S", "http://localhost:11434/api/generate",
                 "-d", json.dumps({
                     "model": model,
                     "prompt": question,
