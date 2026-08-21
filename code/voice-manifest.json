@@ -1,0 +1,115 @@
+{
+  "engines": {
+    "piper": {
+      "name": "Piper TTS",
+      "lang": "en",
+      "provider": "piper-tts",
+      "offline": true,
+      "cloning": false
+    },
+    "coqui": {
+      "name": "Coqui TTS",
+      "lang": ["ar", "en"],
+      "provider": "TTS",
+      "offline": true,
+      "cloning": false
+    },
+    "tortoise": {
+      "name": "Tortoise TTS",
+      "lang": ["en", "ar"],
+      "provider": "tortoise-tts",
+      "offline": true,
+      "cloning": true
+    }
+  },
+  "voices": {
+    "english": {
+      "us": {
+        "male": [
+          { "id": "en-us-danny", "engine": "piper", "accent": "us", "gender": "male", "quality": "medium" },
+          { "id": "en-us-john", "engine": "piper", "accent": "us", "gender": "male", "quality": "medium" },
+          { "id": "en-us-joe", "engine": "piper", "accent": "us", "gender": "male", "quality": "medium" }
+        ],
+        "female": [
+          { "id": "en-us-amy", "engine": "piper", "accent": "us", "gender": "female", "quality": "medium" },
+          { "id": "en-us-lessac", "engine": "piper", "accent": "us", "gender": "female", "quality": "medium" },
+          { "id": "en-us-glow-tts", "engine": "coqui", "accent": "us", "gender": "female", "quality": "medium" }
+        ]
+      },
+      "uk": {
+        "male": [
+          { "id": "en-gb-thomas", "engine": "piper", "accent": "uk", "gender": "male", "quality": "medium" },
+          { "id": "en-gb-cmu-arctic", "engine": "coqui", "accent": "uk", "gender": "male", "quality": "medium" }
+        ],
+        "female": [
+          { "id": "en-gb-alba", "engine": "piper", "accent": "uk", "gender": "female", "quality": "medium" },
+          { "id": "en-gb-jenny", "engine": "piper", "accent": "uk", "gender": "female", "quality": "medium" }
+        ]
+      },
+      "au": {
+        "male": [
+          { "id": "en-au-kevin", "engine": "piper", "accent": "au", "gender": "male", "quality": "medium" }
+        ],
+        "female": [
+          { "id": "en-au-kimberly", "engine": "piper", "accent": "au", "gender": "female", "quality": "medium" }
+        ]
+      },
+      "in": {
+        "male": [
+          { "id": "en-in-google", "engine": "tortoise", "accent": "in", "gender": "male", "quality": "high" }
+        ],
+        "female": [
+          { "id": "en-in-female", "engine": "tortoise", "accent": "in", "gender": "female", "quality": "high" }
+        ]
+      }
+    },
+    "arabic": {
+      "fusha": {
+        "name": "Modern Standard Arabic (MSA)",
+        "male": [
+          { "id": "ar-fusha-male-coqui", "engine": "coqui", "accent": "fusha", "gender": "male", "quality": "high", "primary": true }
+        ],
+        "female": [
+          { "id": "ar-fusha-female-coqui", "engine": "coqui", "accent": "fusha", "gender": "female", "quality": "high" }
+        ]
+      },
+      "egyptian": {
+        "name": "Egyptian Arabic",
+        "male": [
+          { "id": "ar-eg-male-coqui", "engine": "coqui", "accent": "egyptian", "gender": "male", "quality": "high", "primary": true },
+          { "id": "ar-eg-male-cloned", "engine": "tortoise", "accent": "egyptian", "gender": "male", "quality": "ultimate", "cloned": true, "yourVoice": true }
+        ],
+        "female": [
+          { "id": "ar-eg-female-coqui", "engine": "coqui", "accent": "egyptian", "gender": "female", "quality": "high" }
+        ]
+      },
+      "gulf": {
+        "name": "Gulf Arabic",
+        "male": [
+          { "id": "ar-gulf-male", "engine": "tortoise", "accent": "gulf", "gender": "male", "quality": "high" }
+        ],
+        "female": [
+          { "id": "ar-gulf-female", "engine": "tortoise", "accent": "gulf", "gender": "female", "quality": "high" }
+        ]
+      },
+      "levantine": {
+        "name": "Levantine Arabic",
+        "male": [
+          { "id": "ar-lev-male", "engine": "tortoise", "accent": "levantine", "gender": "male", "quality": "high" }
+        ],
+        "female": [
+          { "id": "ar-lev-female", "engine": "tortoise", "accent": "levantine", "gender": "female", "quality": "high" }
+        ]
+      },
+      "moroccan": {
+        "name": "Moroccan Arabic",
+        "male": [
+          { "id": "ar-mor-male", "engine": "tortoise", "accent": "moroccan", "gender": "male", "quality": "medium" }
+        ],
+        "female": [
+          { "id": "ar-mor-female", "engine": "tortoise", "accent": "moroccan", "gender": "female", "quality": "medium" }
+        ]
+      }
+    }
+  }
+}
