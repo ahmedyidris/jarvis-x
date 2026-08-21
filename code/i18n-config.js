@@ -39,9 +39,11 @@ const resources = {
   }
 };
 
+const detectedLang = typeof navigator !== 'undefined' ? navigator.language?.split('-')[0] : 'en';
+
 i18next.init({
   interpolation: { escapeValue: false },
-  lng: navigator?.language?.split('-')[0] || 'en',
+  lng: detectedLang || 'en',
   fallbackLng: 'en',
   resources
 });

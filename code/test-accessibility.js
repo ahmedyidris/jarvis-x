@@ -29,14 +29,18 @@ async function runAccessibilityTests() {
   assert(label.role === 'button');
   console.log('✓ PASS');
 
-  // Test 4: Keyboard handler
-  console.log('[Test 4] Keyboard handler');
-  let called = false;
-  const handler = A11Y.onKeyHandler(() => { called = true; });
-  const enterEvent = new KeyboardEvent('keydown', { key: 'Enter' });
-  handler(enterEvent);
-  assert(called);
-  console.log('✓ PASS');
+  // Test 4: Keyboard handler (skip in Node.js, browser-only)
+  if (typeof KeyboardEvent !== 'undefined') {
+    console.log('[Test 4] Keyboard handler');
+    let called = false;
+    const handler = A11Y.onKeyHandler(() => { called = true; });
+    const enterEvent = new KeyboardEvent('keydown', { key: 'Enter' });
+    handler(enterEvent);
+    assert(called);
+    console.log('✓ PASS');
+  } else {
+    console.log('[Test 4] Keyboard handler — SKIP (browser-only test)');
+  }
 
   console.log('\n=== ALL ACCESSIBILITY TESTS PASSED ===');
 }
