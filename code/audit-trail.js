@@ -1,24 +1,54 @@
-const sqlite3 = require('sqlite3').verbose();
+/**
+ * Audit trail for data fetches (in-memory, no sqlite3 dependency)
+ * Logs every data fetch, accessible for debugging
+ */
+
 class AuditTrail {
-  constructor(dbPath = 'logs/audit-trail.db') {
-    this.dbPath = dbPath;
-    this.db = new sqlite3.Database(dbPath);
-    this.db.run(`CREATE TABLE IF NOT EXISTS data_fetches (
-      id INTEGER PRIMARY KEY, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-      provider TEXT, key TEXT, value TEXT, status TEXT, error TEXT, latency_ms INTEGER
-    )`);
+  constructor() {
+    this.logs = [];
+    this.maxLogs = 1000; // Keep last 1000 entries
   }
+
   async log(entry) {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT INTO data_fetches (provider, key, value, status, error, latency_ms) VALUES (?, ?, ?, ?, ?, ?)`,
-        [entry.provider, entry.key, JSON.stringify(entry.value), entry.status, entry.error, entry.latency],
-        function(err) { if (err) reject(err); else resolve(this.lastID); }
-      );
-    });
+    const logEntry = {
+      id: this.logs.length + 1,
+      timestamp: new Date().toISOString(),
+      ...entry
+    };
+    this.logs.push(logEntry);
+    
+    // Keep only last N entries
+    if (this.logs.length > this.maxLogs) {
+      this.logs.shift();
+    }
+    
+    return logEntry.id;
   }
+
+  async query(filter = {}) {
+    let results = [...this.logs];
+    
+    if (filter.provider) {
+      results = results.filter(r => r.provider === filter.provider);
+    }
+    if (filter.startDate) {
+      results = results.filter(r => r.timestamp >= filter.startDate);
+    }
+    
+    return results.reverse().slice(0, 100);
+  }
+
   close() {
-    return new Promise((resolve) => { if (this.db) this.db.close(resolve); else resolve(); });
+    return Promise.resolve();
+  }
+
+  getStats() {
+    return {
+      totalLogs: this.logs.length,
+      oldestLog: this.logs[0]?.timestamp,
+      newestLog: this.logs[this.logs.length - 1]?.timestamp
+    };
   }
 }
+
 module.exports = AuditTrail;
