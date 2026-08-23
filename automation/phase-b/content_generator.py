@@ -207,11 +207,36 @@ _NUMBER_WORDS = {
 }
 
 
+def _normalize_number(raw: str) -> str:
+    """'24.00.' -> '24', '1,200' -> '1200', '22.25' -> '22.25', '40%' -> '40%'.
+
+    The old regex (r"\d[\d,.]*%?") swallowed trailing sentence punctuation,
+    so a faithful restatement ending a sentence ("costs EGP 24.00.") produced
+    the token '24.00.' -- absent from the source's '24.00' and therefore
+    reported as an invented number. It also compared as strings, so writing
+    'EGP 24' for a source saying 'EGP 24.00' was flagged. Both are false
+    positives that make enforce_numeric_fidelity() burn its retries and then
+    REFUSE TO SHIP correct content. Compare numeric value instead, keeping
+    '%' significant (40 and 40% are not interchangeable in a rate claim).
+    """
+    pct = raw.endswith('%')
+    body = raw[:-1] if pct else raw
+    body = body.replace(',', '').rstrip('.')
+    if not body:
+        return raw
+    try:
+        val = float(body)
+    except ValueError:
+        return raw
+    out = str(int(val)) if val == int(val) else str(val)
+    return out + '%' if pct else out
+
+
 def _numeric_tokens(text: str) -> set:
-    """Number-like tokens in `text`: digit runs (with %, decimals, commas)
-    plus small English number words one-twenty, normalized to digits so
-    "six" and "6" compare equal."""
-    tokens = set(re.findall(r"\d[\d,.]*%?", text))
+    """Number-like tokens in `text`, normalized so trailing punctuation and
+    insignificant trailing zeros do not create spurious mismatches."""
+    raw = re.findall(r"\d[\d,]*(?:\.\d+)?%?", text)
+    tokens = {_normalize_number(t) for t in raw}
     lower = text.lower()
     for word, digit in _NUMBER_WORDS.items():
         if re.search(rf"\b{word}\b", lower):
