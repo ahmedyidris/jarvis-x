@@ -26,3 +26,4 @@ sentinel/eval/eval_report.json
 .agents/
 electron/dist/
 voices/
+voices/
