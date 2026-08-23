@@ -27,3 +27,5 @@ sentinel/eval/eval_report.json
 electron/dist/
 voices/
 voices/
+.env*
+!.env.template
