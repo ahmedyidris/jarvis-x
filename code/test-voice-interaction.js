@@ -25,9 +25,17 @@ const { ROUTES, UNSUPPORTED } = require('./voice-router.js');
   }
 
   try {
-    const wav = await piperSynthesize('السلام عليكم', 'ar_JO-kareem-medium', '/tmp/test-vi-ar.wav');
-    const { text, language } = await transcribe(wav);
-    check(`transcribe() detects Arabic ("${text}", lang=${language})`, language === 'ar' && text.length > 0);
+    // Was 'السلام عليكم' -- 1.7s of audio. Whisper's language ID needs more
+    // than that to be stable, so the assertion was effectively a coin flip
+    // (it romanized the Arabic and labelled it Malay). Longer utterance,
+    // and we assert the pinned decode returns Arabic SCRIPT rather than
+    // asserting on auto-detection, which is tested separately below.
+    const wav = await piperSynthesize(
+      'السلام عليكم ورحمة الله وبركاته، كيف حالك اليوم؟ أتمنى أن تكون بخير وصحة جيدة.',
+      'ar_JO-kareem-medium', '/tmp/test-vi-ar.wav');
+    const { text, language } = await transcribe(wav, 'ar');
+    check(`transcribe(lang=ar) returns Arabic script ("${text}", lang=${language})`,
+      language === 'ar' && /[\u0600-\u06FF]/.test(text));
   } catch (e) {
     check(`transcribe() detects Arabic (${e})`, false);
   }

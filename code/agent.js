@@ -14,7 +14,7 @@ const BACKEND = process.env.JX_BACKEND || 'local';
 
 const ask = async (prompt) => {
   if (BACKEND === 'local') {
-    return askLocal(prompt);
+    return askLocal(prompt, { json: true });
   }
   // route() (router.js's run()) expects one {prompt, level} object, not two
   // positional args -- this used to pass a bare string, which destructured to
@@ -35,11 +35,56 @@ Valid action types: "list", "read", "write", "shell", "query", "answer", "list_m
 - For "query": include "q"
 - For "answer": include "text"
 - For "list_models": no other fields. Use this for any question about which models/LLMs are available or installed -- do NOT use "list" with a path for that.
-Example: for "list files in memory", respond with {"type":"list","path":"memory/"}
+
+CRITICAL: Every response MUST have a "type" field. Never emit a bare field
+like {"q":"..."} or {"query":"..."} -- it must be {"type":"query","q":"..."}.
+
+If a goal cannot be accomplished with the action types above -- deleting
+files, rewriting git history, sending email, anything destructive or
+requiring a capability not listed -- use "answer" to say plainly that you
+cannot do it. Do NOT invent a "write" action with shell commands as its
+content. Writing a file is not how you delete, email, or run git.
+
+Examples:
+Goal: list files in memory
+{"type":"list","path":"memory/"}
+Goal: read the config file
+{"type":"read","path":"config.json"}
+Goal: show me the last 3 commits
+{"type":"shell","cmd":"git","args":["log","-3","--oneline"]}
+Goal: what models do you have
+{"type":"list_models"}
+Goal: save a note to notes.txt saying hello
+{"type":"write","path":"notes.txt","content":"hello"}
+Goal: what is the capital of France
+{"type":"answer","text":"Paris."}
+Goal: delete all my files
+{"type":"answer","text":"I can't do that -- there is no delete action available to me."}
+Goal: send an email to my manager
+{"type":"answer","text":"I can't send email. No action available for that."}
+
 Goal: ${goal}`;
 }
 
-async function propose(goal) {
+const PROPOSALS_LOG = path.resolve(__dirname, '..', 'logs', 'proposals.jsonl');
+
+// Nothing had appended here since the pre-`type` agent; the 36 legacy rows
+// were hand-graded. 'schema' lets scorers separate v2 rows from those
+// without inferring from model-name prefixes.
+function logProposal(rec) {
+  try {
+    fs.mkdirSync(path.dirname(PROPOSALS_LOG), { recursive: true });
+    fs.appendFileSync(PROPOSALS_LOG, JSON.stringify({
+      timestamp: new Date().toISOString(),
+      model: BACKEND === 'local' ? `local:${LOCAL_MODEL}` : `routed:${BACKEND}`,
+      schema: 'type-v2',
+      ...rec
+    }) + '\n', 'utf8');
+  } catch (e) { /* logging must never break the agent */ }
+}
+
+async function propose(goal, opts = {}) {
+  const { dryRun = false } = opts;
   const prompt = buildPrompt(goal);
   let raw = await ask(prompt);
   if (typeof raw !== 'string') raw = raw?.text || JSON.stringify(raw);
@@ -66,8 +111,14 @@ async function propose(goal) {
   const result = validate(action);
   if (!result.valid) {
     console.log(`  REJECTED by validator: ${result.reason}`);
-    return { error: 'Validation failed', reason: result.reason };
+    logProposal({ goal, proposed: action, valid: false, reason: result.reason, executed: false });
+    return { error: 'Validation failed', reason: result.reason, proposed: action };
   }
+  logProposal({ goal, proposed: action, valid: true, executed: !dryRun });
+
+  // Dry run stops here: eval must not execute writes/shell, and must not
+  // block on confirm() waiting for stdin that no harness will provide.
+  if (dryRun) return { dryRun: true, action, valid: true };
 
   // Auto-approve safe actions; ask for write/shell
   const safeTypes = ['list', 'read', 'answer', 'query'];
@@ -107,4 +158,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { propose };
+module.exports = { propose, buildPrompt };

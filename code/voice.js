@@ -21,16 +21,21 @@ function record(duration = 5) {
 // "tiny.en") and lets it auto-detect the spoken language -- this is what
 // voiceInteraction() uses to pick which TTS voice/accent to reply with, so
 // it needs to know what language it heard, not just assume English.
-function transcribe(wavFile) {
+// `language` pins the decode (ISO code, e.g. 'ar'). Leave it null to let
+// Whisper detect -- but note detection is unreliable under ~3s of audio,
+// and JX_STT_MODEL should be at least "base" for non-English.
+function transcribe(wavFile, language = null) {
   return new Promise((resolve, reject) => {
     const py = spawn('python3', ['-c', `
-import sys, json
+import sys, json, os
 from faster_whisper import WhisperModel
-model = WhisperModel("tiny", device="cpu", compute_type="int8")
-segments, info = model.transcribe(sys.argv[1], beam_size=5)
+model = WhisperModel(os.environ.get("JX_STT_MODEL", "base"), device="cpu", compute_type="int8")
+lang = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
+segments, info = model.transcribe(sys.argv[1], beam_size=5, language=lang)
 text = " ".join(seg.text for seg in segments).strip()
-print(json.dumps({"text": text, "language": info.language}))
-`, wavFile]);
+print(json.dumps({"text": text, "language": info.language,
+                  "language_probability": getattr(info, "language_probability", None)}))
+`, wavFile, language || '']);
     let output = '';
     py.stdout.on('data', d => output += d);
     py.stderr.on('data', d => console.error(d.toString()));

@@ -2,11 +2,19 @@
 
 const MODEL = 'qwen2.5:3b';
 
-async function ask(prompt) {
+async function ask(prompt, opts = {}) {
   const res = await fetch('http://127.0.0.1:11434/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, prompt, stream: false })
+    // format:'json' constrains Ollama's decoding to valid JSON. qwen2.5:3b
+    // was emitting bare {"query":"..."} with no wrapper at all; this makes
+    // malformed output structurally impossible. temperature 0 so eval runs
+    // are reproducible.
+    body: JSON.stringify({
+      model: MODEL, prompt, stream: false,
+      format: opts.json ? 'json' : undefined,
+      options: { temperature: opts.temperature ?? 0 }
+    })
   });
   if (!res.ok) throw new Error(`Ollama returned ${res.status}`);
   const data = await res.json();
