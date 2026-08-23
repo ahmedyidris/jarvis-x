@@ -462,6 +462,18 @@ def _next_letter_to_generate() -> str:
 
 def _run_generator_job(vertical: str, job_id: str):
     venv_python = str(Path.home() / "venv-ai" / "bin" / "python3")
+    # P7 (REMAINING_WORK.md): confirmed by direct reproduction that this batch
+    # pipeline's own CPU usage (Piper TTS synthesis inside video_renderer.py
+    # hit 386.7% CPU on this 8-core box) starves interactive chat's Ollama
+    # calls -- a trivial "Hello." query went from 4s to 64-76s when it ran
+    # concurrent with a render. `nice`/`ionice` here de-prioritize this batch
+    # subprocess tree below interactive chat without needing to serialize the
+    # two paths or touch Ollama/hermes.py at all.
+    NICE_PREFIX = ["nice", "-n", "15", "ionice", "-c2", "-n7"]
+
+    def run_deprioritized(argv, **kwargs):
+        return subprocess.run(NICE_PREFIX + argv, **kwargs)
+
     try:
         if vertical == "letters":
             # Unlike the other 3 verticals' generate_and_render_all() (one
@@ -469,14 +481,14 @@ def _run_generator_job(vertical: str, job_id: str):
             # scripts -- confirmed via content_generator.py's __main__,
             # which only writes the JSON and never renders.
             letter = _next_letter_to_generate()
-            r1 = subprocess.run([venv_python, "content_generator.py", letter], cwd=str(PHASE_B_ROOT), capture_output=True, text=True, timeout=300)
+            r1 = run_deprioritized([venv_python, "content_generator.py", letter], cwd=str(PHASE_B_ROOT), capture_output=True, text=True, timeout=300)
             if r1.returncode != 0:
                 _generation_jobs[job_id] = {"vertical": vertical, "status": "failed", "finished_at": datetime.now().isoformat(), "output_tail": (r1.stdout + r1.stderr)[-2000:]}
                 return
-            result = subprocess.run([venv_python, "video_renderer.py", letter], cwd=str(PHASE_B_ROOT), capture_output=True, text=True, timeout=300)
+            result = run_deprioritized([venv_python, "video_renderer.py", letter], cwd=str(PHASE_B_ROOT), capture_output=True, text=True, timeout=300)
         else:
             script = VERTICAL_GENERATORS[vertical]
-            result = subprocess.run(
+            result = run_deprioritized(
                 [venv_python, script],
                 cwd=str(PHASE_B_ROOT),
                 capture_output=True, text=True, timeout=1800,  # generous: real Ollama calls, CPU-only

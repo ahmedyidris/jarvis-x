@@ -428,6 +428,66 @@ touched (killing another session's/environment's orphaned root process
 wasn't asked for); worth a `sudo kill 1218 1219 936` if Ahmed wants the
 ~200MB back, otherwise harmless.
 
+**Killed 2026-08-24.** Same shape recurred on this boot under new PIDs
+(`supervisord` 9614 → `uvicorn --host 0.0.0.0` 9797 + `ollama serve` 9798),
+parent chain confirmed via `ps -o ppid=` to trace back to a
+`containerd-shim`-spawned `supervisord -c /etc/supervisor/conf.d/jarvis-x.conf`
+— that config file still does not exist on disk (`ls` confirms), same as the
+original finding. Per Ahmed's go-ahead: `sudo kill` on all three PIDs; only
+the project's own `127.0.0.1`-bound pair (`config/supervisord.conf`-managed)
+remained listening afterward (`sudo ss -tlnp` re-checked). Reappears on
+reboot since its root cause (whatever creates that boot-time conf.d file
+momentarily) wasn't chased down — a recurring-but-harmless cleanup, not a
+one-time fix.
+
+## P7 follow-up (2026-08-24) — OS-scheduling fix applied; a second,
+## independent contention mechanism found and confirmed live
+
+Applied the scheduling fix P7's root-cause writeup left as a policy option:
+`app.py`'s `_run_generator_job()` now runs every phase-b subprocess (both
+`content_generator.py` and `video_renderer.py`, all verticals) through
+`nice -n 15 ionice -c2 -n7`, so the render pipeline's own CPU/IO no longer
+runs at the same priority as interactive chat. Verified live: a real
+`letters` generation (letter J, content + Piper TTS + ffmpeg render) still
+completed successfully end-to-end with the wrapper in place (`ps` showed the
+`N` nice-flag on the child processes), no regression.
+
+**But direct testing the same session surfaced a second, independent
+contention mechanism that this fix does not and cannot address:** fired two
+concurrent trivial `POST /api/generate` calls straight at Ollama (no phase-b
+involved at all) — 10.7s and 47.8s respectively (the second queued behind
+the first, ~4.4x slower than either call running alone, which measured
+~9-10s). **Ollama serializes requests to the same loaded model inside its
+own process** (`OLLAMA_NUM_PARALLEL` not set, default single-slot
+behavior on this CPU-only box) — this happens entirely inside the `ollama
+serve` daemon (pid 4814, itself never niced, since it's a persistent
+service, not a per-job subprocess), so no amount of `nice`/`ionice` on the
+*calling* process (`content_generator.py`, which talks to Ollama over plain
+HTTP, not a subprocess) can reorder or de-prioritize work already queued
+inside Ollama itself.
+
+This means the earlier root-cause writeup's fix (OS scheduling) only covers
+the Piper-TTS/ffmpeg half of the pipeline (stage 2, `video_renderer.py`,
+genuine external-process CPU spend — nice helps here) — not the
+content-generation half (stage 1, `content_generator.py`'s own LLM calls to
+Ollama, stage 1) — a batch job's *own* Ollama call and an interactive chat's
+Ollama call still queue behind each other inside Ollama regardless of this
+fix, for exactly as long as either call takes to complete (per the original
+baseline: 5-97s per call depending on model/prompt/cold-start).
+
+**Not fixed** — same category as the original finding: a policy/architecture
+decision, not a bug. Real options, none applied:
+1. Don't run interactive chat and batch content-generation concurrently
+   (simplest, no code — matches this single-machine, single-user
+   deployment's actual usage pattern most of the time anyway).
+2. Set `OLLAMA_NUM_PARALLEL>1` — lets Ollama accept concurrent requests, but
+   on an 8-core CPU-only box this just splits the same finite CPU across
+   more simultaneous inference work; likely trades "one request blocks
+   entirely" for "both requests get slower," not a clear win untested.
+3. Put a small request-priority proxy in front of Ollama's HTTP port that
+   holds back batch-tier requests while a chat-tier request is in flight —
+   real fix, real effort, not attempted this session.
+
 ## Explicitly corrected assumption from the original task brief
 
 The originating instructions assumed `code/router.py` might be "genuinely dead" and asked to kill it if so. **It is not dead** — confirmed via `CONTEXT.md` (already-accurate reference doc) and direct read of `app.py`: `router.py` is the actual, live routing file the real web-chat production path (`app.py` → `/api/ask`) imports and uses (100% local Ollama, `local`/`quality` tiers). This is a *different file* from `code/router.js` (the JS agent-autonomy path, Gemini-tiered) — same name pattern, different systems, explicitly called out in `CONTEXT.md` as "do not conflate." Not touched.
