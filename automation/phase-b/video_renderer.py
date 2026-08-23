@@ -14,6 +14,7 @@ below it. 1080x1920 (9:16 vertical), 30fps, H.264/AAC MP4 via MoviePy's
 default ffmpeg export.
 """
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -167,15 +168,54 @@ def render_video(
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
-        video.write_videofile(
-            output_path,
-            fps=FPS,
-            codec="libx264",
-            audio_codec="aac",
-            temp_audiofile=tempfile.mktemp(suffix=".m4a"),
-            remove_temp=True,
-            logger=None,
-        )
+        # Render to a sibling temp path first, then atomically rename over
+        # the real destination. write_videofile() writes directly to its
+        # target and would otherwise leave a truncated/corrupt .mp4 behind
+        # if interrupted mid-encode (disk full, killed process, ffmpeg
+        # crash) -- same root issue REMAINING_WORK.md P8 found and fixed
+        # for the JSON generators' out_path.write_text(...). os.replace() on
+        # the same filesystem is atomic, so output_path either still holds
+        # its old content (a re-render) or the complete new file -- never a
+        # partial one. Real extension (.mp4) preserved on the temp name
+        # (inserted before the suffix, not appended after it) so ffmpeg's
+        # own extension-based container/muxer detection still sees .mp4.
+        out = Path(output_path)
+        tmp_output_path = str(out.with_name(out.stem + ".tmp" + out.suffix))
+        try:
+            video.write_videofile(
+                tmp_output_path,
+                fps=FPS,
+                codec="libx264",
+                audio_codec="aac",
+                temp_audiofile=tempfile.mktemp(suffix=".m4a"),
+                remove_temp=True,
+                logger=None,
+            )
+            # write_videofile() returning is NOT proof of a good file: a
+            # real disk-full test (mounting a tiny tmpfs over the output
+            # dir) showed moviepy's FFMPEG_VideoWriter.close() calls
+            # self.proc.wait() but never checks the ffmpeg subprocess's
+            # returncode -- so a failure while ffmpeg finalizes the
+            # container (writing the trailing moov atom, which happens
+            # *after* all frame data was already piped through
+            # successfully) is silently swallowed. Confirmed live: a
+            # disk-full render returned normally from write_videofile() and
+            # produced a file truncated to exactly the tmpfs's capacity,
+            # with `moov atom not found` from ffprobe. Can't patch moviepy
+            # itself, so verify the actual artifact before trusting it.
+            probe = subprocess.run(
+                ["ffprobe", "-v", "error", tmp_output_path],
+                capture_output=True, text=True,
+            )
+            if probe.returncode != 0:
+                raise RuntimeError(
+                    f"write_videofile() reported success but ffprobe rejects the "
+                    f"output as invalid: {probe.stderr.strip()}"
+                )
+            os.replace(tmp_output_path, output_path)
+        except Exception:
+            Path(tmp_output_path).unlink(missing_ok=True)
+            raise
 
         video.close()
         for clip in clips:

@@ -247,14 +247,42 @@ file, `os.rename()` over the destination) and wired it into `letters`,
 Verified live: a real regeneration of letter A succeeds, no `.tmp` left
 behind, content correct.
 
-**Still open, deliberately not touched:** `video_renderer.py`'s final
-`video.write_videofile(output_path, ...)` (line ~170) has the same shape —
-writes directly to the real destination path, no temp-then-rename — so an
-interrupted render likely leaves a truncated `.mp4` the same way. Not fixed
-here: video rendering is multi-stage (moviepy + ffmpeg subprocess, its own
-temp audio file already in play) and wrapping its *final* write atomically
-needs its own verification pass (actually running a render to interrupt),
-not something to bolt on blind alongside the JSON-generator fix above.
+**Fixed 2026-08-23** (follow-up session): `video_renderer.py`'s final
+`video.write_videofile(output_path, ...)` had the same shape as the JSON
+generators — wrote directly to the real destination, no temp-then-rename.
+Tested the same way (a tiny tmpfs mounted directly onto the real
+`stages/02_render_video/output/letters` dir, then a real
+`video_renderer.py A` render against it) and found something **worse than
+the JSON-generator bug**: `write_videofile()` returned normally (exit 0,
+"Rendered: ...") on a disk-full render, no exception at all. The actual
+output file was truncated to exactly the tmpfs's capacity and rejected by
+`ffprobe` (`moov atom not found`) — a silently corrupt "success".
+
+Root cause traced into moviepy 2.1.2 itself
+(`moviepy/video/io/ffmpeg_writer.py`, `FFMPEG_VideoWriter.close()`): it
+calls `self.proc.wait()` on the ffmpeg subprocess but never checks
+`returncode`. Disk-full during ffmpeg's *own* finalization (writing the
+trailing moov atom, after all frame data was already piped through
+successfully) never surfaces as a Python exception. Can't patch a
+third-party library for this, so the fix is at Jarvis-X's own boundary:
+`render_video()` now (a) writes to a sibling `*.tmp.mp4` (real extension
+preserved so ffmpeg's own container-format detection still works, not
+appended after it), (b) runs `ffprobe -v error` on that temp file as an
+integrity gate, and only then (c) `os.replace()`s it over the real
+destination — matching the JSON-generator's temp-then-rename shape, plus
+the extra check the video case actually needs.
+
+Verified live: a real successful render (letter A, ~150KB, `ffprobe`-valid
+h264/1080x1920 MP4) still works and leaves no leftover `.tmp.mp4`; the same
+64KB-tmpfs disk-full setup that silently "succeeded" before now correctly
+raises (`RuntimeError`, non-zero exit) with the temp file cleaned up and
+the real `letter_A.mp4` byte-for-byte untouched (verified via `md5sum`
+before/after). `_run_generator_job`'s existing `returncode != 0 →
+status: "failed"` handling (already proven for `content_generator.py` in
+this same P8 investigation) now applies correctly here too. `jest-runner.js`
+still 18/18 (one voice-language-detection flake during a combined run,
+already a known, pre-existing, unrelated heuristic ambiguity — confirmed
+clean in isolation and on a full rerun).
 
 Found during the 2026-08-20 whole-branch review of
 `docs/superpowers/plans/2026-08-20-phase1a-verification.md` Task 4. See the
