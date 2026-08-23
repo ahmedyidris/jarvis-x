@@ -25,3 +25,4 @@ sentinel/eval/eval_report.json
 .claude/skills/
 .agents/
 electron/dist/
+voices/
