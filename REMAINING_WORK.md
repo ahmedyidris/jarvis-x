@@ -277,6 +277,24 @@ trigger a real `POST /api/dashboard/generate/<vertical>` call against it,
 then inspect the job status and any partial files left behind — not
 achievable by writing into the test script's own process.
 
+## P9 — Live Data: energy/news left on honest mock by explicit decision (2026-08-23)
+
+`scripts/live-data.js`'s energy (`EIA_API_KEY`) and news (`NEWSAPI_KEY`)
+items report `origin: "mock"` even though both variable names exist in
+`.env` — checked directly: both are declared but literally empty
+(`EIA_API_KEY=`, `NEWSAPI_KEY=`, 0 chars each), never actually filled in.
+`ALPHAVANTAGE_API_KEY` (crypto/market's other paid-tier dependency) *is*
+real but its free tier's 25-req/day quota was exhausted by this session's
+own repeated testing (resets daily — not a code bug; `market-brief-provider.js`
+already reports the real Alpha Vantage error message honestly when this
+happens, doesn't crash or fall back silently).
+
+Asked the user directly whether to chase real keys or accept the mock
+state — **explicit decision: leave energy/news on honest mock for now,
+don't pursue further.** Not a gap to re-flag; the origin badge/mock-with-
+reason behavior this dashboard already has is the intended, accepted end
+state here, same category as P0's "deliberately deferred."
+
 ## Resolved after this doc was written
 
 - `app.py`'s `/api/ask` not checking the kill switch (was flagged above and in `SESSION_FINAL_REPORT.md`'s "what remains" #1) — **resolved 2026-08-16**: `/api/ask` now returns `503` when `.jarvis-x-STOP` exists. Decision: `CONSTITUTION.md`'s kill-switch guarantee carves out no exception for chat, and a silently-excluded path undermines the whole point of a "one tap, everything stops" kill switch. Verified live (baseline works, switch blocks, clearing restores it). See `docs/architecture.md`'s kill-switch section.
