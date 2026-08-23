@@ -208,12 +208,22 @@ and polls `/api/dashboard/overview`'s job status.
   `CONTENT_DIR.glob("letter_*.json")`) would see `letter_A.json` as
   "already generated" and skip it, when it actually holds nothing.
 
-**Not fixed as part of this session** — this is a real correctness gap
-(same root shape as `video_renderer.py`'s presumably-similar direct-write
-pattern, not tested here) but fixing it (write-to-temp-then-rename, or a
-post-write integrity check before trusting a file's presence) is separate,
-scoped work, not a quick one-liner alongside a verification build-out.
-Filed as its own follow-up rather than bundled in silently.
+**Fixed 2026-08-23** for the 4 JSON content generators: added
+`content_generator.py`'s `_atomic_write_json()` (write to a sibling `.tmp`
+file, `os.rename()` over the destination) and wired it into `letters`,
+`economic_facts`, `commodities_macro`, and `geopolitical_risk` — the same
+`out_path.write_text(...)` line was duplicated verbatim across all four.
+Verified live: a real regeneration of letter A succeeds, no `.tmp` left
+behind, content correct.
+
+**Still open, deliberately not touched:** `video_renderer.py`'s final
+`video.write_videofile(output_path, ...)` (line ~170) has the same shape —
+writes directly to the real destination path, no temp-then-rename — so an
+interrupted render likely leaves a truncated `.mp4` the same way. Not fixed
+here: video rendering is multi-stage (moviepy + ffmpeg subprocess, its own
+temp audio file already in play) and wrapping its *final* write atomically
+needs its own verification pass (actually running a render to interrupt),
+not something to bolt on blind alongside the JSON-generator fix above.
 
 Found during the 2026-08-20 whole-branch review of
 `docs/superpowers/plans/2026-08-20-phase1a-verification.md` Task 4. See the
