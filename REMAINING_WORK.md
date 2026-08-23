@@ -44,6 +44,37 @@ Three verticals existed (`letters`, `economic_facts`, `commodities_macro`), each
 
 Same root cause as above (shared retry/validation logic checks JSON shape only, no numeric/logical/semantic-fidelity check), still open, still un-fixed. Verbatim evidence for both preserved in `scripts/verify/output/02_verticals_output.json`'s `georisk_us-china-trade-tariffs.json` and `georisk_red-sea-shipping-attacks.json` entries. See "Task 2" in `docs/VERIFICATION_2026-08.md` for full detail. This brings the running total to (at least) 4 confirmed occurrences across this vertical's history (2 fabricated digits at original build time, plus these 2 garbled-restatement occurrences in this single re-run batch) — raises confidence this is a systemic gap in the shared generator pattern, not a one-off LLM fluke, and should be prioritized accordingly. Also worth noting P4's original framing ("no check for numeric fidelity") is too narrow: the fix needed is a fidelity check for *sourced claims generally* (numbers, dates, and logical restatements alike), not numbers specifically.
 
+**Numeric half fixed 2026-08-23 — semantic half explicitly still open.**
+Added `content_generator.py`'s `check_numeric_fidelity()` (extracts digit-runs
+and small number-words from the sourced fact and from the model's output;
+flags any number in the output not present in the source — no extra LLM
+call, deterministic, no added flakiness) and `enforce_numeric_fidelity()`
+(re-prompts up to `MAX_ATTEMPTS` times with the specific bad number(s) named,
+raises `ValueError` — refuses to write — if it never self-corrects). Wired
+into all three sourced-fact generators (`economic_facts`,
+`commodities_macro`, `geopolitical_risk`) right before each writes its
+output. Unit-verified against the exact historical defects: the real
+fabricated-`"40%"` case is caught; a faithful digit-for-digit restatement is
+not false-flagged; a word-number restated as a digit (`"six"` → `"6"`) is
+*not* false-flagged (normalizes both forms first); the retry-recovers and
+retry-never-recovers paths both behave correctly (verified with a mocked
+Ollama call in each case).
+
+**Explicitly does NOT catch the semantic/logical class** — the "125% to
+125%" and "previous fall" vs. "earlier this year" defects above have no
+invented digit (125 and the *concept* of "fall"/"this year" both trace to
+real source content; the bug is the *relationship* between numbers/dates,
+not an unseen one). That still needs real semantic judgment — an LLM-judge
+second pass comparing meaning, not a token diff — and is **not built**;
+noted in `check_numeric_fidelity()`'s own docstring so this isn't
+overclaimed as "P4 fixed" the next time this file is read. A real,
+incidental side-effect while testing this, worth recording: regenerating
+`georisk_us-china-trade-tariffs.json` live during verification happened to
+produce a new, non-garbled narration this time (different LLM sample), so
+that specific historical instance of the "125% to 125%" defect no longer
+exists on disk — but that's luck-of-the-draw, not a fix; the same run could
+just as easily reproduce it or a new semantic garble tomorrow.
+
 ## P5 — Correctness audit (this session's earlier fixes + new sweep)
 
 - `code/paper-trading.js`'s always-0 P&L — **already fixed** (`397ea77`, prior turn this session).

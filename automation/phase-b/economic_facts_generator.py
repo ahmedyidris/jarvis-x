@@ -58,6 +58,7 @@ from content_generator import (
     _call_ollama,
     _detect_json_format_support,
     _extract_json_object,
+    enforce_numeric_fidelity,
 )
 
 CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "economic_facts"
@@ -286,6 +287,11 @@ def generate_economic_content(fact: dict) -> dict:
                 f"from Ollama for topic '{fact['topic']}' after {MAX_ATTEMPTS} "
                 f"attempts. Last error: {last_err}. Last raw output: {raw!r}"
             )
+
+    llm_fields = enforce_numeric_fidelity(
+        fact["headline_fact"], llm_fields, _call_ollama, use_json_format,
+        REQUIRED_LLM_FIELDS, MAX_ATTEMPTS,
+    )
 
     content = {
         "topic": fact["topic"],
