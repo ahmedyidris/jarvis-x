@@ -3,13 +3,17 @@ const BaseProvider = require('./base-provider');
 const COIN_IDS = {
   'btc': 'bitcoin',
   'eth': 'ethereum',
-  'usdc': 'usd-coin'
+  'usdc': 'usd-coin',
+  'sol': 'solana',
+  'xrp': 'ripple'
 };
 
 const MOCK = {
   'btc': { id: 'bitcoin', symbol: 'btc', price: 42500, changePercent24h: 2.3, marketCap: 833000000000 },
   'eth': { id: 'ethereum', symbol: 'eth', price: 2250, changePercent24h: 1.5, marketCap: 270000000000 },
   'usdc': { id: 'usd-coin', symbol: 'usdc', price: 1.0, changePercent24h: 0.01, marketCap: 24000000000 },
+  'sol': { id: 'solana', symbol: 'sol', price: 140, changePercent24h: -1.2, marketCap: 65000000000 },
+  'xrp': { id: 'ripple', symbol: 'xrp', price: 0.62, changePercent24h: 0.8, marketCap: 35000000000 },
   'btc-dominance': { dominance: 52.3, change24h: 0.5 }
 };
 
@@ -77,6 +81,16 @@ class CryptoProvider extends BaseProvider {
   }
 
   async getJson(url) {
+    // CoinGecko's real anonymous-tier rate limit is a burst limit, not just
+    // a per-minute count -- 6 sequential calls fired back-to-back (adding
+    // sol/xrp/usdc/btc-dominance to the snapshot surfaced this) tripped a
+    // real 429 even though our own checkRateLimit() cap (10 req/60s) had
+    // budget left. Same fix as market-brief-provider.js already uses for
+    // Alpha Vantage: throttle to one call per ~1.1s per provider instance.
+    const since = Date.now() - (this._lastCall || 0);
+    if (since < 1100) await new Promise(r => setTimeout(r, 1100 - since));
+    this._lastCall = Date.now();
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {

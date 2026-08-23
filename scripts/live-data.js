@@ -10,6 +10,10 @@ const NewsProvider = require('../code/providers/news-provider');
 const TARGETS = [
   { id: 'btc',       label: 'Bitcoin',      provider: 'crypto', key: 'btc' },
   { id: 'eth',       label: 'Ethereum',     provider: 'crypto', key: 'eth' },
+  { id: 'sol',       label: 'Solana',       provider: 'crypto', key: 'sol' },
+  { id: 'xrp',       label: 'XRP',          provider: 'crypto', key: 'xrp' },
+  { id: 'usdc',      label: 'USD Coin',     provider: 'crypto', key: 'usdc' },
+  { id: 'btc-dominance', label: 'BTC Dominance', provider: 'crypto', key: 'btc-dominance' },
   { id: 'sp500',     label: 'S&P 500 (SPY)', provider: 'market', key: 'sp500' },
   { id: '10y-yield', label: 'US 10Y Yield', provider: 'market', key: '10y-yield' },
   { id: 'crude-oil-wti', label: 'Crude Oil (WTI)', provider: 'energy', key: 'crude-oil-wti' },
@@ -29,10 +33,14 @@ const TARGETS = [
       items.push({
         id: t.id,
         label: t.label,
-        value: v.price ?? v.value ?? null,
+        // v.dominance: CryptoProvider's fetchDominance() shape (btc-dominance),
+        // a percentage, not a USD price -- distinct from v.price/v.value.
+        value: v.price ?? v.value ?? v.dominance ?? null,
         headline: v.title || null,
-        unit: v.unit || (v.price !== undefined ? 'USD' : null),
-        changePercent24h: v.changePercent24h ?? null,
+        unit: v.unit || (v.price !== undefined ? 'USD' : (v.dominance !== undefined ? '%' : null)),
+        // v.change24h: fetchDominance()'s own field name for the same
+        // 24h-change concept every other provider calls changePercent24h.
+        changePercent24h: v.changePercent24h ?? v.change24h ?? null,
         origin: v.source,
         live: v.source !== 'mock',
         note: v.note || null,
