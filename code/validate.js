@@ -89,10 +89,22 @@ function validateAction(action) {
 }
 
 function validate(proposal) {
-  const action = (proposal && typeof proposal === 'object' && proposal.action)
-    ? proposal.action
-    : proposal;
-  return validateAction(action);
+  // Only unwrap {action:{...}} when .action is genuinely a nested object.
+  // The old check was truthiness alone, so the pre-`type` schema
+  // {"action":"list","path":"x"} unwrapped to the STRING "list" and got
+  // reported as 'action must be an object' -- technically true of the
+  // string, but a misleading diagnosis of a schema-version mismatch.
+  const nested = proposal && typeof proposal === 'object'
+    && proposal.action !== null && typeof proposal.action === 'object';
+  if (nested) return validateAction(proposal.action);
+
+  if (proposal && typeof proposal === 'object'
+      && typeof proposal.action === 'string' && !proposal.type) {
+    return { valid: false,
+      reason: `legacy schema: got {"action":"${proposal.action}"}, expected {"type":"${proposal.action}"}` };
+  }
+
+  return validateAction(proposal);
 }
 
 module.exports = { validate, validateAction };

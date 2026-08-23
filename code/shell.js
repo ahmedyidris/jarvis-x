@@ -13,7 +13,10 @@ const MAX_OUTPUT = 100_000;
 
 function run(cmd, args = []) {
   if (typeof cmd !== 'string' || !ALLOWED.has(cmd)) {
-    logAction('refused-cmd', `${cmd} ${args.join(' ')}`, false);
+    // Third arg was a bare `false` against a two-param signature -- silently
+    // dropped, so every refused command logged with no record of refusal.
+    logAction('refused-cmd', `${cmd} ${args.join(' ')}`,
+      { allowed: false, outcome: 'refused', reason: 'not in allowlist' });
     throw new Error(`REFUSED: '${cmd}' not in allowlist`);
   }
   if (!Array.isArray(args) || args.some(a => typeof a !== 'string')) {

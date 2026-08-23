@@ -7,7 +7,7 @@ No `TODO`/`FIXME` markers exist anywhere in the codebase (checked `*.js`/`*.py`/
 
 | Item | Why deferred | Current status |
 |---|---|---|
-| `code/selfdebug.js` (self-debug loop) | `NOTES.md`: *"Do not build while accuracy is 77%. A self-modifying loop plus a model that picks the right action three times in four is how a repo ends up editing its own constraints. Revisit when the accuracy number is boring."* | Still 77% (24/31 graded correct, confirmed via `scripts/status.sh` this session). **Condition not met — do not build**, despite this task category ("incomplete feature") superficially looking like fair game. |
+| `code/selfdebug.js` (self-debug loop) | `NOTES.md`: *"Do not build while accuracy is 77%. A self-modifying loop plus a model that picks the right action three times in four is how a repo ends up editing its own constraints. Revisit when the accuracy number is boring."* | **Superseded (2026-08-24, `3971f4f`).** The 77% was a hand-count over `logs/proposals.jsonl`, which nothing had appended to since the pre-`type` agent — all 36 rows use the old `{"action":...}` schema and `correct` was added by hand. The gate was unreproducible, not merely stale. `code/eval-agent.js` now measures routing on demand: 40% on first run, 15/15 after `format:'json'` + few-shot + an explicit refusal instruction, stable across 3 runs, 6/6 on held-out goals. **Condition still not met — do not build.** The number is not yet boring: 15 cases, one model (`qwen2.5:3b`), and the eval cases and few-shot examples were written in the same sitting, so 15/15 overstates generalization. Widen the case set and re-measure before revisiting. |
 
 ## P1 — Architecture decision needed (resolved this session, see decision record)
 
