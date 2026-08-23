@@ -27,13 +27,14 @@ const ask = async (prompt) => {
 function buildPrompt(goal) {
   return `You are an AI that converts natural language goals into actions.
 Respond with a JSON object ONLY, no other text.
-Valid action types: "list", "read", "write", "shell", "query", "answer".
+Valid action types: "list", "read", "write", "shell", "query", "answer", "list_models".
 - For "list": include "path" (string)
 - For "read": include "path"
 - For "write": include "path" and "content"
 - For "shell": include "cmd" (must be one of: ${[...SHELL_ALLOWED].join(', ')}) and optionally "args" (array of strings)
 - For "query": include "q"
 - For "answer": include "text"
+- For "list_models": no other fields. Use this for any question about which models/LLMs are available or installed -- do NOT use "list" with a path for that.
 Example: for "list files in memory", respond with {"type":"list","path":"memory/"}
 Goal: ${goal}`;
 }

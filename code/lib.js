@@ -65,6 +65,32 @@ async function execute(action) {
     case 'answer': {
       return action.text;
     }
+    case 'list_models': {
+      // Models kept proposing {"action":"list","path":"models"} for "what
+      // models do you have" -- there was no way to enumerate them, so they
+      // reached for the filesystem and failed validation. Ask Ollama.
+      // Native fetch, not runShell -- 'curl' is deliberately not in
+      // shell.js's allowlist, and widening that boundary to serve an
+      // unrelated read-only feature would be a bad trade.
+      const base = process.env.OLLAMA_HOST || 'http://localhost:11434';
+      return (async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        try {
+          const res = await fetch(`${base}/api/tags`, { signal: controller.signal });
+          if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+          const parsed = await res.json();
+          const names = (parsed.models || []).map(m => m.name);
+          if (names.length === 0) return 'No models installed.';
+          return `Available models (${names.length}): ${names.join(', ')}`;
+        } catch (err) {
+          if (err.name === 'AbortError') throw new Error('Ollama timed out after 10s');
+          throw new Error(`could not reach Ollama: ${err.message}`);
+        } finally {
+          clearTimeout(timer);
+        }
+      })();
+    }
     default:
       return `Unknown action type: ${type}`;
   }

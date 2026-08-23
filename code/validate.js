@@ -79,6 +79,11 @@ function validateAction(action) {
     return { valid: true };
   }
 
+  // Model introspection: no path, no args, read-only. Nothing to jail.
+  if (action.type === 'list_models') {
+    return { valid: true };
+  }
+
   // Unknown type → invalid
   return { valid: false, reason: `unknown action type: ${action.type}` };
 }
