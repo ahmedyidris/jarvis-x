@@ -189,7 +189,7 @@ re-verified: the row for the `ping` probe now exists (`id=45`,
 `response='[BACKEND FAILURE] curl: (7) Failed to connect...'`,
 `model='qwen2.5:3b'`, `latency_ms=8`).
 
-## P7 — Decision-latency baseline shows unexplained intra-tier variance, a `model="--tier"` recording bug, and a stale/mixed sample (2026-08-20, corrected)
+## P7 — Decision-latency baseline shows unexplained intra-tier variance, a `model="--tier"` recording bug, and a stale/mixed sample (2026-08-20, corrected) — ROOT CAUSE FOUND 2026-08-23
 
 Found while running `docs/superpowers/plans/2026-08-20-phase1a-verification.md`
 Task 6. See the "Task 6" section of `docs/VERIFICATION_2026-08.md` for full
@@ -247,13 +247,53 @@ argv slip during Week 3's first hour of manual testing, against a version of
 as historical; left the row data in place as-is (it's real history, not
 worth editing out of `state.db`).
 
-A follow-up would still need: (a) investigation into why simple local-tier
-prompts occasionally take 10-100x longer than others (resource contention?
-cold model load? something else?) — item 2 above, still open, no code fix
-attempted; and (b) either excluding degenerate/stale rows from future
-baselines or tagging rows so they can be filtered — not a change to the
-verification script's query itself, which faithfully reports what's in the
-table.
+**Item 2 (the 10-100x latency variance) solved 2026-08-23 — root cause
+confirmed by direct reproduction, not inference.**
+
+First isolated cold-model-load as a real but partial factor: 15
+back-to-back local-tier calls (`python3 hermes.py "Hello."`) spread
+0.86s-10.20s (11.8x), with the very first call (right after Ollama had been
+idle) the slowest. Force-unloading the model (`keep_alive: 0` via
+`/api/generate`, confirmed via `/api/ps` going from one loaded model to
+`"models": []`) and timing one genuinely cold call: **5.34s** — real, but
+nowhere close to the historical p95 (51.4s) or max (97.6s). Cold start alone
+doesn't explain the extreme tail.
+
+Tested the other half of the original hypothesis directly: started a real
+`video_renderer.py` render in the background (TTS synthesis via Piper, which
+`top` showed spiking to **386.7% CPU** on this 8-core, CPU-only, no-GPU box)
+and fired a trivial `hermes.py "Hello."` query *during* that contention.
+
+- **Trial 1 (concurrent with a letter-B render): 64.47s.**
+- **Trial 2 (concurrent with a letter-C render): 75.89s.**
+- **Immediately after contention cleared: 4.03s** — same query, same
+  machine, only difference is whether a render was competing for CPU.
+
+Both trials land squarely inside the historical 51-97s outlier range,
+reproduced on demand, twice, not a one-off coincidence. **Root cause:
+real CPU contention between Ollama's local-tier inference and phase-b's
+video-render pipeline (specifically Piper TTS synthesis) on a machine with
+no CPU isolation/prioritization between the interactive chat path and
+batch content-generation jobs.** Not "something else" — the original
+hypothesis's other candidate ("quality tier + voice synthesis" for the
+*Jarvis chat* voice path) was already ruled out in the 2026-08-20 write-up
+(no `voice_id` in the sampled rows); this is a *different* voice-synthesis
+path (phase-b's own TTS step) contending for the same finite CPU, not
+Jarvis's own chat TTS.
+
+**Not fixed as code** — this is a scheduling/prioritization policy
+question (e.g. `nice`/`ionice` the phase-b render subprocess calls in
+`app.py`'s `_run_generator_job`, or simply don't run interactive chat and
+batch generation at the same time on this single-machine, single-user
+deployment) rather than a correctness bug, and is a decision for Ahmed, not
+something to impose unasked. Flagging as a real, now-understood, and
+concretely reproducible tradeoff rather than an open mystery.
+
+A follow-up would still need: (a) either excluding degenerate/stale rows
+from future latency baselines or tagging rows so they can be filtered — not
+a change to the verification script's query itself, which faithfully
+reports what's in the table; and (b) the `--tier`-bug-adjacent recording
+hygiene noted above.
 
 ## P8 — Disk-full failure mode untested for Jarvis-X's own output paths (2026-08-20) — TESTED 2026-08-23, real finding confirmed
 
@@ -365,6 +405,28 @@ state here, same category as P0's "deliberately deferred."
 ## Resolved after this doc was written
 
 - `app.py`'s `/api/ask` not checking the kill switch (was flagged above and in `SESSION_FINAL_REPORT.md`'s "what remains" #1) — **resolved 2026-08-16**: `/api/ask` now returns `503` when `.jarvis-x-STOP` exists. Decision: `CONSTITUTION.md`'s kill-switch guarantee carves out no exception for chat, and a silently-excluded path undermines the whole point of a "one tap, everything stops" kill switch. Verified live (baseline works, switch blocks, clearing restores it). See `docs/architecture.md`'s kill-switch section.
+
+## P10 — Orphaned duplicate hermes-api/ollama process pair, not currently serving (2026-08-23)
+
+While investigating P7's latency variance, found (via `ps aux` + `sudo ss -tlnp`)
+a second, root-owned `uvicorn app:app`/`ollama serve` pair (from an
+independently-invoked `supervisord -c /etc/supervisor/conf.d/jarvis-x.conf`
+— a config file that no longer exists on disk, and distinct from both the
+project's own `config/supervisord.conf` and the system's real
+`supervisor.service`, which its own journal confirms found no `conf.d`
+files at this boot). Confirmed via `ss -tlnp` that only the project's own
+`config/supervisord.conf`-managed pair (127.0.0.1:8000, 127.0.0.1:11434) is
+actually listening; the orphaned root pair holds ~188MB RSS (`uvicorn`) +
+~15MB RSS (`ollama`, no model loaded — `size_vram: 0`, tiny footprint) idle,
+not reachable, not currently a proven contributor to any measured latency
+(that root cause was independently confirmed as CPU contention with
+phase-b's own render jobs, above). Likely an artifact of how this specific
+sandbox session happened to boot today, not necessarily present in the
+Aug 12-20 sessions the original P7 data came from — flagged as real but
+unconfirmed-historical, not conflated with P7's resolved finding. Not
+touched (killing another session's/environment's orphaned root process
+wasn't asked for); worth a `sudo kill 1218 1219 936` if Ahmed wants the
+~200MB back, otherwise harmless.
 
 ## Explicitly corrected assumption from the original task brief
 
