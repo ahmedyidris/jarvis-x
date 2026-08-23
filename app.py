@@ -92,9 +92,17 @@ async def ask(req: QueryRequest):
     try:
         model, voice = router.resolve(req.tier, voice_override=req.voice)
         hermes = hermes_module.HermesCore()
-        response = hermes.ask(req.question, model)
-        hermes.close()
-        
+        try:
+            response = hermes.ask(req.question, model)
+        except hermes_module.HermesBackendError as e:
+            # Distinct status from a normal (if terse) answer -- a caller
+            # checking only the HTTP status code must be able to tell "the
+            # LLM backend is down" from "it answered". See REMAINING_WORK.md
+            # P6: this used to fold both into an ordinary 200 response.
+            raise HTTPException(status_code=503, detail=f"LLM backend unavailable: {e}")
+        finally:
+            hermes.close()
+
         result = {
             "question": req.question,
             "response": response,
@@ -122,6 +130,11 @@ async def ask(req: QueryRequest):
                 logger.warning(f"TTS failed: {e}")
         
         return result
+    except HTTPException:
+        # Already the right status (e.g. the 503 raised above for a backend
+        # failure) -- let it through as-is instead of the broad handler
+        # below rewrapping it into a misleading 500.
+        raise
     except Exception as e:
         logger.error(f"Query failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

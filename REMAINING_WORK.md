@@ -50,11 +50,39 @@ Same root cause as above (shared retry/validation logic checks JSON shape only, 
 - Kill switch (`guard.js`'s `isStopped()`) and `scheduler.js`'s respect for it — **already fixed and verified** this session (`5079aab`: `lib.js`'s `execute()` now checks it for every action type; `scheduler.js`'s gate bug fixed same commit). Re-verified working in this session's Phase 4 (see below).
 - Broader sweep for other "always returns a constant/0/null regardless of input" bugs: see Phase 4 findings below.
 
-## P6 — Ollama-down failure is invisible to status-code-only clients (2026-08-20)
+## P6 — Ollama-down failure is invisible to status-code-only clients (2026-08-20) — RESOLVED 2026-08-23
 
 Found while running `docs/superpowers/plans/2026-08-20-phase1a-verification.md`
 Task 4. See the "Task 4" section of `docs/VERIFICATION_2026-08.md` for full
-output. Blocks Phase 1A exit criteria until resolved.
+output.
+
+**Resolved 2026-08-23.** An earlier, incomplete attempt (`7fa7475`, 2026-08-21)
+changed `curl -s` to bare `curl -S` — this made `stderr` non-empty again, but
+`-S` alone doesn't suppress curl's own progress-meter table, so the "error"
+text callers saw was the meter's blank columns glued in front of the real
+message, still returned as ordinary 200 answer text, and still never reaching
+the audit log (the addendum below). Actually fixed this session:
+- `hermes.py`: `curl -sS` (silent meter, but still show errors — the
+  combination that actually isolates just the error text); `ask()` now
+  raises a new `HermesBackendError` on curl failure/timeout/malformed JSON
+  instead of returning an `"Error: ..."` string; a new `_record_failure()`
+  helper inserts a `[BACKEND FAILURE] ...` row into `conversations` so the
+  audit log gets a trace either way (resolves the addendum below too).
+- `app.py`'s `/api/ask` catches `HermesBackendError` and raises
+  `HTTPException(503)` instead of returning 200 — and a new
+  `except HTTPException: raise` guard was needed above the route's existing
+  broad `except Exception → 500` handler, which would otherwise have
+  recaught and downgraded that 503 to a misleading 500.
+- `hermes.py`'s CLI (`main()`) catches the same exception and prints a clean
+  stderr message + `sys.exit(1)`, instead of an unhandled traceback.
+
+Re-verified live with the same probe as the original finding (`supervisorctl
+stop ollama` → `POST /api/ask {"question":"ping"}` → `start ollama`): now
+returns `503` with body
+`{"detail":"LLM backend unavailable: curl: (7) Failed to connect to localhost port 11434 after 0 ms: Couldn't connect to server"}`
+(clean, no meter noise), and `scripts/verify/04_failure_modes.py`'s
+`ollama_down()` reports `"graceful": true`. Original finding below preserved
+as history.
 
 A real `supervisorctl stop ollama`, then `POST /api/ask`, returned **HTTP
 200** — not a 5xx — with the body `{"question":"ping","response":"Error: ","tier":"local","model":"qwen2.5:3b","voice":null,"audio":null}`. `hermes.py`'s
@@ -85,6 +113,11 @@ stop ollama` → `POST /api/ask {"question":"ping"}` → `start ollama` cycle):
 `user_input='ping'` exists at all. So a hard backend failure leaves neither
 an HTTP-level nor an audit-log-level trace — a direct input to the future
 Phase 1D audit-trail work the overall completion plan calls for.
+
+**Also resolved 2026-08-23** by the same `_record_failure()` change above —
+re-verified: the row for the `ping` probe now exists (`id=45`,
+`response='[BACKEND FAILURE] curl: (7) Failed to connect...'`,
+`model='qwen2.5:3b'`, `latency_ms=8`).
 
 ## P7 — Decision-latency baseline shows unexplained intra-tier variance, a `model="--tier"` recording bug, and a stale/mixed sample (2026-08-20, corrected)
 
