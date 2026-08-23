@@ -1,3 +1,4 @@
+require('dotenv').config();
 /**
  * Unit tests for Phase 1B data layer
  * Run with: npm test test-data-layer.js
@@ -25,7 +26,9 @@ async function runTests() {
   const result = await dl.getDataPoint('market:sp500');
   assert(result.value, 'Data value exists');
   assert(result.fetchedAt, 'Fetch timestamp exists');
-  assert(result.source === 'market-brief', 'Source correct');
+  assert(result.source === 'market', `Provider name correct (got ${result.source})`);
+  assert(['alphavantage','mock'].includes(result.value.source),
+    `Data origin declared (got ${result.value.source})`);
   console.log('✓ PASS');
 
   // Test 3: Cache hit
