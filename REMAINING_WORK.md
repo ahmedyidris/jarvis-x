@@ -75,6 +75,45 @@ that specific historical instance of the "125% to 125%" defect no longer
 exists on disk — but that's luck-of-the-draw, not a fix; the same run could
 just as easily reproduce it or a new semantic garble tomorrow.
 
+**Attempted 2026-08-23 (follow-up session), deliberately NOT shipped — real,
+tested negative result.** Built the obvious next step this section itself
+calls for: an LLM-judge second pass ("does this narration/caption change
+the meaning of the source fact?"), tested directly against both real
+historical defects before wiring it into anything.
+
+- It *does* catch both real cases: `qwen2.5:3b` correctly flagged the
+  "125% to 125%" case and the "previous fall"/"earlier this year" case as
+  unfaithful, with a coherent explanation each time.
+- But it has a **severe false-positive rate on genuinely faithful
+  content** — tested against the real, verified-correct
+  `georisk_us-china-trade-tariffs.json` narration/caption pair (the one
+  committed to this repo right now): `qwen2.5:3b` rejected it as
+  "unfaithful" in **5 out of 5** independent trials, with a different
+  (and in one case self-contradictory — claiming a mismatch between two
+  numbers that were actually identical) fabricated "issue" each time.
+  `qwen2.5:7b` (the quality tier, already available locally, no new
+  dependency) did meaningfully better but still rejected the same faithful
+  content in **5 of 8** trials across two batches — no better than a coin
+  flip, and unstable run-to-run in a way that majority-voting across
+  several calls did not fix (tested 3+5 independent votes on the identical
+  input; the votes themselves flip-flopped between batches).
+- **Conclusion: neither locally-available model is a reliable judge for
+  this.** Wiring this in as a hard gate (matching `enforce_numeric_fidelity()`'s
+  fail-loud design) would reject good content roughly as often as bad —
+  worse than having no check, since it would either block legitimate
+  verticals from generating at all or train whoever operates this to
+  ignore/override its verdicts, defeating the point. Not wired in anywhere;
+  no code changed as a result of this attempt (the experiment lived
+  entirely in a throwaway script, not committed).
+- **What would actually be needed**: either a genuinely stronger model
+  (a real frontier-tier API call, not a local 3B/7B) as the judge, or a
+  fundamentally different check shape — structured extraction of each
+  side's numbers/dates/relationships into a comparable form first, then a
+  deterministic diff on *that*, rather than an open-ended "is this
+  faithful?" judgment call handed to a small model. Left open; this
+  session's real contribution is ruling out the "obvious" fix with actual
+  evidence, so a future session doesn't re-attempt it blind.
+
 ## P5 — Correctness audit (this session's earlier fixes + new sweep)
 
 - `code/paper-trading.js`'s always-0 P&L — **already fixed** (`397ea77`, prior turn this session).
