@@ -300,6 +300,37 @@ async def _dashboard_overview() -> dict:
     }
 
 
+def _read_live_data() -> dict:
+    """Snapshot of live market/crypto data via the Node provider layer.
+
+    Providers live in code/providers/*.js; rather than reimplementing the
+    CoinGecko and Alpha Vantage clients in Python, shell out to the same
+    verified code the agent uses. Each item declares its own origin so the
+    dashboard can show live vs mock rather than presenting both alike.
+    """
+    script = Path(__file__).parent / "scripts" / "live-data.js"
+    if not script.exists():
+        return {"error": "live-data.js not found", "items": []}
+    try:
+        proc = subprocess.run(
+            ["node", str(script)],
+            capture_output=True, text=True, timeout=45,
+            cwd=str(Path(__file__).parent),
+        )
+        if proc.returncode != 0:
+            return {"error": (proc.stderr or "node exited non-zero").strip()[:400], "items": []}
+        return json.loads(proc.stdout)
+    except subprocess.TimeoutExpired:
+        return {"error": "live-data timed out after 45s", "items": []}
+    except json.JSONDecodeError as exc:
+        return {"error": f"bad JSON from live-data.js: {exc}", "items": []}
+
+
+@app.get("/api/dashboard/live-data", dependencies=[Depends(require_token)])
+async def dashboard_live_data():
+    return await asyncio.to_thread(_read_live_data)
+
+
 @app.get("/api/dashboard/overview", dependencies=[Depends(require_token)])
 async def dashboard_overview():
     return await _dashboard_overview()

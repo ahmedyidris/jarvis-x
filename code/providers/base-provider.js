@@ -21,7 +21,7 @@ class BaseProvider {
   }
 
   logRequest(key, status, result) {
-    console.log(`[${this.name}] ${status}: ${key}`);
+    console.error(`[${this.name}] ${status}: ${key}`);
   }
 }
 
