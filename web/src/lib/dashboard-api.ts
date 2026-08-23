@@ -138,3 +138,28 @@ export function dashboardWsUrl(): string {
   const base = `${proto}//${window.location.host}/ws/dashboard`
   return API_TOKEN ? `${base}?token=${encodeURIComponent(API_TOKEN)}` : base
 }
+
+export interface LiveDataItem {
+  id: string
+  label: string
+  value: number | null
+  unit: string | null
+  changePercent24h: number | null
+  origin: string
+  live: boolean
+  note: string | null
+  asOf: string | null
+  error: string | null
+}
+
+export interface LiveDataSnapshot {
+  timestamp?: string
+  live_count?: number
+  total?: number
+  items: LiveDataItem[]
+  error?: string
+}
+
+export async function getLiveData(): Promise<LiveDataSnapshot> {
+  return (await apiFetch("/api/dashboard/live-data")).json()
+}

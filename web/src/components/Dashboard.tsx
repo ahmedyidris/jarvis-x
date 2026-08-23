@@ -1,13 +1,15 @@
 import { useState } from "react"
-import { Gauge, Newspaper, Clapperboard, Settings } from "lucide-react"
+import { Activity, Gauge, Newspaper, Clapperboard, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Observatory } from "@/components/dashboard/Observatory"
 import { MarketData } from "@/components/dashboard/MarketData"
+import { LiveData } from "@/components/dashboard/LiveData"
 import { VideoPipeline } from "@/components/dashboard/VideoPipeline"
 import { Configuration } from "@/components/dashboard/Configuration"
 
 const TABS = [
   { id: "observatory", label: "Observatory", icon: Gauge, Component: Observatory },
+  { id: "live", label: "Live Data", icon: Activity, Component: LiveData },
   { id: "market", label: "Market Data", icon: Newspaper, Component: MarketData },
   { id: "video", label: "Video Pipeline", icon: Clapperboard, Component: VideoPipeline },
   { id: "config", label: "Configuration", icon: Settings, Component: Configuration },
