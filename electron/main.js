@@ -2,6 +2,7 @@ const { app, BrowserWindow, shell } = require('electron');
 const { execFile } = require('child_process');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 
 // Crostini has no DRM render node, so Chromium's GPU process fails to launch
 // and floods stderr before falling back to software rendering anyway. Ask for
@@ -10,8 +11,26 @@ app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-software-rasterizer');
 
 const BACKEND = 'http://127.0.0.1:8000';
-const REPO = path.resolve(__dirname, '..');
-const SUPERVISOR_CONF = path.join(REPO, 'config', 'supervisord.conf');
+
+// __dirname is inside the asar bundle once installed (/opt/Jarvis X/
+// resources/app.asar), so resolving '..' from it gave /opt/Jarvis X/
+// resources -- no supervisord.conf there, supervisorctl failed silently and
+// autostart never worked outside the dev tree. Find the real checkout
+// instead, overridable for non-standard locations.
+function findRepo() {
+  const candidates = [
+    process.env.JARVIS_X_HOME,
+    path.resolve(__dirname, '..'),
+    path.join(require('os').homedir(), 'jarvis-x'),
+  ].filter(Boolean);
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, 'config', 'supervisord.conf'))) return c;
+  }
+  return null;
+}
+
+const REPO = findRepo();
+const SUPERVISOR_CONF = REPO && path.join(REPO, 'config', 'supervisord.conf');
 
 let win;
 
@@ -31,8 +50,18 @@ function ping() {
 // window, and killing them here would fight the existing supervisor setup.
 function startBackend() {
   return new Promise(resolve => {
+    if (!SUPERVISOR_CONF) {
+      console.error('JARVIS_NO_SUPERVISOR_CONF: cannot locate jarvis-x checkout');
+      return resolve();
+    }
     execFile('supervisorctl', ['-c', SUPERVISOR_CONF, 'start', 'hermes-api'],
-      { timeout: 15000 }, () => resolve());
+      { timeout: 15000, cwd: REPO }, (err, stdout, stderr) => {
+        // Was swallowing errors entirely, so a bad conf path looked identical
+        // to a successful start.
+        if (err) console.error('JARVIS_SUPERVISOR_FAILED:', (stderr || err.message).trim());
+        else console.log('JARVIS_SUPERVISOR:', String(stdout).trim());
+        resolve();
+      });
   });
 }
 
