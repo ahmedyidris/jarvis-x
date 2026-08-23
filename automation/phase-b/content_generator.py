@@ -20,6 +20,7 @@ Schema produced by generate_letter_content():
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -31,6 +32,33 @@ MODEL = "qwen2.5:3b"
 REQUEST_TIMEOUT = 120  # seconds, generous for a cold-loaded local model
 
 CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "letters"
+
+
+def _atomic_write_json(out_path: Path, content: dict) -> None:
+    """Write `content` to `out_path` atomically.
+
+    Found via REMAINING_WORK.md P8's real-disk-full test: the previous
+    direct `out_path.write_text(...)` opens in 'w' mode, which truncates
+    the destination *before* writing the new content -- so a write failure
+    mid-way (disk full was the case tested, but any interrupted write
+    qualifies) doesn't leave the old file intact, it leaves a zero-byte
+    file where a real one used to be. Anything that only checks
+    `.exists()` (e.g. this file's own `_next_letter_to_generate()`-style
+    "already generated" callers in app.py) would then treat that as done.
+
+    Writing to a sibling temp file on the same filesystem and renaming over
+    the destination avoids that: `os.rename` is atomic, so `out_path`
+    either still holds its old content or holds the complete new content --
+    never a partial write. If the temp write itself fails (e.g. disk full),
+    the temp file is removed and the original `out_path` is left untouched.
+    """
+    tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
+    try:
+        tmp_path.write_text(json.dumps(content, indent=2))
+        os.rename(tmp_path, out_path)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 REQUIRED_FIELDS = {
     "letter",
@@ -202,7 +230,7 @@ def generate_letter_content(letter: str) -> dict:
 
     CONTENT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = CONTENT_DIR / f"letter_{letter}.json"
-    out_path.write_text(json.dumps(content, indent=2))
+    _atomic_write_json(out_path, content)
 
     return content
 

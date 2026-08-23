@@ -185,7 +185,35 @@ baselines or tagging rows so they can be filtered — not a change to the
 verification script's query itself, which faithfully reports what's in the
 table.
 
-## P8 — Disk-full failure mode untested for Jarvis-X's own output paths (2026-08-20)
+## P8 — Disk-full failure mode untested for Jarvis-X's own output paths (2026-08-20) — TESTED 2026-08-23, real finding confirmed
+
+**Built and run 2026-08-23**, exactly the design this entry proposed:
+`scripts/verify/04_failure_modes.py`'s new `disk_full_real_pipeline()`
+mounts a 4KB tmpfs directly onto the real `letters` output directory
+(shadowing the 9 existing files, not deleting them — confirmed byte-for-byte
+and timestamp-for-timestamp identical after unmount), pre-fills it to
+~200 bytes free, then fires a real `POST /api/dashboard/generate/letters`
+and polls `/api/dashboard/overview`'s job status.
+
+**Result — both halves of the original question answered, one good, one bad:**
+- Job status **is** honest: `"failed"`, with the real traceback
+  (`OSError: [Errno 28] No space left on device` from
+  `content_generator.py:205`'s `out_path.write_text(...)`) captured in
+  `output_tail`. Nothing here silently reports `done`.
+- But **a partial file is left behind**: `letter_A.json`, **0 bytes**.
+  `write_text()` opens in `'w'` mode (truncates immediately) before writing
+  — so a disk-full mid-write doesn't leave the *old* content intact, it
+  leaves a zero-byte file where a real one used to be. Anything checking
+  only `.exists()` (e.g. `_next_letter_to_generate()`'s own
+  `CONTENT_DIR.glob("letter_*.json")`) would see `letter_A.json` as
+  "already generated" and skip it, when it actually holds nothing.
+
+**Not fixed as part of this session** — this is a real correctness gap
+(same root shape as `video_renderer.py`'s presumably-similar direct-write
+pattern, not tested here) but fixing it (write-to-temp-then-rename, or a
+post-write integrity check before trusting a file's presence) is separate,
+scoped work, not a quick one-liner alongside a verification build-out.
+Filed as its own follow-up rather than bundled in silently.
 
 Found during the 2026-08-20 whole-branch review of
 `docs/superpowers/plans/2026-08-20-phase1a-verification.md` Task 4. See the

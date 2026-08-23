@@ -54,6 +54,7 @@ import requests
 from content_generator import (
     MODEL,
     OLLAMA_URL,
+    _atomic_write_json,
     _call_ollama,
     _detect_json_format_support,
     _extract_json_object,
@@ -300,7 +301,7 @@ def generate_economic_content(fact: dict) -> dict:
     CONTENT_DIR.mkdir(parents=True, exist_ok=True)
     slug = _slugify(fact["topic"])
     out_path = CONTENT_DIR / f"econ_{slug}.json"
-    out_path.write_text(json.dumps(content, indent=2))
+    _atomic_write_json(out_path, content)
 
     return content
 
