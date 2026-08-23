@@ -29,3 +29,5 @@ voices/
 voices/
 .env*
 !.env.template
+electron/dist/
+electron/node_modules/

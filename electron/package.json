@@ -1,14 +1,54 @@
 {
   "name": "jarvis-x",
   "version": "1.0.0",
+  "description": "Jarvis X \u2014 local-first personal AI assistant",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder --linux"
   },
   "devDependencies": {
     "electron": "43.4.1",
     "electron-builder": "26.15.3"
-  }
+  },
+  "build": {
+    "appId": "dev.ahmedyidris.jarvisx",
+    "productName": "Jarvis X",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/public/icon-512.png",
+        "to": "icon-512.png"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "../web/public/icon-512.png",
+      "maintainer": "ahmedyidris",
+      "desktop": {
+        "entry": {
+          "Name": "Jarvis X",
+          "Comment": "Local-first personal AI assistant",
+          "Terminal": "false",
+          "Categories": "Utility;Development;",
+          "StartupWMClass": "Jarvis X"
+        }
+      },
+      "syncDesktopName": true,
+      "synopsis": "Local-first personal AI assistant"
+    }
+  },
+  "homepage": "https://github.com/ahmedyidris/jarvis-x",
+  "author": "ahmedyidris"
 }
