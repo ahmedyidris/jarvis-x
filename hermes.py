@@ -20,6 +20,14 @@ from router import Router
 logging.basicConfig(level=logging.INFO, format='[%(name)s] %(message)s')
 logger = logging.getLogger('Hermes')
 
+
+class HermesBackendError(Exception):
+    """The LLM backend (Ollama) itself failed or was unreachable -- distinct
+    from a normal (if terse) answer. Callers that only check for a truthy
+    string can't tell those apart otherwise (REMAINING_WORK.md P6): a caller
+    checking just the HTTP status code, or just `if response`, saw the same
+    shape for "backend is down" as for "model answered oddly"."""
+
 # Setup
 DB_PATH = Path.home() / ".hermes" / "state.db"
 DB_PATH.parent.mkdir(exist_ok=True)
@@ -50,48 +58,86 @@ class HermesCore:
         self.db.commit()
     
     def ask(self, question, model="qwen2.5:7b"):
-        """Query model and store result."""
+        """Query model and store result.
+
+        Raises HermesBackendError if Ollama itself failed or was unreachable
+        (curl non-zero exit, timeout, or an unparseable/malformed response) --
+        this is a hard backend failure, not an ordinary answer, so it must
+        not come back as a plain string a caller could mistake for one.
+        """
         logger.info(f"Querying {model}...")
-        
+        start = datetime.now()
+
         try:
             cmd = [
-                "curl", "-S", "http://localhost:11434/api/generate",
+                # -s: no progress meter in stderr. -S: still show curl's own
+                # error text even with -s. Bare -s alone (the original bug)
+                # silenced both; bare -S alone (the first attempted fix)
+                # showed the error but left the progress-meter table mixed
+                # into stderr ahead of it. -sS is the combination that
+                # actually gives just the error text.
+                "curl", "-sS", "http://localhost:11434/api/generate",
                 "-d", json.dumps({
                     "model": model,
                     "prompt": question,
                     "stream": False
                 })
             ]
-            
-            start = datetime.now()
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
-            
+
             if result.returncode != 0:
-                return f"Error: {result.stderr}"
-            
+                msg = result.stderr.strip() or f"curl exited {result.returncode} with no stderr"
+                self._record_failure(question, model, latency_ms, msg)
+                raise HermesBackendError(msg)
+
             response_data = json.loads(result.stdout)
             response = response_data.get("response", "No response").strip()
-            
-            self.db.execute("""
-                INSERT INTO conversations (timestamp, user_input, response, model, latency_ms)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                datetime.now().isoformat(),
-                question,
-                response,
-                model,
-                latency_ms
-            ))
-            self.db.commit()
-            
-            logger.info(f"[{latency_ms}ms] {model}")
-            return response
-            
+
         except subprocess.TimeoutExpired:
-            return "Error: Query timeout (120s)"
-        except Exception as e:
-            return f"Error: {str(e)}"
+            latency_ms = int((datetime.now() - start).total_seconds() * 1000)
+            self._record_failure(question, model, latency_ms, "Query timeout (120s)")
+            raise HermesBackendError("Query timeout (120s)")
+        except json.JSONDecodeError as e:
+            latency_ms = int((datetime.now() - start).total_seconds() * 1000)
+            msg = f"Ollama returned unparseable response: {e}"
+            self._record_failure(question, model, latency_ms, msg)
+            raise HermesBackendError(msg)
+
+        self.db.execute("""
+            INSERT INTO conversations (timestamp, user_input, response, model, latency_ms)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            datetime.now().isoformat(),
+            question,
+            response,
+            model,
+            latency_ms
+        ))
+        self.db.commit()
+
+        logger.info(f"[{latency_ms}ms] {model}")
+        return response
+
+    def _record_failure(self, question, model, latency_ms, reason):
+        """Log a failed ask() to the same conversations table as a real
+        answer, so a hard backend failure still leaves an audit-log trace
+        (REMAINING_WORK.md P6 addendum: previously the early-return on
+        failure skipped the INSERT entirely, so `~/.hermes/state.db` had no
+        row at all for a failed call -- neither an HTTP-level nor an
+        audit-log-level trace)."""
+        logger.error(f"Backend failure querying {model}: {reason}")
+        self.db.execute("""
+            INSERT INTO conversations (timestamp, user_input, response, model, latency_ms)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            datetime.now().isoformat(),
+            question,
+            f"[BACKEND FAILURE] {reason}",
+            model,
+            latency_ms
+        ))
+        self.db.commit()
     
     def speak(self, text, voice_id, output_path=None):
         """Synthesize speech."""
@@ -186,8 +232,17 @@ Examples:
             model, voice = router.resolve(args.tier, voice_override=args.voice, 
                                          model_override=args.model)
             
-            # Get response
-            response = hermes.ask(args.question, model)
+            # Get response. Catch broadly, not just HermesBackendError --
+            # any exception here (including one this function didn't
+            # anticipate) means no real answer was produced, and the CLI
+            # should print a clean message and exit non-zero rather than an
+            # unhandled traceback (matches the old behavior of returning an
+            # "Error: ..." string, but distinguishable from a real answer).
+            try:
+                response = hermes.ask(args.question, model)
+            except Exception as e:
+                print(f"\nError: {e}\n", file=sys.stderr)
+                sys.exit(1)
             print(f"\n{response}\n")
             
             # Synthesize if requested

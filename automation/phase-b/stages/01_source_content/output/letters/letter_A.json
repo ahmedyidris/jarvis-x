@@ -1,8 +1,8 @@
 {
   "letter": "A",
   "example_word": "Apple",
-  "narration_script": "Hello kids! Today we're learning about the letter A. A is for Apple, a yummy fruit that starts with A!",
+  "narration_script": "Today, we're learning about the letter A. It's a fun letter that starts with an apple!",
   "on_screen_text": "A is for Apple!",
-  "image_prompt": "Illustration of an apple in a child's hand",
+  "image_prompt": "Illustration of an apple in colorful setting",
   "duration_seconds": 15
 }

@@ -44,17 +44,76 @@ Three verticals existed (`letters`, `economic_facts`, `commodities_macro`), each
 
 Same root cause as above (shared retry/validation logic checks JSON shape only, no numeric/logical/semantic-fidelity check), still open, still un-fixed. Verbatim evidence for both preserved in `scripts/verify/output/02_verticals_output.json`'s `georisk_us-china-trade-tariffs.json` and `georisk_red-sea-shipping-attacks.json` entries. See "Task 2" in `docs/VERIFICATION_2026-08.md` for full detail. This brings the running total to (at least) 4 confirmed occurrences across this vertical's history (2 fabricated digits at original build time, plus these 2 garbled-restatement occurrences in this single re-run batch) — raises confidence this is a systemic gap in the shared generator pattern, not a one-off LLM fluke, and should be prioritized accordingly. Also worth noting P4's original framing ("no check for numeric fidelity") is too narrow: the fix needed is a fidelity check for *sourced claims generally* (numbers, dates, and logical restatements alike), not numbers specifically.
 
+**Numeric half fixed 2026-08-23 — semantic half explicitly still open.**
+Added `content_generator.py`'s `check_numeric_fidelity()` (extracts digit-runs
+and small number-words from the sourced fact and from the model's output;
+flags any number in the output not present in the source — no extra LLM
+call, deterministic, no added flakiness) and `enforce_numeric_fidelity()`
+(re-prompts up to `MAX_ATTEMPTS` times with the specific bad number(s) named,
+raises `ValueError` — refuses to write — if it never self-corrects). Wired
+into all three sourced-fact generators (`economic_facts`,
+`commodities_macro`, `geopolitical_risk`) right before each writes its
+output. Unit-verified against the exact historical defects: the real
+fabricated-`"40%"` case is caught; a faithful digit-for-digit restatement is
+not false-flagged; a word-number restated as a digit (`"six"` → `"6"`) is
+*not* false-flagged (normalizes both forms first); the retry-recovers and
+retry-never-recovers paths both behave correctly (verified with a mocked
+Ollama call in each case).
+
+**Explicitly does NOT catch the semantic/logical class** — the "125% to
+125%" and "previous fall" vs. "earlier this year" defects above have no
+invented digit (125 and the *concept* of "fall"/"this year" both trace to
+real source content; the bug is the *relationship* between numbers/dates,
+not an unseen one). That still needs real semantic judgment — an LLM-judge
+second pass comparing meaning, not a token diff — and is **not built**;
+noted in `check_numeric_fidelity()`'s own docstring so this isn't
+overclaimed as "P4 fixed" the next time this file is read. A real,
+incidental side-effect while testing this, worth recording: regenerating
+`georisk_us-china-trade-tariffs.json` live during verification happened to
+produce a new, non-garbled narration this time (different LLM sample), so
+that specific historical instance of the "125% to 125%" defect no longer
+exists on disk — but that's luck-of-the-draw, not a fix; the same run could
+just as easily reproduce it or a new semantic garble tomorrow.
+
 ## P5 — Correctness audit (this session's earlier fixes + new sweep)
 
 - `code/paper-trading.js`'s always-0 P&L — **already fixed** (`397ea77`, prior turn this session).
 - Kill switch (`guard.js`'s `isStopped()`) and `scheduler.js`'s respect for it — **already fixed and verified** this session (`5079aab`: `lib.js`'s `execute()` now checks it for every action type; `scheduler.js`'s gate bug fixed same commit). Re-verified working in this session's Phase 4 (see below).
 - Broader sweep for other "always returns a constant/0/null regardless of input" bugs: see Phase 4 findings below.
 
-## P6 — Ollama-down failure is invisible to status-code-only clients (2026-08-20)
+## P6 — Ollama-down failure is invisible to status-code-only clients (2026-08-20) — RESOLVED 2026-08-23
 
 Found while running `docs/superpowers/plans/2026-08-20-phase1a-verification.md`
 Task 4. See the "Task 4" section of `docs/VERIFICATION_2026-08.md` for full
-output. Blocks Phase 1A exit criteria until resolved.
+output.
+
+**Resolved 2026-08-23.** An earlier, incomplete attempt (`7fa7475`, 2026-08-21)
+changed `curl -s` to bare `curl -S` — this made `stderr` non-empty again, but
+`-S` alone doesn't suppress curl's own progress-meter table, so the "error"
+text callers saw was the meter's blank columns glued in front of the real
+message, still returned as ordinary 200 answer text, and still never reaching
+the audit log (the addendum below). Actually fixed this session:
+- `hermes.py`: `curl -sS` (silent meter, but still show errors — the
+  combination that actually isolates just the error text); `ask()` now
+  raises a new `HermesBackendError` on curl failure/timeout/malformed JSON
+  instead of returning an `"Error: ..."` string; a new `_record_failure()`
+  helper inserts a `[BACKEND FAILURE] ...` row into `conversations` so the
+  audit log gets a trace either way (resolves the addendum below too).
+- `app.py`'s `/api/ask` catches `HermesBackendError` and raises
+  `HTTPException(503)` instead of returning 200 — and a new
+  `except HTTPException: raise` guard was needed above the route's existing
+  broad `except Exception → 500` handler, which would otherwise have
+  recaught and downgraded that 503 to a misleading 500.
+- `hermes.py`'s CLI (`main()`) catches the same exception and prints a clean
+  stderr message + `sys.exit(1)`, instead of an unhandled traceback.
+
+Re-verified live with the same probe as the original finding (`supervisorctl
+stop ollama` → `POST /api/ask {"question":"ping"}` → `start ollama`): now
+returns `503` with body
+`{"detail":"LLM backend unavailable: curl: (7) Failed to connect to localhost port 11434 after 0 ms: Couldn't connect to server"}`
+(clean, no meter noise), and `scripts/verify/04_failure_modes.py`'s
+`ollama_down()` reports `"graceful": true`. Original finding below preserved
+as history.
 
 A real `supervisorctl stop ollama`, then `POST /api/ask`, returned **HTTP
 200** — not a 5xx — with the body `{"question":"ping","response":"Error: ","tier":"local","model":"qwen2.5:3b","voice":null,"audio":null}`. `hermes.py`'s
@@ -85,6 +144,11 @@ stop ollama` → `POST /api/ask {"question":"ping"}` → `start ollama` cycle):
 `user_input='ping'` exists at all. So a hard backend failure leaves neither
 an HTTP-level nor an audit-log-level trace — a direct input to the future
 Phase 1D audit-trail work the overall completion plan calls for.
+
+**Also resolved 2026-08-23** by the same `_record_failure()` change above —
+re-verified: the row for the `ping` probe now exists (`id=45`,
+`response='[BACKEND FAILURE] curl: (7) Failed to connect...'`,
+`model='qwen2.5:3b'`, `latency_ms=8`).
 
 ## P7 — Decision-latency baseline shows unexplained intra-tier variance, a `model="--tier"` recording bug, and a stale/mixed sample (2026-08-20, corrected)
 
@@ -128,15 +192,69 @@ surfaces three separate, more concrete findings instead:
    happens to be the last 41 rows in the table" is not a clean, contemporary
    measurement.
 
-A follow-up would need: (a) investigation into why simple local-tier prompts
-occasionally take 10-100x longer than others (resource contention? cold model
-load? something else?), (b) a fix to whatever call site produces
-`model="--tier"` rows, and (c) either excluding degenerate/stale rows from
-future baselines or tagging rows so they can be filtered — not a change to
-the verification script's query itself, which faithfully reports what's in
-the table.
+**Item 3 investigated 2026-08-23 — historical, already gone, not a live bug.**
+Both `--tier` rows (`id=3,4`) are timestamped 2026-08-12T21:44:55, seconds
+apart, with `user_input` exactly matching `hermes.py`'s own `--tier`-era
+argparse epilog examples ("What is 2+2?", "Explain photosynthesis"). That's
+the same day Week 3's router integration landed (`8a20130`). Re-ran both
+example commands against the *current* `hermes.py`/`app.py`: `model` now
+records correctly (`qwen2.5:3b` for the plain call; router.resolve() always
+runs before `hermes.ask()` is called for either tier, so there's no longer a
+code path where a flag name could reach the `model` column). No current
+caller of `hermes.ask()` (`app.py`, `hermes.py`'s own CLI, or anything
+grepped for `hermes.py`/`INSERT INTO conversations`) reproduces it. Likely an
+argv slip during Week 3's first hour of manual testing, against a version of
+`main()` that no longer exists. Nothing to fix in code — closing this sub-item
+as historical; left the row data in place as-is (it's real history, not
+worth editing out of `state.db`).
 
-## P8 — Disk-full failure mode untested for Jarvis-X's own output paths (2026-08-20)
+A follow-up would still need: (a) investigation into why simple local-tier
+prompts occasionally take 10-100x longer than others (resource contention?
+cold model load? something else?) — item 2 above, still open, no code fix
+attempted; and (b) either excluding degenerate/stale rows from future
+baselines or tagging rows so they can be filtered — not a change to the
+verification script's query itself, which faithfully reports what's in the
+table.
+
+## P8 — Disk-full failure mode untested for Jarvis-X's own output paths (2026-08-20) — TESTED 2026-08-23, real finding confirmed
+
+**Built and run 2026-08-23**, exactly the design this entry proposed:
+`scripts/verify/04_failure_modes.py`'s new `disk_full_real_pipeline()`
+mounts a 4KB tmpfs directly onto the real `letters` output directory
+(shadowing the 9 existing files, not deleting them — confirmed byte-for-byte
+and timestamp-for-timestamp identical after unmount), pre-fills it to
+~200 bytes free, then fires a real `POST /api/dashboard/generate/letters`
+and polls `/api/dashboard/overview`'s job status.
+
+**Result — both halves of the original question answered, one good, one bad:**
+- Job status **is** honest: `"failed"`, with the real traceback
+  (`OSError: [Errno 28] No space left on device` from
+  `content_generator.py:205`'s `out_path.write_text(...)`) captured in
+  `output_tail`. Nothing here silently reports `done`.
+- But **a partial file is left behind**: `letter_A.json`, **0 bytes**.
+  `write_text()` opens in `'w'` mode (truncates immediately) before writing
+  — so a disk-full mid-write doesn't leave the *old* content intact, it
+  leaves a zero-byte file where a real one used to be. Anything checking
+  only `.exists()` (e.g. `_next_letter_to_generate()`'s own
+  `CONTENT_DIR.glob("letter_*.json")`) would see `letter_A.json` as
+  "already generated" and skip it, when it actually holds nothing.
+
+**Fixed 2026-08-23** for the 4 JSON content generators: added
+`content_generator.py`'s `_atomic_write_json()` (write to a sibling `.tmp`
+file, `os.rename()` over the destination) and wired it into `letters`,
+`economic_facts`, `commodities_macro`, and `geopolitical_risk` — the same
+`out_path.write_text(...)` line was duplicated verbatim across all four.
+Verified live: a real regeneration of letter A succeeds, no `.tmp` left
+behind, content correct.
+
+**Still open, deliberately not touched:** `video_renderer.py`'s final
+`video.write_videofile(output_path, ...)` (line ~170) has the same shape —
+writes directly to the real destination path, no temp-then-rename — so an
+interrupted render likely leaves a truncated `.mp4` the same way. Not fixed
+here: video rendering is multi-stage (moviepy + ffmpeg subprocess, its own
+temp audio file already in play) and wrapping its *final* write atomically
+needs its own verification pass (actually running a render to interrupt),
+not something to bolt on blind alongside the JSON-generator fix above.
 
 Found during the 2026-08-20 whole-branch review of
 `docs/superpowers/plans/2026-08-20-phase1a-verification.md` Task 4. See the
@@ -158,6 +276,24 @@ vertical's actual output directory (e.g. `letters`) onto a small tmpfs and
 trigger a real `POST /api/dashboard/generate/<vertical>` call against it,
 then inspect the job status and any partial files left behind — not
 achievable by writing into the test script's own process.
+
+## P9 — Live Data: energy/news left on honest mock by explicit decision (2026-08-23)
+
+`scripts/live-data.js`'s energy (`EIA_API_KEY`) and news (`NEWSAPI_KEY`)
+items report `origin: "mock"` even though both variable names exist in
+`.env` — checked directly: both are declared but literally empty
+(`EIA_API_KEY=`, `NEWSAPI_KEY=`, 0 chars each), never actually filled in.
+`ALPHAVANTAGE_API_KEY` (crypto/market's other paid-tier dependency) *is*
+real but its free tier's 25-req/day quota was exhausted by this session's
+own repeated testing (resets daily — not a code bug; `market-brief-provider.js`
+already reports the real Alpha Vantage error message honestly when this
+happens, doesn't crash or fall back silently).
+
+Asked the user directly whether to chase real keys or accept the mock
+state — **explicit decision: leave energy/news on honest mock for now,
+don't pursue further.** Not a gap to re-flag; the origin badge/mock-with-
+reason behavior this dashboard already has is the intended, accepted end
+state here, same category as P0's "deliberately deferred."
 
 ## Resolved after this doc was written
 

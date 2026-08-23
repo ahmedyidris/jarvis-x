@@ -69,18 +69,22 @@ def malformed_input():
 def call_timeout():
     print("--- 4.3 Ollama call timeout ceiling ---")
     # Verified by reading the code, not reproduced live (forcing a real
-    # 120s hang would need an artificially slow model): hermes.py:67 bounds
-    # the Ollama subprocess call at timeout=120; on expiry hermes.py:92
-    # returns "Error: Query timeout (120s)" as the *answer text*, HTTP 200
-    # -- not a hang, not a 500.
+    # 120s hang would need an artificially slow model): hermes.py bounds the
+    # Ollama subprocess call at timeout=120 and raises HermesBackendError on
+    # expiry. Updated 2026-08-23 (P6 fix, b985d2e): this used to surface as
+    # "Error: Query timeout (120s)" answer text over HTTP 200; app.py's
+    # /api/ask now catches HermesBackendError and returns 503 instead.
     hermes_src = (LIVE_ROOT / "hermes.py").read_text()
     has_timeout = "timeout=120" in hermes_src
     has_graceful_message = "Query timeout" in hermes_src
+    raises_backend_error = "raise HermesBackendError" in hermes_src
     results["ollama_call_timeout"] = {
         "note": "hermes.py subprocess.run(..., timeout=120), catches TimeoutExpired, "
-                "returns 'Error: Query timeout (120s)' as the response text (HTTP 200).",
-        "confirmed_in_source": has_timeout and has_graceful_message,
-        "graceful": has_timeout and has_graceful_message,
+                "raises HermesBackendError('Query timeout (120s)'); app.py's /api/ask "
+                "turns that into HTTP 503 (was 200 with the error folded into answer "
+                "text, before the P6 fix).",
+        "confirmed_in_source": has_timeout and has_graceful_message and raises_backend_error,
+        "graceful": has_timeout and has_graceful_message and raises_backend_error,
     }
 
 
@@ -111,6 +115,63 @@ def disk_full():
         subprocess.run(["rmdir", mount_point], check=True)
 
 
+def disk_full_real_pipeline():
+    """P8 (REMAINING_WORK.md): disk_full() above only proves Python's own
+    OSError(ENOSPC) behavior in *this script's* process -- it says nothing
+    about the real pipeline. This mounts a tiny tmpfs directly onto the
+    `letters` vertical's real output directory (shadowing, not deleting,
+    whatever's already there -- unmounting restores the original files
+    exactly), pre-fills it near capacity, then fires a real
+    POST /api/dashboard/generate/letters and inspects both the job status
+    and whatever file content_generator.py's non-atomic
+    `out_path.write_text(...)` left behind."""
+    print("--- 4.5 Disk full during a REAL generation job (letters vertical) ---")
+    letters_dir = LIVE_ROOT / "automation" / "phase-b" / "stages" / "01_source_content" / "output" / "letters"
+    mount_point = str(letters_dir)
+    subprocess.run(["sudo", "mount", "-t", "tmpfs", "-o", "size=4k", "tmpfs", mount_point], check=True)
+    try:
+        # Real letter_*.json files are 250-400 bytes; leave far less than
+        # that free so the write can't possibly complete.
+        (letters_dir / "_filler").write_bytes(b"x" * 3900)
+
+        r = requests.post(f"{BASE}/api/dashboard/generate/letters", timeout=15)
+        started = r.status_code == 200
+
+        status = None
+        output_tail = None
+        for _ in range(60):  # one real Ollama call -- give it real time
+            overview = requests.get(f"{BASE}/api/dashboard/overview", timeout=10).json()
+            job = overview.get("jobs", {}).get("letters")
+            if job and job.get("status") != "running":
+                status = job.get("status")
+                output_tail = job.get("output_tail")
+                break
+            time.sleep(2)
+
+        left_over = [f.name for f in letters_dir.iterdir() if f.name != "_filler"]
+        partial_file_bytes = None
+        if left_over:
+            partial_file_bytes = (letters_dir / left_over[0]).stat().st_size
+
+        results["disk_full_real_pipeline"] = {
+            "job_started": started,
+            "job_status": status,
+            "job_reported_failure": status in ("failed", "error", "timeout"),
+            "output_tail": (output_tail or "")[-500:],
+            "partial_files_left_behind": left_over,
+            "partial_file_bytes": partial_file_bytes,
+            # Graceful = the job status honestly says it didn't work. A
+            # partial/empty file left on disk is a separate, real finding
+            # (write_text() isn't atomic) -- recorded above, not what
+            # "graceful" gates on here, since a truncated file the job
+            # itself correctly flags as failed isn't silently lying to
+            # anyone the way a false "done" would be.
+            "graceful": started and status in ("failed", "error", "timeout"),
+        }
+    finally:
+        subprocess.run(["sudo", "umount", mount_point], check=True)
+
+
 def main():
     # SUPERVISORCTL uses a bare relative "config/supervisord.conf" -- cd to
     # this script's repo root first (same pattern as 01_electron_build.sh /
@@ -121,6 +182,7 @@ def main():
     malformed_input()
     call_timeout()
     disk_full()
+    disk_full_real_pipeline()
     print(json.dumps(results, indent=2))
     out = REPO / "scripts" / "verify" / "output" / "04_failure_modes.json"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -129,7 +191,7 @@ def main():
     if failing:
         print(f"FAIL (non-graceful): {failing}")
         sys.exit(1)
-    print("ALL 4 FAILURE MODES: degrade gracefully")
+    print(f"ALL {len(results)} FAILURE MODES: degrade gracefully")
 
 
 if __name__ == "__main__":

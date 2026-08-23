@@ -54,9 +54,11 @@ import requests
 from content_generator import (
     MODEL,
     OLLAMA_URL,
+    _atomic_write_json,
     _call_ollama,
     _detect_json_format_support,
     _extract_json_object,
+    enforce_numeric_fidelity,
 )
 
 CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "economic_facts"
@@ -286,6 +288,11 @@ def generate_economic_content(fact: dict) -> dict:
                 f"attempts. Last error: {last_err}. Last raw output: {raw!r}"
             )
 
+    llm_fields = enforce_numeric_fidelity(
+        fact["headline_fact"], llm_fields, _call_ollama, use_json_format,
+        REQUIRED_LLM_FIELDS, MAX_ATTEMPTS,
+    )
+
     content = {
         "topic": fact["topic"],
         "headline_fact": fact["headline_fact"],
@@ -300,7 +307,7 @@ def generate_economic_content(fact: dict) -> dict:
     CONTENT_DIR.mkdir(parents=True, exist_ok=True)
     slug = _slugify(fact["topic"])
     out_path = CONTENT_DIR / f"econ_{slug}.json"
-    out_path.write_text(json.dumps(content, indent=2))
+    _atomic_write_json(out_path, content)
 
     return content
 
