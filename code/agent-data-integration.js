@@ -92,7 +92,10 @@ class AgentDataIntegration {
     let responseText = '';
     if (result.value && typeof result.value === 'object') {
       if (result.value.price !== undefined) {
-        responseText = `${result.value.symbol || dataKey}: $${result.value.price}${result.value.change > 0 ? ' ↑' : ' ↓'} ${result.value.change}${staleness}`;
+        const pct = result.value.changePercent24h ?? result.value.change ?? null;
+        const move = pct === null ? '' : `${pct > 0 ? ' ↑' : ' ↓'} ${Math.abs(pct).toFixed(2)}%`;
+        const price = Number(result.value.price).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        responseText = `${result.value.symbol || dataKey}: $${price}${move}${staleness}`;
       } else if (result.value.title) {
         responseText = `📰 ${result.value.title}${staleness}`;
       } else {
