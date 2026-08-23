@@ -161,13 +161,29 @@ surfaces three separate, more concrete findings instead:
    happens to be the last 41 rows in the table" is not a clean, contemporary
    measurement.
 
-A follow-up would need: (a) investigation into why simple local-tier prompts
-occasionally take 10-100x longer than others (resource contention? cold model
-load? something else?), (b) a fix to whatever call site produces
-`model="--tier"` rows, and (c) either excluding degenerate/stale rows from
-future baselines or tagging rows so they can be filtered — not a change to
-the verification script's query itself, which faithfully reports what's in
-the table.
+**Item 3 investigated 2026-08-23 — historical, already gone, not a live bug.**
+Both `--tier` rows (`id=3,4`) are timestamped 2026-08-12T21:44:55, seconds
+apart, with `user_input` exactly matching `hermes.py`'s own `--tier`-era
+argparse epilog examples ("What is 2+2?", "Explain photosynthesis"). That's
+the same day Week 3's router integration landed (`8a20130`). Re-ran both
+example commands against the *current* `hermes.py`/`app.py`: `model` now
+records correctly (`qwen2.5:3b` for the plain call; router.resolve() always
+runs before `hermes.ask()` is called for either tier, so there's no longer a
+code path where a flag name could reach the `model` column). No current
+caller of `hermes.ask()` (`app.py`, `hermes.py`'s own CLI, or anything
+grepped for `hermes.py`/`INSERT INTO conversations`) reproduces it. Likely an
+argv slip during Week 3's first hour of manual testing, against a version of
+`main()` that no longer exists. Nothing to fix in code — closing this sub-item
+as historical; left the row data in place as-is (it's real history, not
+worth editing out of `state.db`).
+
+A follow-up would still need: (a) investigation into why simple local-tier
+prompts occasionally take 10-100x longer than others (resource contention?
+cold model load? something else?) — item 2 above, still open, no code fix
+attempted; and (b) either excluding degenerate/stale rows from future
+baselines or tagging rows so they can be filtered — not a change to the
+verification script's query itself, which faithfully reports what's in the
+table.
 
 ## P8 — Disk-full failure mode untested for Jarvis-X's own output paths (2026-08-20)
 
