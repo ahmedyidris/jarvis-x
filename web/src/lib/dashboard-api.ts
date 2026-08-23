@@ -143,6 +143,7 @@ export interface LiveDataItem {
   id: string
   label: string
   value: number | null
+  headline?: string | null
   unit: string | null
   changePercent24h: number | null
   origin: string

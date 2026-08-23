@@ -84,7 +84,11 @@ export function LiveData() {
                   </div>
                 ) : (
                   <>
-                    <div className="font-mono-hud text-2xl">{fmt(item.value, item.unit)}</div>
+                    {item.headline ? (
+                      <div className="text-sm leading-snug">{item.headline}</div>
+                    ) : (
+                      <div className="font-mono-hud text-2xl">{fmt(item.value, item.unit)}</div>
+                    )}
                     {item.changePercent24h !== null && (
                       <div className={`text-xs ${up ? "text-emerald-500" : "text-destructive"}`}>
                         {up ? "▲" : "▼"} {Math.abs(item.changePercent24h).toFixed(2)}% 24h
