@@ -235,7 +235,20 @@ def _normalize_number(raw: str) -> str:
 def _numeric_tokens(text: str) -> set:
     """Number-like tokens in `text`, normalized so trailing punctuation and
     insignificant trailing zeros do not create spurious mismatches."""
-    raw = re.findall(r"\d[\d,]*(?:\.\d+)?%?", text)
+    # In a range the unit is written once and governs both endpoints:
+    # "3.5% to 3.75%" but also "3.5-3.75%" and "3.5 to 3.75 percent".
+    # Without this, the leading number tokenizes bare ('3.5') and fails to
+    # match a source that wrote '3.5%', flagging a faithful restatement.
+    # Keeps the strict case intact: a standalone 24% still will not match a
+    # source containing only bare 24.
+    # The token regex below only recognizes '%', so spelled-out "percent"
+    # tokenizes bare and cannot match a source that wrote '%'. Normalize the
+    # word to the symbol first, before range expansion.
+    text = re.sub(r"(\d)\s*(?:percentage points?|percent|pct)\b", r"\1%", text, flags=re.IGNORECASE)
+    ranged = re.sub(
+        r"(\d[\d,]*(?:\.\d+)?)(\s*(?:-|--|to|and)\s*)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|percent))",
+        r"\1\4\2\3\4", text, flags=re.IGNORECASE)
+    raw = re.findall(r"\d[\d,]*(?:\.\d+)?%?", ranged)
     tokens = {_normalize_number(t) for t in raw}
     lower = text.lower()
     for word, digit in _NUMBER_WORDS.items():
