@@ -5,12 +5,16 @@
 - hard tier     -> gemini-3.5-flash        (remote, free tier)
 - max tier      -> gemini-3.1-pro-preview  (remote, needs billing; 429 today)
 - offline       -> qwen2.5:7b via Ollama   (local default; 3b as lighter fallback)
-- NOT AVAILABLE -> Claude (no key), Hermes (not installed), DeepSeek (not installed)
+- local core   -> hermes.py (HermesCore) over Ollama; conversation memory
+                  + memory/rules.md context. This is the web-chat path.
+- NOT AVAILABLE -> Claude (no key). Claude Code is a client for Anthropic's
+                  hosted API -- there is no local Claude and never will be.
+                  deepseek-coder IS installed in Ollama but unrouted.
 
 Routing is decided by code in router.js, not by you.
 
 ## Enforced in code (you cannot bypass these)
-- Kill switch: if ~/.jarvis-x/STOP exists, every action fails.
+- Kill switch: if .jarvis-x-STOP exists in the repo root, every action fails.
 - File jail: reads/writes confined to ~/jarvis-x/.
 - Shell allowlist: only ls, cat, head, tail, wc, grep, date, pwd, du, df.
 - Every proposed action requires human approval before it runs.

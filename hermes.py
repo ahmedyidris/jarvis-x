@@ -64,6 +64,84 @@ class HermesCore:
         "this system", "this project", "you built", "we built", "your code",
     )
 
+    REPO_TERMS = (
+        "file", "module", "which code", "where is", "where does", "what does",
+        "handles", "implemented", "function", "script", ".js", ".py", "repo",
+        "codebase", "directory", "folder",
+    )
+
+    @staticmethod
+    def _module_index():
+        """One line per module, from its own opening docstring/comment.
+
+        Generated from the filesystem, never hand-maintained, so it cannot
+        drift the way a written description would. Cached on disk and
+        rebuilt when any source file is newer than the cache.
+        """
+        # Files that open with requires/constants rather than a docstring:
+        # the extractor falls through to the first inline comment, which
+        # describes one line of setup, not the module. guard.js came out as
+        # "Ensure logs directory exists" -- so asked which file handles the
+        # kill switch, the model had nothing pointing at guard.js and
+        # answered with the sentinel file instead. 2 of 50 need this.
+        OVERRIDES = {
+            "code/guard.js": "kill switch (.jarvis-x-STOP) + append-only action audit log; every action routes through guard()",
+            "code/paper-trading.js": "paper trading simulator -- simulated only, no real money anywhere in this system",
+            # Named stop.js and sitting next to every kill-switch question,
+            # but extracted as "if (cmd === 'off') {" -- a strong wrong
+            # attractor with no description to contradict it.
+            "code/stop.js": "CLI to toggle the kill switch on/off; the switch itself is enforced in guard.js",
+        }
+        root = Path(__file__).parent
+        cache = root / "logs" / ".module-index.txt"
+        sources = sorted(
+            [f for f in (root / "code").glob("*.js") if not f.name.startswith("test-")]
+            + list((root / "code").glob("*.py"))
+            + [root / "hermes.py", root / "app.py"]
+        )
+        sources = [f for f in sources if f.exists()]
+        newest = max((f.stat().st_mtime for f in sources), default=0)
+        try:
+            if cache.exists() and cache.stat().st_mtime >= newest:
+                return cache.read_text().strip()
+        except OSError:
+            pass
+
+        lines = []
+        for f in sources:
+            desc = ""
+            try:
+                for ln in f.read_text(errors="ignore").splitlines()[:12]:
+                    t = ln.strip().lstrip('#/*" ').strip()
+                    # Skip shebangs, imports, and the bare filename echoed
+                    # back as a title -- none of those describe anything.
+                    if (not t or t.startswith(("!", "import ", "from ", "const ", "require"))
+                            or t.lower().startswith(f.name.lower())):
+                        continue
+                    if len(t) > 12:
+                        # A one-line module docstring closes on the same line,
+                        # leaving a trailing quote in the description.
+                        desc = t.rstrip('"\' ').strip()[:90]
+                        break
+            except OSError:
+                continue
+            rel = f.relative_to(root)
+            desc = OVERRIDES.get(str(rel), desc)
+            lines.append(f"{rel}: {desc}" if desc else str(rel))
+
+        out = "\n".join(lines)
+        try:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(out)
+        except OSError:
+            pass
+        return out
+
+    @staticmethod
+    def _is_repo_question(question):
+        q = question.lower()
+        return any(t in q for t in HermesCore.REPO_TERMS)
+
     @staticmethod
     def _is_project_question(question):
         q = question.lower()
@@ -112,11 +190,35 @@ class HermesCore:
             if rules:
                 parts.append(f"CONTEXT (authoritative facts about the user and this system):\n{rules}")
 
+        # First attempt fed architecture.md's headings here. That is
+        # structural ("three separate systems, one repo") and answers "how is
+        # this organized", not "which file does X" -- asked which file handles
+        # the kill switch, the model returned the sentinel FILE
+        # (.jarvis-x-STOP) rather than the module that checks it
+        # (code/guard.js), and took 24s to do it. What answers that question
+        # is one line per module saying what the module does, which is
+        # exactly what each file's opening docstring already contains.
+        if self._is_repo_question(question):
+            index = self._module_index()
+            if index:
+                parts.append("MODULES (file -> what it does):\n" + index)
+
         history = [r for r in reversed(self.recall(limit=turns * 2))
                    if not r["response"].startswith("[BACKEND FAILURE]")][-turns:]
         if history:
             lines = "\n".join(f"User: {h['user_input']}\nYou: {h['response']}" for h in history)
-            parts.append(f"RECENT CONVERSATION:\n{lines}")
+            # Labelled untrusted for the same reason code/memory.js splits
+            # rules.md from observed.jsonl: without it a model treats its own
+            # past output as established fact. Observed directly -- Hermes
+            # answered the kill-switch question wrongly once, then repeated
+            # that answer on every retry even after the correct information
+            # was added to its context. A wrong answer became self-
+            # reinforcing evidence.
+            parts.append(
+                "RECENT CONVERSATION (your own earlier replies -- these may be "
+                "WRONG. Use them only to resolve what the user is referring to. "
+                "If they conflict with CONTEXT or MODULES above, those are "
+                "authoritative and your earlier reply was a mistake):\n" + lines)
 
         parts.append(f"Answer completely but concisely -- no padding.\n\nUser: {question}")
         return "\n\n".join(parts)
