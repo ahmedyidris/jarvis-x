@@ -125,8 +125,19 @@ def main():
     print("\n=== Summary ===")
     print(f"Known-faithful fixture false-positive rate: {false_positives}/{TRIALS_PER_CASE}")
     for case in HISTORICAL_DEFECTS:
-        caught = [r["faithful"] for r in report[case["name"]] if r] == [False]
-        print(f"{case['name']}: {'caught' if caught else 'NOT CAUGHT'}")
+        trials = report[case["name"]]
+        # A judge that COULD NOT RUN is not a judge that MISSED. Rendering a
+        # 429 as "NOT CAUGHT" is what makes a quota problem read as a recall
+        # problem -- the exact category error that disqualified this judge
+        # twice on evidence it never actually produced.
+        ran = [r for r in trials if r is not None]
+        if not ran:
+            print(f"{case['name']}: INCONCLUSIVE -- judge could not run (quota/network)")
+        elif [r["faithful"] for r in ran] == [False] * len(ran):
+            print(f"{case['name']}: caught ({len(ran)}/{len(ran)} trials)")
+        else:
+            missed = sum(1 for r in ran if r["faithful"])
+            print(f"{case['name']}: MISSED in {missed}/{len(ran)} trials")
     print(
         "\nThis script does not assert pass/fail -- read DECISION_RECORD_p4-gemini-judge.md's "
         "acceptance criteria and judge whether these numbers clear the bar before treating "
