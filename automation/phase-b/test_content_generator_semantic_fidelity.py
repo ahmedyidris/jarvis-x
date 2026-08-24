@@ -220,6 +220,18 @@ def test_check_semantic_fidelity_votes_one_makes_one_call(monkeypatch):
 REQUIRED_FIELDS = {"narration_script", "on_screen_text", "image_prompt"}
 
 
+@pytest.fixture(autouse=True)
+def _isolated_judge_cache(monkeypatch, tmp_path):
+    """Point the verdict cache at a per-test tmp file.
+
+    Without this, tests write to the real logs/.judge-cache.json AND read
+    each other's entries -- two tests sharing fixture strings hash to the
+    same key, so the second got the first's cached verdict instead of
+    exercising its own mock.
+    """
+    monkeypatch.setattr(cg, "JUDGE_CACHE_PATH", tmp_path / "judge-cache.json")
+
+
 def test_enforce_semantic_fidelity_returns_unchanged_when_already_faithful(monkeypatch):
     monkeypatch.setattr(cg, "check_semantic_fidelity", lambda *a: {"faithful": True, "issue": None})
 

@@ -19,6 +19,7 @@ Schema produced by generate_letter_content():
 }
 """
 
+import hashlib
 import json
 import os
 import re
@@ -332,6 +333,30 @@ GEMINI_JUDGE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemi
 GEMINI_ENV_PATH = Path(os.environ.get("HOME", "")) / ".jarvis-x" / ".env"
 GEMINI_JUDGE_TIMEOUT = 60  # seconds
 
+# Verdicts are cached on disk, not in memory: each verify run is a fresh
+# process, which is precisely the pattern that burned the quota.
+JUDGE_CACHE_PATH = Path(__file__).resolve().parents[2] / "logs" / ".judge-cache.json"
+
+
+def _judge_cache_get(key):
+    try:
+        return json.loads(JUDGE_CACHE_PATH.read_text()).get(key)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _judge_cache_put(key, value):
+    try:
+        JUDGE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            cache = json.loads(JUDGE_CACHE_PATH.read_text())
+        except (OSError, json.JSONDecodeError):
+            cache = {}
+        cache[key] = value
+        JUDGE_CACHE_PATH.write_text(json.dumps(cache))
+    except OSError:
+        pass  # caching is an optimization; never fail a check over it
+
 
 def _load_gemini_api_key() -> str:
     """Load GEMINI_API_KEY from ~/.jarvis-x/.env -- same file/format code/gemini.js uses."""
@@ -431,12 +456,27 @@ def check_semantic_fidelity(source_fact: str, narration: str, caption: str, vote
     rather than optional before this gates anything.
     """
     prompt = build_semantic_judge_prompt(source_fact, narration, caption)
+
+    # A verdict is a pure function of the prompt text, so an unchanged
+    # source/narration/caption never needs re-judging. The verify suite
+    # re-runs the same fixtures repeatedly and each 1x pass already
+    # exhausted the free tier (HTTP 429, 2026-08-24); at votes=3 that is
+    # three times worse. Cache on the prompt hash, keyed by vote count so a
+    # cheap votes=1 scan cannot satisfy a later votes=3 gate check.
+    cache_key = f"{hashlib.sha256(prompt.encode()).hexdigest()[:32]}:{votes}"
+    cached = _judge_cache_get(cache_key)
+    if cached is not None:
+        return {**cached, "cached": True}
+
     verdicts = [_call_gemini_judge(prompt) for _ in range(max(1, votes))]
     issues = [v["issue"] for v in verdicts if not v["faithful"] and v["issue"]]
     if issues:
-        return {"faithful": False, "issue": " | ".join(dict.fromkeys(issues)),
-                "votes": len(verdicts), "flagged": len(issues)}
-    return {"faithful": True, "issue": None, "votes": len(verdicts), "flagged": 0}
+        result = {"faithful": False, "issue": " | ".join(dict.fromkeys(issues)),
+                  "votes": len(verdicts), "flagged": len(issues)}
+    else:
+        result = {"faithful": True, "issue": None, "votes": len(verdicts), "flagged": 0}
+    _judge_cache_put(cache_key, result)
+    return {**result, "cached": False}
 
 
 def build_semantic_fidelity_retry_prompt(fact_text: str, bad_narration: str, bad_caption: str, issue: str) -> str:
