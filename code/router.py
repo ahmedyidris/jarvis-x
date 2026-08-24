@@ -12,6 +12,11 @@ from pathlib import Path
 logger = logging.getLogger('Router')
 
 # Tier definitions
+# local/quality are LOCAL Ollama tiers and stay that way -- they are a
+# user-facing toggle in the dashboard sidebar, and silently redirecting
+# either to a cloud provider would send conversation context off-machine
+# without the user choosing that. The three cloud tiers below are additive
+# and opt-in, routed through code/providers/registry.js.
 TIERS = {
     "local": {
         "model": "qwen2.5:3b",
@@ -20,6 +25,25 @@ TIERS = {
     "quality": {
         "model": "qwen2.5:7b",
         "voice": "en_us_kokoro"
+    },
+    # Remote. Each falls back to Ollama if its providers are unavailable or
+    # out of quota, so these never hard-fail -- but when they DO reach a
+    # cloud provider, the prompt (including rules and conversation history)
+    # leaves this machine.
+    "fast": {
+        "model": "registry:fast",
+        "voice": "en_us_piper",
+        "remote": True
+    },
+    "smart": {
+        "model": "registry:smart",
+        "voice": "en_us_piper",
+        "remote": True
+    },
+    "frontier": {
+        "model": "registry:quality",
+        "voice": "en_us_piper",
+        "remote": True
     }
 }
 
@@ -66,6 +90,17 @@ class Router:
         """Get fallback voice if primary fails (e.g., Kokoro→Piper)."""
         return FALLBACK_CHAINS.get(voice_id)
     
+    def local_tiers(self) -> list:
+        """Tiers that never leave the machine.
+
+        app.py exposes this to the dashboard rather than valid_tiers: the
+        sidebar renders one button per tier, and a cloud tier appearing
+        there would look identical to a local one while sending the prompt
+        (rules, conversation history, module index) to a third party. Cloud
+        tiers stay CLI-only until the UI can label them as such.
+        """
+        return [t for t, cfg in TIERS.items() if not cfg.get("remote")]
+
     def list_tiers(self) -> dict:
         """List all tiers and their defaults."""
         return TIERS

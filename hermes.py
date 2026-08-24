@@ -214,11 +214,17 @@ class HermesCore:
             # that answer on every retry even after the correct information
             # was added to its context. A wrong answer became self-
             # reinforcing evidence.
+            # First wording told the model its earlier replies "may be WRONG"
+            # and that a conflict meant "your earlier reply was a mistake".
+            # That over-corrected: asked "what is 2+2?", it spent 15s
+            # apologising for an unrelated earlier answer about guard.js
+            # instead of answering. The label needs to stop history being
+            # treated as fact WITHOUT inviting the model to re-litigate it.
             parts.append(
-                "RECENT CONVERSATION (your own earlier replies -- these may be "
-                "WRONG. Use them only to resolve what the user is referring to. "
-                "If they conflict with CONTEXT or MODULES above, those are "
-                "authoritative and your earlier reply was a mistake):\n" + lines)
+                "EARLIER IN THIS CONVERSATION (for reference only -- use it to "
+                "resolve what the user means by 'it' or 'that'. Do not comment "
+                "on it, correct it, or apologise for it. If it disagrees with "
+                "CONTEXT or MODULES above, silently follow those):\n" + lines)
 
         parts.append(f"Answer completely but concisely -- no padding.\n\nUser: {question}")
         return "\n\n".join(parts)
@@ -249,6 +255,15 @@ class HermesCore:
                     "stream": False
                 })
             ]
+            if str(model).startswith("registry:"):
+                # Registry lives in JS (one source of truth for providers);
+                # Hermes already shells out for Ollama, so one more
+                # subprocess is consistent and avoids a second Python
+                # implementation that would drift.
+                cmd = ["node", str(Path(__file__).parent / "code" / "providers" / "cli.js"),
+                       model.split(":", 1)[1],
+                       self.build_context(question, turns) if context else question]
+
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
 
@@ -366,8 +381,12 @@ Examples:
     )
     
     parser.add_argument('question', nargs='?', default=None, help='Question to ask')
-    parser.add_argument('--tier', choices=['local', 'quality'], default='local',
-                       help='Model tier: local (fast) or quality (natural)')
+    # Was a hardcoded list, so tiers added to router.py were unreachable
+    # from the CLI. Read them from the router instead.
+    parser.add_argument('--tier', choices=router.valid_tiers, default='local',
+                       help='Model tier. local/quality run on this machine; '
+                            'fast/smart/frontier route through cloud providers '
+                            '(prompt leaves the machine), falling back to local.')
     parser.add_argument('--voice', type=str, default=None,
                        help='Voice ID (overrides tier default)')
     parser.add_argument('--model', type=str, default=None,
