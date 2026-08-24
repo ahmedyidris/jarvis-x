@@ -70,6 +70,26 @@ Five tabs, all endpoints healthy, real controls only.
 sources → output), no output library with filter/preview, no per-vertical
 schedule/pause controls.
 
+### Voice + accessibility (goal 6) — PARTIAL
+Verified 2026-08-24. 7 routes, all synthesizing: en, en-us (Piper
+en_US-amy), en-gb (en_GB-alba), ar, ar-jo (ar_JO-kareem), ar-gulf, ar-ae
+(ar-AE-emirati). Routes previously pointed at Kokoro, whose import fails
+here — three of six were dead.
+
+**Not available, no CPU-viable local model:** Egyptian Arabic (Habibi and
+NAMAA both evaluated and rejected — diffusion too slow, or too large for
+this disk) and Australian English. Both fail loudly rather than misrouting.
+ar-eg is the one that matters most and is the one missing.
+
+**Accessibility is browser code sitting in a Node directory.**
+`caption-layer.js`, `wcag-audit.js`, `accessible-tts.js`,
+`accessible-stt.js` call `document`/`localStorage`/`window` but live in
+`code/` as CommonJS. Nothing imports them and nothing can — the React app
+is TS in `web/src/`. Using them means porting to components, not wiring.
+The dashboard does have baseline aria/role coverage (~20 attributes,
+largely from shadcn), so it is not inaccessible — but captions, the WCAG
+audit and the accessible TTS/STT wrappers are unreachable today.
+
 ---
 
 ## Phase 2 — Accuracy + self-debug — NOT STARTED
