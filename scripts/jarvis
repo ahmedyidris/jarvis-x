@@ -1,0 +1,58 @@
+#!/bin/bash
+# One entry point. Everything else in this repo is reachable from here.
+#
+# Exists because the working set had grown to: hermes.py, code/agent.js,
+# code/eval-agent.js, scripts/status.sh, scripts/verify/run-all.sh,
+# npm test, and four vertical generators -- each with its own invocation
+# and its own interpreter (system python3 vs ~/venv-ai/bin/python3).
+set -uo pipefail
+# $0 is the SYMLINK when invoked as `jarvis` from PATH, so dirname gives
+# ~/.local/bin and "/.." lands in ~/.local -- no hermes.py there. Resolve
+# the link to the real script before deriving the repo root.
+SELF="$0"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  case "$LINK" in
+    /*) SELF="$LINK" ;;
+    *)  SELF="$(dirname "$SELF")/$LINK" ;;
+  esac
+done
+cd "$(cd "$(dirname "$SELF")/.." && pwd)"
+PY=~/venv-ai/bin/python3
+
+case "${1:-help}" in
+  ask)     shift; $PY hermes.py "$*" ;;
+  do)      shift; node code/agent.js "$*" ;;
+  status)  bash scripts/status.sh ;;
+  test)    npm test ;;
+  verify)  shift; bash scripts/verify/run-all.sh "${1:-}" ;;
+  eval)    node code/eval-agent.js ;;
+  recall)  $PY -c "
+import sys; sys.path.insert(0,'.')
+from hermes import HermesCore
+h=HermesCore()
+for r in reversed(h.recall(limit=${2:-10})):
+    print(f\"[{r['timestamp'][11:19]}] {r['user_input'][:60]}\")
+    print(f\"    {r['response'][:100]}\")
+h.close()" ;;
+  up)      supervisorctl -c config/supervisord.conf status ;;
+  stop)    touch .jarvis-x-STOP && echo "kill switch ON -- all actions blocked" ;;
+  start)   rm -f .jarvis-x-STOP && echo "kill switch OFF" ;;
+  *)
+    cat <<'HELP'
+jarvis <command>
+
+  ask <question>    Ask Hermes (local, remembers context + rules)
+  do <goal>         Agent proposes an action; writes need your approval
+  recall [n]        Last n exchanges (default 10)
+
+  status            Health check + milestone %
+  test              Unit tests
+  verify [--full]   Verification suite (--full adds slow/disruptive ones)
+  eval              Agent routing accuracy
+
+  up                Service status
+  stop / start      Kill switch on / off
+HELP
+    ;;
+esac
