@@ -406,6 +406,36 @@ state here, same category as P0's "deliberately deferred."
 
 - `app.py`'s `/api/ask` not checking the kill switch (was flagged above and in `SESSION_FINAL_REPORT.md`'s "what remains" #1) — **resolved 2026-08-16**: `/api/ask` now returns `503` when `.jarvis-x-STOP` exists. Decision: `CONSTITUTION.md`'s kill-switch guarantee carves out no exception for chat, and a silently-excluded path undermines the whole point of a "one tap, everything stops" kill switch. Verified live (baseline works, switch blocks, clearing restores it). See `docs/architecture.md`'s kill-switch section.
 
+## P10 — RESOLVED 2026-08-24: not an orphan, it was the project's own Docker container
+
+**The "orphaned root-owned pair" was `ghcr.io/ahmedyidris/jarvis-x:latest`**, a
+container created 5 days prior with `restart=unless-stopped`, healthy, serving
+on `:8001`. `/etc/supervisor/conf.d/jarvis` looked deleted from the host
+because it lives inside the container's filesystem. Killing the process
+"worked" every time and Docker restarted it every time -- which is what made it
+look like a recurring boot-time orphan across sessions.
+
+The real cost was CPU, not the ~188MB RSS: two complete Jarvis-X stacks each
+ran their own `ollama serve`, so two `llama-server` instances (~2.1GB each,
+300%+ CPU each) competed for 8 vCPUs. That -- not any internal Ollama request
+serialization -- is what P7 measured as 10.7s/47.8s on concurrent calls, and
+what made `03_e2e_flow_test.py` fail with a 120s Ollama read timeout.
+
+`docker stop jarvis-x_jarvis-x_1` took load average from 2.23 to 0.04 and freed
+~4.4GB. `03_e2e_flow_test.py` then passed end-to-end with the render completing
+in 65s -- under half the timeout it had been exceeding.
+
+Note `/etc/systemd/system/ollama.service` exists but is `disabled`;
+`jarvis-supervisord.service` (running as `ahmedyidris`, pointed at
+`config/supervisord.conf`) is the intended host autostart and is correct as-is.
+Its own header comment claims it was never installed -- that comment is stale;
+the unit is installed and active.
+
+**Decision still open:** whether the container is the intended deployment
+target. If so, do not run heavy jobs against both stacks at once.
+
+### Original (incorrect) writeup follows
+
 ## P10 — Orphaned duplicate hermes-api/ollama process pair, not currently serving (2026-08-23)
 
 While investigating P7's latency variance, found (via `ps aux` + `sudo ss -tlnp`)
