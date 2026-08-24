@@ -4,6 +4,7 @@ HERMES CORE (Week 2) + ROUTER (Week 3)
 Updated CLI with --tier, --voice, --speak flags
 """
 
+import os
 import sqlite3
 import json
 import subprocess
@@ -57,6 +58,17 @@ class HermesCore:
         """)
         self.db.commit()
     
+    PROJECT_TERMS = (
+        "jarvis", "hermes", "vertical", "dashboard", "pipeline", "electron",
+        "ollama", "piper", "whisper", "agent", "audit", "kill switch",
+        "this system", "this project", "you built", "we built", "your code",
+    )
+
+    @staticmethod
+    def _is_project_question(question):
+        q = question.lower()
+        return any(t in q for t in HermesCore.PROJECT_TERMS)
+
     def build_context(self, question, turns=3):
         """Prepend durable rules + recent turns to the question.
 
@@ -76,10 +88,27 @@ class HermesCore:
         failures are skipped -- replaying "[BACKEND FAILURE]" as dialogue
         teaches the model to imitate it.
         """
+        # rules.md grew to ~45 lines and pushed a warm query from 2.7s to
+        # 30s -- every line is re-processed on CPU each time. Comment lines
+        # and section headers carry no information the model needs, so strip
+        # them and keep the bullets. Set JX_FULL_RULES=1 to send the whole
+        # file when a question genuinely needs the detail.
         parts = []
         rules_path = Path(__file__).parent / "memory" / "rules.md"
         if rules_path.exists():
-            rules = rules_path.read_text().strip()
+            raw = rules_path.read_text()
+            # Even bullets-only left a warm query at 11s vs a 2.7s baseline:
+            # ~30 lines of project detail re-tokenized for "what is 2+2". The
+            # first three bullets (machine, paths, no-trading) are cheap and
+            # always relevant; the rest is project detail only worth sending
+            # when the question is actually about the project.
+            bullets = [ln for ln in raw.splitlines() if ln.strip().startswith("-")]
+            if os.environ.get("JX_FULL_RULES") == "1":
+                rules = raw.strip()
+            elif self._is_project_question(question):
+                rules = "\n".join(bullets).strip()
+            else:
+                rules = "\n".join(bullets[:3]).strip()
             if rules:
                 parts.append(f"CONTEXT (authoritative facts about the user and this system):\n{rules}")
 
