@@ -31,3 +31,4 @@ voices/
 !.env.template
 electron/dist/
 electron/node_modules/
+scripts/verify/output/

@@ -38,3 +38,54 @@ Not deciding between these here — that's implementation design, tracked as the
 
 - **Not wired into any generator.** The code is left in place, tested, and available (same treatment `DECISION_RECORD_model-gateway.md` gave a fully-built-but-unwired package) — it is not deleted, because the failure traced to the judge *prompt's* strictness (an unqualified "does this change the meaning," which flags any narrative compression), not to broken code, and a future retry with a compression-tolerant prompt or a structured-extraction-diff approach can reuse it directly.
 - P4's semantic-fidelity gap is **still open**. Two consecutive attempts (local model, then Gemini) have now failed the same acceptance bar for different underlying reasons — see `REMAINING_WORK.md` for what's recommended before a third attempt.
+
+
+## SECOND AMENDMENT — 2026-08-24, later same day: the retraction was wrong, GO reinstated for review use
+
+The retraction above rests on "5/5 false-positive rejections of the known-faithful
+fixture." **That fixture was not known-faithful.** It was assumed clean and never
+verified. It contained two real factual errors, both of which had shipped:
+
+1. **Caption:** `New Tariff Halted; Forced Labor Ban Violation Raises US Rate`.
+   The NEW 12.5% Section 301 tariff *took effect* 2026-07-24; what was paused was
+   the reciprocal tariff's rise to 125%. The caption reverses which tariff was
+   stopped. "Forced Labor Ban Violation" also misattributes — the source says
+   China failed to *enforce* its forced-labor import ban.
+2. **Narration:** `In the meantime, a new 12.5% tariff went into effect`.
+   "In the meantime" places the July 24 tariff *inside* the 90-day pause
+   announced August 11 — inverting the sequence. Same temporal-inversion class
+   as the `previous_fall` / `earlier_this_year` defect this judge catches cleanly.
+
+With both corrected, the same judge, same prompt, same model returns **0/5**
+rejections (`scripts/verify/output/07_semantic_fidelity_live.json`).
+
+The retraction's causal diagnosis — that the prompt is too strict and "flags any
+narrative compression" — does not survive the evidence. Gemini never cited
+compression. Every objection named a specific factual error, and the objections
+changed as each error was fixed: the caption complaint disappeared after fix 1,
+the temporal complaint after fix 2.
+
+**qwen2.5:3b's original 5/5 was likely also correct on this content.** The
+local-model path is not being reopened (7b's 5/8 remains genuinely unstable),
+but that evidence was misread the same way.
+
+### Status: GO for deliberate review use. NOT for automatic gating.
+
+Two real limits, both observed directly:
+
+- **Nondeterministic recall.** A mid-fix run detected the remaining temporal
+  defect in only 3/5 trials. Majority-voting across trials would be needed
+  before this could gate anything.
+- **Free-tier quota.** The final run exhausted quota mid-suite (HTTP 429).
+  Fail-closed treated that as a failure, which is correct — but it means an
+  exhausted quota would block every generation. The summary line also renders
+  "judge could not run" identically to "judge did not detect"; worth separating.
+
+`enforce_semantic_fidelity()` remains unwired in all three generators. That is
+still the right call — for the reasons above, not for the reason originally given.
+
+### What this cost
+
+Two judge evaluations and three sessions were spent diagnosing a judge failure
+that was a content failure. The generalizable lesson: **an acceptance fixture is
+itself an assumption and needs verifying before it can disqualify anything.**
