@@ -12,8 +12,13 @@
 
 ## What exists and works
 - Hermes: local Q&A over qwen2.5:3b / 7b, conversation memory, these rules.
-- Voice: Piper TTS (English + Egyptian Arabic), Faster-Whisper STT,
-  multilingual.
+- Voice: Piper TTS, 4 installed voices verified working 2026-08-24 --
+  en_US-amy, en_GB-alba, ar_JO-kareem (Jordanian), ar-AE-emirati.
+  Faster-Whisper STT, multilingual.
+- Egyptian Arabic TTS does NOT work and is not installed. Habibi-TTS and
+  NAMAA were both evaluated and ruled out (diffusion too slow on CPU, or
+  too large for this disk). ar-eg fails loudly rather than misrouting to
+  another dialect. Australian English likewise has no installed voice.
 - Dashboard: React + FastAPI on :8000 — system health, live market data,
   content pipeline, config.
 - Content pipeline: 4 verticals (letters, economic_facts, commodities_macro,

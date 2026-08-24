@@ -18,19 +18,25 @@ const piper = require('./voice.js');
 //                     early "quality:train" checkpoint -- short phrases only)
 //   ar-eg          -> NOT SUPPORTED (see UNSUPPORTED below), not silently
 //                     misrouted to a different dialect
+// Routed to Piper, not Kokoro. Kokoro's import fails on this machine (a
+// transformers dependency it wants and doesn't get), so en-us/en-gb/en-au
+// pointed at a dead engine while two working Piper voices sat installed
+// and unrouted. Verified 2026-08-24: all four voices below synthesize.
 const ROUTES = {
-  'en-us': { engine: 'kokoro', accent: 'american' },
-  'en-gb': { engine: 'kokoro', accent: 'british' },
-  'en-au': { engine: 'kokoro', accent: 'australian' },
+  'en': { engine: 'piper', voice: 'en_US-amy-medium' },
+  'en-us': { engine: 'piper', voice: 'en_US-amy-medium' },
+  'en-gb': { engine: 'piper', voice: 'en_GB-alba-medium' },
   'ar': { engine: 'piper', voice: 'ar_JO-kareem-medium' },
   'ar-jo': { engine: 'piper', voice: 'ar_JO-kareem-medium' },
   'ar-gulf': { engine: 'piper', voice: 'ar-AE-emirati-female' },
+  'ar-ae': { engine: 'piper', voice: 'ar-AE-emirati-female' },
 };
 
 // Known-missing coverage, called out explicitly so a request for it fails
 // loudly with an explanation instead of falling through to "no route" or,
 // worse, silently landing on the wrong dialect.
 const UNSUPPORTED = {
+  'en-au': 'No Australian voice installed. Kokoro would have covered it but its import fails here; a Piper en_AU voice would need downloading and a ROUTES entry.',
   'ar-eg': 'Egyptian Arabic has no CPU-viable local model yet -- Habibi-TTS/NAMAA were both ruled out (diffusion architecture too slow, or too large for this machine\'s disk). Use ar-gulf or ar-jo for now, or add a model and a ROUTES entry once one is found.',
 };
 

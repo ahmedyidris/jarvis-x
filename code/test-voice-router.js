@@ -27,8 +27,13 @@ print(" ".join(seg.text for seg in segments))
   const total = 8;
 
   // --- routing correctness (pure, no audio) ---
-  check('en-us routes to kokoro/american', (() => {
-    try { const r = resolveRoute('en-us'); return r.engine === 'kokoro' && r.accent === 'american'; } catch { return false; }
+  // Was asserting en-us -> kokoro/american. That encoded a route that could
+// not work: kokoro's import fails on this machine, while en_US-amy-medium
+// sat installed and unrouted. The end-to-end audio assertion below always
+// passed BECAUSE the audio path used Piper regardless -- so this check was
+// testing the routing table's aspiration, not the system's behavior.
+check('en-us routes to piper/en_US-amy-medium', (() => {
+    try { const r = resolveRoute('en-us'); return r.engine === 'piper' && r.voice === 'en_US-amy-medium'; } catch { return false; }
   })());
   check('ar (default) routes to piper/ar_JO-kareem-medium', (() => {
     try { const r = resolveRoute('ar'); return r.engine === 'piper' && r.voice === 'ar_JO-kareem-medium'; } catch { return false; }
