@@ -328,6 +328,167 @@ def enforce_numeric_fidelity(fact_text: str, llm_fields: dict, call_ollama, use_
     return llm_fields
 
 
+GEMINI_JUDGE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
+GEMINI_ENV_PATH = Path(os.environ.get("HOME", "")) / ".jarvis-x" / ".env"
+GEMINI_JUDGE_TIMEOUT = 60  # seconds
+
+
+def _load_gemini_api_key() -> str:
+    """Load GEMINI_API_KEY from ~/.jarvis-x/.env -- same file/format code/gemini.js uses."""
+    if not GEMINI_ENV_PATH.exists():
+        raise RuntimeError(f"no .env at {GEMINI_ENV_PATH}")
+    line = next(
+        (l for l in GEMINI_ENV_PATH.read_text().splitlines() if l.startswith("GEMINI_API_KEY=")),
+        None,
+    )
+    if line is None:
+        raise RuntimeError("GEMINI_API_KEY not found in .env")
+    key = line[len("GEMINI_API_KEY="):].strip()
+    if not key or key == "paste_new_key_here":
+        raise RuntimeError("key placeholder not replaced")
+    return key
+
+
+def _call_gemini_judge(prompt: str) -> dict:
+    """Call Gemini (gemini-3.6-flash, free tier) as a semantic-fidelity judge.
+
+    Fails closed: a missing key, network error, bad HTTP status, or
+    unparseable response all raise RuntimeError. There is no local
+    fallback and no silent skip -- per DECISION_RECORD_p4-gemini-judge.md,
+    a check that can't run is treated the same as "can't confirm
+    faithful," not as a pass.
+    """
+    key = _load_gemini_api_key()
+    try:
+        resp = requests.post(
+            GEMINI_JUDGE_URL,
+            headers={"content-type": "application/json", "x-goog-api-key": key},
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            timeout=GEMINI_JUDGE_TIMEOUT,
+        )
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"Gemini judge call failed: {e}") from e
+    if not resp.ok:
+        raise RuntimeError(f"Gemini judge returned {resp.status_code}: {resp.text[:300]}")
+
+    data = resp.json()
+    try:
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise RuntimeError(f"Gemini judge response had no text: {data!r}") from e
+
+    try:
+        verdict = json.loads(_extract_json_object(text))
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Gemini judge returned unparseable verdict: {text!r}") from e
+    if not isinstance(verdict, dict) or "faithful" not in verdict:
+        raise RuntimeError(f"Gemini judge verdict missing 'faithful' field: {verdict!r}")
+    return {"faithful": bool(verdict["faithful"]), "issue": verdict.get("issue")}
+
+
+def build_semantic_judge_prompt(source_fact: str, narration: str, caption: str) -> str:
+    return f"""You are checking whether generated video narration/caption changes the
+MEANING of a sourced fact -- not just checking numbers, but whether dates,
+timeframes, and relationships between figures are restated correctly.
+
+SOURCED FACT: {source_fact}
+
+GENERATED NARRATION: {narration}
+GENERATED CAPTION: {caption}
+
+Does the narration or caption change, contradict, or garble the meaning of
+the sourced fact -- for example, restating a change as "no change" (like
+saying a value moved "from X to X"), restating a date or timeframe
+incorrectly, or reversing a relationship between two figures?
+
+Respond with ONLY a single JSON object, no other text:
+{{"faithful": true or false, "issue": "specific description of the problem, or null if faithful"}}
+"""
+
+
+def check_semantic_fidelity(source_fact: str, narration: str, caption: str) -> dict:
+    """Ask the Gemini judge whether `narration`/`caption` are semantically
+    faithful to `source_fact`. Returns {"faithful": bool, "issue": str|None}.
+
+    Deliberately a single open-ended judge call, not majority-voted --
+    per REMAINING_WORK.md's 2026-08-23 postmortem, majority-voting a weak
+    local judge did not fix its false-positive rate, so voting isn't
+    treated as a substitute for judge quality here either. See
+    scripts/verify/07_semantic_fidelity_live.py for the live check of
+    whether Gemini itself is reliable enough to trust as this gate.
+    """
+    prompt = build_semantic_judge_prompt(source_fact, narration, caption)
+    return _call_gemini_judge(prompt)
+
+
+def build_semantic_fidelity_retry_prompt(fact_text: str, bad_narration: str, bad_caption: str, issue: str) -> str:
+    return f"""Your previous narration/caption was flagged as changing the meaning of
+the sourced fact below. The specific problem: {issue}
+
+SOURCED FACT: {fact_text}
+
+YOUR PREVIOUS (REJECTED) OUTPUT:
+narration_script: {bad_narration}
+on_screen_text: {bad_caption}
+
+Rewrite both fields so they accurately restate the sourced fact above --
+do not change what happened, when it happened, or the relationship
+between any numbers or events.
+Respond again with ONLY a single JSON object, same shape as before:
+{{"narration_script": "...", "on_screen_text": "...", "image_prompt": "..."}}
+"""
+
+
+def enforce_semantic_fidelity(fact_text: str, llm_fields: dict, call_ollama, use_json_format: bool,
+                               required_fields: set, max_retries: int) -> dict:
+    """Re-prompt up to `max_retries` times if the Gemini judge flags
+    narration_script/on_screen_text as changing the meaning of fact_text.
+    Returns corrected llm_fields, or raises ValueError if still unfaithful
+    after retrying -- same fail-loud, no-silent-success contract as
+    enforce_numeric_fidelity().
+
+    Each retry candidate is also re-run through enforce_numeric_fidelity(),
+    since a semantic retry is a fresh generation that could reintroduce an
+    invented number even if the original candidate didn't have one.
+
+    A judge-call failure (RuntimeError, e.g. Gemini unreachable or rate
+    limited) is NOT retried here -- the judge itself is broken, not the
+    content, so re-prompting the content generator wouldn't help. It
+    propagates immediately and blocks the write (fail closed, per
+    DECISION_RECORD_p4-gemini-judge.md).
+    """
+    verdict = check_semantic_fidelity(
+        fact_text, llm_fields["narration_script"], llm_fields["on_screen_text"]
+    )
+    attempts = 0
+    while not verdict["faithful"] and attempts < max_retries:
+        attempts += 1
+        retry_prompt = build_semantic_fidelity_retry_prompt(
+            fact_text, llm_fields["narration_script"], llm_fields["on_screen_text"], verdict["issue"]
+        )
+        raw = call_ollama(retry_prompt, use_json_format)
+        try:
+            candidate = _parse_content_json_generic(raw, required_fields)
+        except (json.JSONDecodeError, ValueError):
+            continue  # bad shape on the retry -- try again, same verdict
+        candidate = enforce_numeric_fidelity(
+            fact_text, candidate, call_ollama, use_json_format, required_fields, max_retries
+        )
+        llm_fields = candidate
+        verdict = check_semantic_fidelity(
+            fact_text, llm_fields["narration_script"], llm_fields["on_screen_text"]
+        )
+
+    if not verdict["faithful"]:
+        raise ValueError(
+            f"Semantic fidelity check failed after {attempts} retries -- Gemini judge "
+            f"still flags this content as changing the meaning of the sourced fact: "
+            f"{verdict['issue']}. Refusing to write content with a semantic-fidelity "
+            f"defect. Last narration_script: {llm_fields['narration_script']!r}"
+        )
+    return llm_fields
+
+
 def _parse_content_json_generic(raw_text: str, required_fields: set) -> dict:
     """Same shape check as _parse_content_json()/_parse_llm_json() in the
     per-vertical generators, parameterized on the field set so this shared

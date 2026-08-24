@@ -292,6 +292,11 @@ def generate_economic_content(fact: dict) -> dict:
         fact["headline_fact"], llm_fields, _call_ollama, use_json_format,
         REQUIRED_LLM_FIELDS, MAX_ATTEMPTS,
     )
+    # enforce_semantic_fidelity() deliberately NOT wired in here -- see
+    # REMAINING_WORK.md P4's 2026-08-24 addendum: the Gemini judge
+    # reproduced the same 5/5 false-positive rate on known-faithful
+    # content that disqualified the earlier local-model (qwen) attempt.
+    # Wiring it in would block every generation, not just bad ones.
 
     content = {
         "topic": fact["topic"],

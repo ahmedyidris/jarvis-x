@@ -114,6 +114,67 @@ historical defects before wiring it into anything.
   session's real contribution is ruling out the "obvious" fix with actual
   evidence, so a future session doesn't re-attempt it blind.
 
+**2026-08-24 — Gemini judge attempted per DECISION_RECORD_p4-gemini-judge.md,
+also disqualified by the same acceptance test, real negative result.**
+Built `check_semantic_fidelity()`/`enforce_semantic_fidelity()`/
+`_call_gemini_judge()` in `content_generator.py` (unit-tested, 15/15
+passing in `automation/phase-b/test_content_generator_semantic_fidelity.py`)
+using Gemini (`gemini-3.6-flash`, free tier, key from `~/.jarvis-x/.env`)
+as the "genuinely stronger model" the 2026-08-23 postmortem called for.
+Before wiring it into any generator, ran the acceptance test that
+postmortem specified: `scripts/verify/07_semantic_fidelity_live.py`,
+live (unmocked) Gemini calls against the exact known-faithful fixture
+that broke the local-model attempt
+(`georisk_us-china-trade-tariffs.json`'s actual committed
+`narration_script`/`on_screen_text`).
+
+- **Result: 5/5 false-positive rejections of the known-faithful
+  fixture** -- identical disqualifying rate to qwen2.5:3b's original
+  5/5 (see 2026-08-23 entry above). Full raw output in
+  `scripts/verify/output/07_semantic_fidelity_live.json`.
+- It did correctly flag both known historical defects (1/1 each), and
+  unlike qwen its objection to the faithful fixture was **coherent and
+  identical across all 5 trials**, not self-contradictory or
+  flip-flopping: it consistently argued the narration's phrasing
+  implies the August 11 tariff pause caused the ~30% effective rate,
+  when the sourced fact attributes that rate to a separate July 24
+  Section 301 tariff. That's a real, arguably-correct close reading of
+  an ambiguous sentence -- not obvious nonsense the way qwen's
+  self-contradictory "identical numbers don't match" complaint was.
+- **This changes what the failure means.** qwen's failure looked like
+  the model being too weak to judge reliably at all (unstable,
+  incoherent, no better than a coin flip). Gemini's failure looks more
+  like the *prompt's bar being stricter than the project's own
+  editorial standard* -- narration scripts are meant to compress a
+  denser sourced fact into ~2 sentences, and any compression that
+  drops an attribution nuance will read as "changing the meaning" to a
+  judge told to check exactly that. A stronger model made the judge
+  *more* consistent, not less strict -- consistency in the wrong
+  direction is still a disqualifying false-positive rate.
+- **Not wired in** -- reverted from all three generators'
+  `enforce_numeric_fidelity()` call sites immediately after this test,
+  before any real generation run could be blocked by it. The functions
+  remain in `content_generator.py`, tested and available, the same
+  "built, tested, not force-wired without evidence" treatment this
+  project already gave `packages/model-gateway` in
+  `DECISION_RECORD_model-gateway.md` -- not deleted, because the
+  request-building/response-parsing/retry-loop code is correct and
+  reusable if the *prompt* is fixed later, just not trusted as a gate
+  today.
+- **What would actually be needed now, given both a weak local model
+  and a strong remote model both failed the same acceptance test for
+  different-looking reasons**: either (a) a judge prompt that
+  explicitly tolerates reasonable narrative compression/omission and
+  only flags a *contradiction*, not an *incompleteness* -- untried, the
+  current prompt asks an unqualified "does this change the meaning,"
+  which a strict reading will always answer yes to for any compressed
+  narration; or (b) the structured-extraction-and-diff approach both
+  postmortems have now deferred to, which sidesteps prose-compression
+  judgment entirely by only comparing the specific facts (numbers,
+  dates, causal claims) that were extracted from both sides. Left open;
+  a future session should not re-attempt "just ask an LLM if it's
+  faithful" a third time with a third model before trying one of these.
+
 ## P5 — Correctness audit (this session's earlier fixes + new sweep)
 
 - `code/paper-trading.js`'s always-0 P&L — **already fixed** (`397ea77`, prior turn this session).
