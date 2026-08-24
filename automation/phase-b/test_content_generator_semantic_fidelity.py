@@ -168,7 +168,49 @@ def test_check_semantic_fidelity_flags_previous_fall_garble(monkeypatch):
 def test_check_semantic_fidelity_passes_faithful_content(monkeypatch):
     monkeypatch.setattr(cg, "_call_gemini_judge", lambda prompt: {"faithful": True, "issue": None})
     verdict = cg.check_semantic_fidelity("source fact", "faithful narration", "faithful caption")
-    assert verdict == {"faithful": True, "issue": None}
+    # Was an exact dict comparison; the verdict now carries vote metadata.
+    assert verdict["faithful"] is True
+    assert verdict["issue"] is None
+    assert verdict["flagged"] == 0
+
+
+def test_check_semantic_fidelity_any_flag_wins_over_majority(monkeypatch):
+    """One dissenting trial out of three flags the content.
+
+    Gemini's observed failure is missed detections (3/5 recall on a real
+    defect), not false positives (0/5 on verified-clean content), so a
+    majority rule would discard exactly the minority reports that carry
+    the signal.
+    """
+    calls = iter([
+        {"faithful": True, "issue": None},
+        {"faithful": False, "issue": "tariff timeline inverted"},
+        {"faithful": True, "issue": None},
+    ])
+    monkeypatch.setattr(cg, "_call_gemini_judge", lambda prompt: next(calls))
+    verdict = cg.check_semantic_fidelity("fact", "narration", "caption", votes=3)
+    assert verdict["faithful"] is False
+    assert verdict["flagged"] == 1
+    assert "tariff timeline inverted" in verdict["issue"]
+
+
+def test_check_semantic_fidelity_dedupes_repeated_issue_text(monkeypatch):
+    monkeypatch.setattr(cg, "_call_gemini_judge",
+                        lambda prompt: {"faithful": False, "issue": "same complaint"})
+    verdict = cg.check_semantic_fidelity("fact", "narration", "caption", votes=3)
+    assert verdict["issue"] == "same complaint"
+    assert verdict["flagged"] == 3
+
+
+def test_check_semantic_fidelity_votes_one_makes_one_call(monkeypatch):
+    """votes=1 stays cheap for bulk scanning -- quota is the binding limit."""
+    n = {"count": 0}
+    def counting(prompt):
+        n["count"] += 1
+        return {"faithful": True, "issue": None}
+    monkeypatch.setattr(cg, "_call_gemini_judge", counting)
+    cg.check_semantic_fidelity("fact", "narration", "caption", votes=1)
+    assert n["count"] == 1
 
 
 # ---------------------------------------------------------------------------

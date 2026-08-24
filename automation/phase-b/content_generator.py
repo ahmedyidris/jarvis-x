@@ -406,19 +406,37 @@ Respond with ONLY a single JSON object, no other text:
 """
 
 
-def check_semantic_fidelity(source_fact: str, narration: str, caption: str) -> dict:
+def check_semantic_fidelity(source_fact: str, narration: str, caption: str, votes: int = 3) -> dict:
     """Ask the Gemini judge whether `narration`/`caption` are semantically
     faithful to `source_fact`. Returns {"faithful": bool, "issue": str|None}.
 
-    Deliberately a single open-ended judge call, not majority-voted --
-    per REMAINING_WORK.md's 2026-08-23 postmortem, majority-voting a weak
-    local judge did not fix its false-positive rate, so voting isn't
-    treated as a substitute for judge quality here either. See
-    scripts/verify/07_semantic_fidelity_live.py for the live check of
-    whether Gemini itself is reliable enough to trust as this gate.
+    Runs `votes` independent trials and flags the content if ANY trial
+    finds a defect -- not majority.
+
+    The original single-call design cited the 2026-08-23 postmortem: voting
+    a weak local judge did not fix its FALSE-POSITIVE rate. That holds --
+    voting cannot rescue a judge biased toward rejecting good content.
+    But Gemini's observed failure is the opposite and voting does address
+    it: 0/5 false positives on verified-clean content, yet only 3/5 recall
+    on a real temporal-inversion defect (2026-08-24 live run). It is right
+    when it speaks and silent too often.
+
+    Hence any-flag, not majority. The costs are asymmetric: a miss ships a
+    fabrication to an audience, a spurious flag costs a human one reading
+    of one caption. With 3 votes at the observed 0.6 per-trial recall, miss
+    probability drops from 40% to about 6%.
+
+    Cost: `votes`x the quota. The free tier already exhausts mid-suite at
+    1x (HTTP 429, 2026-08-24), so votes>1 makes quota handling mandatory
+    rather than optional before this gates anything.
     """
     prompt = build_semantic_judge_prompt(source_fact, narration, caption)
-    return _call_gemini_judge(prompt)
+    verdicts = [_call_gemini_judge(prompt) for _ in range(max(1, votes))]
+    issues = [v["issue"] for v in verdicts if not v["faithful"] and v["issue"]]
+    if issues:
+        return {"faithful": False, "issue": " | ".join(dict.fromkeys(issues)),
+                "votes": len(verdicts), "flagged": len(issues)}
+    return {"faithful": True, "issue": None, "votes": len(verdicts), "flagged": 0}
 
 
 def build_semantic_fidelity_retry_prompt(fact_text: str, bad_narration: str, bad_caption: str, issue: str) -> str:
