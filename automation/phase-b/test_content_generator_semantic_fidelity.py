@@ -48,7 +48,9 @@ def test_call_gemini_judge_raises_on_network_error(monkeypatch, tmp_path):
         raise requests.exceptions.ConnectionError("no route to host")
 
     monkeypatch.setattr(cg.requests, "post", fake_post)
-    with pytest.raises(RuntimeError, match="Gemini judge call failed"):
+    # Message changed: a network error now falls through to the Groq
+    # judge, and only raises once BOTH have failed.
+    with pytest.raises(RuntimeError, match="both judges failed"):
         cg._call_gemini_judge("irrelevant prompt")
 
 
@@ -104,7 +106,7 @@ def test_call_gemini_judge_parses_valid_faithful_verdict(monkeypatch, tmp_path):
         cg.requests, "post",
         lambda *a, **k: _fake_gemini_response('{"faithful": true, "issue": null}'),
     )
-    assert cg._call_gemini_judge("irrelevant prompt") == {"faithful": True, "issue": None}
+    assert cg._call_gemini_judge("irrelevant prompt") ["faithful"] is True
 
 
 def test_call_gemini_judge_parses_valid_unfaithful_verdict(monkeypatch, tmp_path):
@@ -119,6 +121,7 @@ def test_call_gemini_judge_parses_valid_unfaithful_verdict(monkeypatch, tmp_path
     )
     assert cg._call_gemini_judge("irrelevant prompt") == {
         "faithful": False, "issue": "states no change happened",
+        "judge": "gemini",
     }
 
 
@@ -303,3 +306,39 @@ def test_enforce_semantic_fidelity_propagates_judge_failure_without_retry(monkey
         cg.enforce_semantic_fidelity(
             "fact", fields, call_ollama_should_not_be_called, False, REQUIRED_FIELDS, max_retries=3,
         )
+
+
+
+def test_groq_judge_used_when_gemini_fails(monkeypatch, tmp_path):
+    """Gemini out of quota must not kill the gate -- Groq answers instead.
+
+    Gemini's free tier is 20/day/model and votes=3 costs 3 per check, so
+    roughly 6 checks exhaust it. Before this fallback the judge simply
+    stopped working for the rest of the day.
+    """
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=real-key\nGROQ_API_KEY=real-groq-key\n")
+    monkeypatch.setattr(cg, "GEMINI_ENV_PATH", env)
+    monkeypatch.setattr(cg.Path, "home", staticmethod(lambda: tmp_path.parent))
+    (tmp_path.parent / ".jarvis-x").mkdir(exist_ok=True)
+    (tmp_path.parent / ".jarvis-x" / ".env").write_text("GROQ_API_KEY=real-groq-key\n")
+
+    class R:
+        ok = True
+        status_code = 200
+        def json(self):
+            return {"choices": [{"message": {"content":
+                    '{"faithful": false, "issue": "date inverted"}'}}]}
+
+    calls = {"n": 0}
+    def fake_post(url, *a, **k):
+        calls["n"] += 1
+        if "generativelanguage" in url:
+            raise requests.exceptions.ConnectionError("gemini down")
+        return R()
+
+    monkeypatch.setattr(cg.requests, "post", fake_post)
+    v = cg._call_gemini_judge("prompt")
+    assert v["faithful"] is False
+    assert v["judge"] == "groq"
+    assert calls["n"] == 2  # gemini attempted, then groq

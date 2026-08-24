@@ -374,25 +374,79 @@ def _load_gemini_api_key() -> str:
     return key
 
 
-def _call_gemini_judge(prompt: str) -> dict:
-    """Call Gemini (gemini-3.6-flash, free tier) as a semantic-fidelity judge.
+GROQ_JUDGE_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_JUDGE_MODEL = "openai/gpt-oss-120b"
 
-    Fails closed: a missing key, network error, bad HTTP status, or
-    unparseable response all raise RuntimeError. There is no local
-    fallback and no silent skip -- per DECISION_RECORD_p4-gemini-judge.md,
-    a check that can't run is treated the same as "can't confirm
-    faithful," not as a pass.
+
+def _call_groq_judge(prompt: str) -> "requests.Response":
+    """Second judge, used only when Gemini is unreachable or out of quota.
+
+    Gemini's free tier is 20 requests/day/model (measured, not documented),
+    and votes=3 means one content check costs 3 -- roughly 6 checks a day
+    before the judge simply stops working. Groq's limit is far higher, so
+    it keeps the gate alive on days Gemini is spent.
+
+    Deliberately NO local fallback below this. qwen2.5:3b/7b were both
+    evaluated as judges and rejected; degrading to one silently would turn
+    "the check could not run" into "the check ran badly", which is worse
+    than failing closed. Below Groq, this still raises.
     """
-    key = _load_gemini_api_key()
+    key = _load_key("GROQ_API_KEY")
+    return requests.post(
+        GROQ_JUDGE_URL,
+        headers={"content-type": "application/json", "authorization": f"Bearer {key}"},
+        json={"model": GROQ_JUDGE_MODEL,
+              "messages": [{"role": "user", "content": prompt}]},
+        timeout=GEMINI_JUDGE_TIMEOUT,
+    )
+
+
+def _load_key(name: str) -> str:
+    """Read a key from ~/.jarvis-x/.env, same source the rest of the repo uses."""
+    env = Path.home() / ".jarvis-x" / ".env"
+    for line in env.read_text().splitlines():
+        if line.startswith(name + "="):
+            v = line.split("=", 1)[1].strip()
+            if v and not v.lower().startswith(("your", "xxx", "placeholder")):
+                return v
+    raise RuntimeError(f"{name} not found in {env}")
+
+
+def _call_gemini_judge(prompt: str) -> dict:
+    """Call the semantic-fidelity judge: Gemini first, Groq as fallback.
+
+    Fails closed: if BOTH judges are unreachable, out of quota, or return
+    something unparseable, this raises RuntimeError. Per
+    DECISION_RECORD_p4-gemini-judge.md, a check that can't run is treated
+    the same as "can't confirm faithful", never as a pass.
+    """
+    resp = None
     try:
+        key = _load_gemini_api_key()
         resp = requests.post(
             GEMINI_JUDGE_URL,
             headers={"content-type": "application/json", "x-goog-api-key": key},
             json={"contents": [{"parts": [{"text": prompt}]}]},
             timeout=GEMINI_JUDGE_TIMEOUT,
         )
-    except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Gemini judge call failed: {e}") from e
+        if not resp.ok:
+            raise RuntimeError(f"gemini {resp.status_code}")
+    except Exception as gemini_err:
+        try:
+            resp = _call_groq_judge(prompt)
+            if not resp.ok:
+                raise RuntimeError(f"groq {resp.status_code}: {resp.text[:200]}")
+            data = resp.json()
+            text = data["choices"][0]["message"]["content"]
+            verdict = json.loads(_extract_json_object(text))
+            if not isinstance(verdict, dict) or "faithful" not in verdict:
+                raise RuntimeError(f"groq verdict missing 'faithful': {verdict!r}")
+            return {"faithful": bool(verdict["faithful"]),
+                    "issue": verdict.get("issue"), "judge": "groq"}
+        except Exception as groq_err:
+            raise RuntimeError(
+                f"both judges failed -- gemini: {gemini_err}; groq: {groq_err}"
+            ) from groq_err
     if not resp.ok:
         raise RuntimeError(f"Gemini judge returned {resp.status_code}: {resp.text[:300]}")
 
@@ -408,7 +462,8 @@ def _call_gemini_judge(prompt: str) -> dict:
         raise RuntimeError(f"Gemini judge returned unparseable verdict: {text!r}") from e
     if not isinstance(verdict, dict) or "faithful" not in verdict:
         raise RuntimeError(f"Gemini judge verdict missing 'faithful' field: {verdict!r}")
-    return {"faithful": bool(verdict["faithful"]), "issue": verdict.get("issue")}
+    return {"faithful": bool(verdict["faithful"]), "issue": verdict.get("issue"),
+            "judge": "gemini"}
 
 
 def build_semantic_judge_prompt(source_fact: str, narration: str, caption: str) -> str:
