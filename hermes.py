@@ -57,7 +57,42 @@ class HermesCore:
         """)
         self.db.commit()
     
-    def ask(self, question, model="qwen2.5:7b"):
+    def build_context(self, question, turns=3):
+        """Prepend durable rules + recent turns to the question.
+
+        Hermes wrote every exchange to `conversations` from day one and never
+        read one back -- ask() sent the bare question, so it could not resolve
+        a follow-up like "what about in Arabic?". recall() already fetched
+        history; nothing fed it to the model.
+
+        Rules come from memory/rules.md, the SAME file code/memory.js uses, so
+        there is one source of durable truth rather than two that drift. That
+        file's contract carries over: human-written, authoritative, and Hermes
+        never writes it. The orphaned `memory` key/value table in state.db is
+        from an abandoned attempt and stays unused.
+
+        `turns` is small on purpose: this is CPU-only inference at ~9s cold,
+        and every line of context is more tokens to chew through. Backend
+        failures are skipped -- replaying "[BACKEND FAILURE]" as dialogue
+        teaches the model to imitate it.
+        """
+        parts = []
+        rules_path = Path(__file__).parent / "memory" / "rules.md"
+        if rules_path.exists():
+            rules = rules_path.read_text().strip()
+            if rules:
+                parts.append(f"CONTEXT (authoritative facts about the user and this system):\n{rules}")
+
+        history = [r for r in reversed(self.recall(limit=turns * 2))
+                   if not r["response"].startswith("[BACKEND FAILURE]")][-turns:]
+        if history:
+            lines = "\n".join(f"User: {h['user_input']}\nYou: {h['response']}" for h in history)
+            parts.append(f"RECENT CONVERSATION:\n{lines}")
+
+        parts.append(f"Answer completely but concisely -- no padding.\n\nUser: {question}")
+        return "\n\n".join(parts)
+
+    def ask(self, question, model="qwen2.5:7b", context=True, turns=3):
         """Query model and store result.
 
         Raises HermesBackendError if Ollama itself failed or was unreachable
@@ -79,7 +114,7 @@ class HermesCore:
                 "curl", "-sS", "http://localhost:11434/api/generate",
                 "-d", json.dumps({
                     "model": model,
-                    "prompt": question,
+                    "prompt": self.build_context(question, turns) if context else question,
                     "stream": False
                 })
             ]
