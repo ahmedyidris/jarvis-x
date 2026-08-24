@@ -1,15 +1,33 @@
 {
   "known_faithful_fixture": [
-    false,
-    false,
-    false,
-    false,
-    false
+    {
+      "faithful": true,
+      "issue": null
+    },
+    {
+      "faithful": true,
+      "issue": null
+    },
+    {
+      "faithful": true,
+      "issue": null
+    },
+    {
+      "faithful": true,
+      "issue": null
+    },
+    {
+      "faithful": true,
+      "issue": null
+    }
   ],
   "tariff_from_125_to_125": [
-    false
+    {
+      "faithful": false,
+      "issue": "The narration garbles the fact by stating tariffs were increasing 'from 125% to 125%', which describes no actual increase, whereas the source fact states tariffs were rising to 125%."
+    }
   ],
   "previous_fall_vs_earlier_this_year": [
-    false
+    null
   ]
 }

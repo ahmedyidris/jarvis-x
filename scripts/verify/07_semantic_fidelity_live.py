@@ -81,7 +81,12 @@ def run_trials(name, source_fact, narration, caption, expect_faithful, trials):
             results.append(None)
             continue
         print(f"  trial {i + 1}: faithful={verdict['faithful']!r} issue={verdict['issue']!r}")
-        results.append(verdict["faithful"])
+        # Was appending the bare boolean, so the JSON artifact recorded only
+        # true/false and the judge's REASONING lived solely in console output.
+        # That made the 2026-08-24 run unauditable: the addendum's account of
+        # why Gemini objected could not be checked against the artifact, and
+        # a later re-run surfaced a different objection entirely. Keep both.
+        results.append({"faithful": verdict["faithful"], "issue": verdict["issue"]})
     return results
 
 
@@ -99,7 +104,7 @@ def main():
         expect_faithful=True, trials=TRIALS_PER_CASE,
     )
     report["known_faithful_fixture"] = faithful_results
-    false_positives = faithful_results.count(False)
+    false_positives = sum(1 for r in faithful_results if r and r["faithful"] is False)
     print(
         f"\n-> {false_positives}/{TRIALS_PER_CASE} false-positive rejections of known-faithful "
         f"content (local-model baseline was 5/5 for qwen2.5:3b, 5/8 for qwen2.5:7b across two batches)"
@@ -120,7 +125,7 @@ def main():
     print("\n=== Summary ===")
     print(f"Known-faithful fixture false-positive rate: {false_positives}/{TRIALS_PER_CASE}")
     for case in HISTORICAL_DEFECTS:
-        caught = report[case["name"]] == [False]
+        caught = [r["faithful"] for r in report[case["name"]] if r] == [False]
         print(f"{case['name']}: {'caught' if caught else 'NOT CAUGHT'}")
     print(
         "\nThis script does not assert pass/fail -- read DECISION_RECORD_p4-gemini-judge.md's "
