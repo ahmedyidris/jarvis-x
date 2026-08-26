@@ -3,8 +3,8 @@
   "headline_fact": "The US economy unexpectedly shed 23,000 jobs in July 2026 (nonfarm payrolls), versus forecasts of an 80,000 gain, with the unemployment rate at 4.1%; May and June figures were also revised down by a combined 103,000 jobs. Released August 7, 2026 by the Bureau of Labor Statistics.",
   "source_name": "U.S. Bureau of Labor Statistics",
   "source_url": "https://www.bls.gov/news.release/empsit.htm",
-  "narration_script": "According to the U.S. Bureau of Labor Statistics, in July 2026, the US economy unexpectedly lost 23,000 jobs in nonfarm payrolls compared to forecasts of an increase.",
-  "on_screen_text": "Unexpected Job Loss: -23,000 in July",
-  "image_prompt": "US economic graph with downward trend",
+  "narration_script": "The U.S. Bureau of Labor Statistics reported an unexpected loss of 23,000 jobs in July 2026, contrary to forecasts of a gain. The unemployment rate remained at 4.1%.",
+  "on_screen_text": "Unexpected Job Loss: -23,000 Jobs in July 2026",
+  "image_prompt": "Graph showing employment data with downward trend",
   "duration_seconds": 25
 }

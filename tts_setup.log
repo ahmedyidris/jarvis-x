@@ -1,0 +1,194 @@
+=== Jarvis X TTS setup Tue Aug 25 05:18:26 PM EEST 2026 ===
+
+----- System packages (espeak-ng, ffmpeg, audio libs) -----
+Hit:1 https://deb.nodesource.com/node_22.x nodistro InRelease
+Get:2 https://packages.microsoft.com/repos/code stable InRelease [3,590 B]
+Hit:3 https://deb.debian.org/debian bookworm InRelease
+Hit:4 https://dl.google.com/linux/chrome-stable/deb stable InRelease
+Hit:5 https://deb.debian.org/debian bookworm-updates InRelease
+Ign:6 https://storage.googleapis.com/cros-packages/151 bookworm InRelease
+Get:7 https://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+Get:8 https://packages.microsoft.com/repos/code stable/main armhf Packages [29.1 kB]
+Get:9 https://packages.microsoft.com/repos/code stable/main amd64 Packages [29.3 kB]
+Get:10 https://packages.microsoft.com/repos/code stable/main arm64 Packages [29.1 kB]
+Hit:11 https://storage.googleapis.com/cros-packages/151 bookworm Release
+Fetched 126 kB in 1s (133 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+espeak-ng is already the newest version (1.51+dfsg-10+deb12u2).
+espeak-ng-data is already the newest version (1.51+dfsg-10+deb12u2).
+espeak-ng-data set to manually installed.
+ffmpeg is already the newest version (7:5.1.9-0+deb12u1).
+libsndfile1 is already the newest version (1.2.0-1+deb12u1).
+python3-venv is already the newest version (3.11.2-1+b1).
+python3-pip is already the newest version (23.0.1+dfsg-1).
+curl is already the newest version (7.88.1-10+deb12u15).
+The following packages were automatically installed and are no longer required:
+  gyp handlebars libayatana-appindicator3-1 libayatana-ido3-0.4-0
+  libayatana-indicator3-7 libc-ares2 libdbusmenu-glib4 libdbusmenu-gtk3-4
+  libjs-async libjs-events libjs-inherits libjs-is-typedarray libjs-prettify
+  libjs-regenerate libjs-source-map libjs-sprintf-js
+  libjs-typedarray-to-buffer libsecret-1-0 libsecret-common libuv1-dev
+  node-abbrev node-ampproject-remapping node-ansi-escapes node-ansi-regex
+  node-ansi-styles node-aproba node-are-we-there-yet node-argparse node-arrify
+  node-async node-async-each node-auto-bind
+  node-babel-plugin-add-module-exports node-babel7-runtime node-balanced-match
+  node-base64-js node-binary-extensions node-brace-expansion node-busboy
+  node-camelcase node-caniuse-lite node-chownr node-chrome-trace-event
+  node-ci-info node-cjs-module-lexer node-cli-boxes node-cli-cursor node-clone
+  node-clone-deep node-collection-visit node-color-convert node-color-name
+  node-colors node-commander node-commondir node-concat-stream
+  node-console-control-strings node-convert-source-map node-core-js
+  node-core-js-pure node-core-util-is node-data-uri-to-buffer
+  node-decompress-response node-deep-is node-defaults node-define-property
+  node-delegates node-depd node-diff node-electron-to-chromium node-encoding
+  node-end-of-stream node-err-code node-error-ex node-es-module-lexer
+  node-escape-string-regexp node-eslint-utils node-eslint-visitor-keys
+  node-esquery node-estraverse node-esutils node-events node-fancy-log
+  node-fast-deep-equal node-fast-levenshtein node-fetch node-find-up
+  node-flatted node-for-in node-for-own node-foreground-child
+  node-fs-readdir-recursive node-fs-write-stream-atomic node-fs.realpath
+  node-function-bind node-functional-red-black-tree node-get-caller-file
+  node-get-stream node-get-value node-glob node-globals node-got
+  node-graceful-fs node-growl node-has-flag node-has-unicode node-has-value
+  node-has-values node-hosted-git-info node-iconv-lite node-ieee754 node-iferr
+  node-imurmurhash node-indent-string node-inflight node-inherits node-ini
+  node-interpret node-ip node-ip-regex node-is-arrayish node-is-binary-path
+  node-is-buffer node-is-descriptor node-is-extendable node-is-extglob
+  node-is-path-cwd node-is-plain-obj node-is-plain-object node-is-stream
+  node-is-typedarray node-is-windows node-isarray node-isexe node-isobject
+  node-js-tokens node-jsesc node-json-buffer node-json-parse-better-errors
+  node-json-schema node-json-schema-traverse node-json-stable-stringify
+  node-jsonify node-jsonparse node-kind-of node-levn node-loader-runner
+  node-locate-path node-lodash-packages node-log-driver node-lowercase-keys
+  node-lru-cache node-map-visit node-memfs node-merge-stream
+  node-mimic-response node-minimatch node-minimist node-minipass
+  node-mixin-deep node-mute-stream node-n3 node-negotiator node-neo-async
+  node-npm-run-path node-object-inspect node-object-visit node-once
+  node-optimist node-optionator node-osenv node-p-cancelable node-p-limit
+  node-p-locate node-p-map node-pascalcase node-path-dirname node-path-exists
+  node-path-is-absolute node-path-is-inside node-path-type node-pify
+  node-pkg-dir node-postcss-value-parser node-prelude-ls
+  node-process-nextick-args node-promise-inflight node-promise-retry
+  node-promzard node-prr node-pump node-quick-lru node-randombytes node-read
+  node-readable-stream node-rechoir node-regenerate
+  node-regenerate-unicode-properties node-regenerator-runtime
+  node-regenerator-transform node-regexpp node-regjsgen node-repeat-string
+  node-require-directory node-resolve node-resolve-cwd node-resolve-from
+  node-restore-cursor node-resumer node-retry node-run-queue node-safe-buffer
+  node-sellside-emitter node-serialize-javascript node-set-blocking
+  node-set-immediate-shim node-shebang-command node-shebang-regex
+  node-shell-quote node-signal-exit node-slash node-slice-ansi
+  node-source-list-map node-source-map node-source-map-support
+  node-spdx-correct node-spdx-exceptions node-spdx-expression-parse
+  node-spdx-license-ids node-sprintf-js node-ssri node-stack-utils
+  node-string-decoder node-strip-bom node-strip-json-comments
+  node-supports-color node-tapable node-terser node-text-table node-through
+  node-time-stamp node-to-fast-properties node-tslib node-type-check
+  node-typedarray node-typedarray-to-buffer node-undici
+  node-unicode-canonical-property-names-ecmascript
+  node-unicode-match-property-value-ecmascript
+  node-unicode-property-aliases-ecmascript node-unique-filename
+  node-unset-value node-util-deprecate node-uuid node-v8flags
+  node-validate-npm-package-license node-wcwidth.js node-webpack-sources
+  node-wordwrap node-wrappy node-write-file-atomic node-xtend node-y18n
+  node-yallist node-yaml
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 1 not upgraded.
+[OK] espeak-ng present
+
+----- Python virtualenv at /home/ahmedyidris/venv-ai -----
+
+----- Installing piper-tts (embeds espeak-ng + auto-tashkeel) -----
+Requirement already satisfied: piper-tts in ./venv-ai/lib/python3.11/site-packages (1.7.0)
+Requirement already satisfied: onnxruntime<2,>=1 in ./venv-ai/lib/python3.11/site-packages (from piper-tts) (1.28.0)
+Requirement already satisfied: pathvalidate<4,>=3 in ./venv-ai/lib/python3.11/site-packages (from piper-tts) (3.3.1)
+Requirement already satisfied: flatbuffers in ./venv-ai/lib/python3.11/site-packages (from onnxruntime<2,>=1->piper-tts) (25.12.19)
+Requirement already satisfied: numpy>=1.21.6 in ./venv-ai/lib/python3.11/site-packages (from onnxruntime<2,>=1->piper-tts) (1.26.4)
+Requirement already satisfied: packaging in ./venv-ai/lib/python3.11/site-packages (from onnxruntime<2,>=1->piper-tts) (26.3)
+Requirement already satisfied: protobuf>=4.25.8 in ./venv-ai/lib/python3.11/site-packages (from onnxruntime<2,>=1->piper-tts) (7.35.1)
+[OK] mishkal installed
+
+----- Downloading Piper voice ar_JO-kareem-medium -----
+Traceback (most recent call last):
+  File "/usr/lib/python3.11/urllib/request.py", line 1348, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/usr/lib/python3.11/http/client.py", line 1302, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/lib/python3.11/http/client.py", line 1348, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/usr/lib/python3.11/http/client.py", line 1297, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/lib/python3.11/http/client.py", line 1057, in _send_output
+    self.send(msg)
+  File "/usr/lib/python3.11/http/client.py", line 995, in send
+    self.connect()
+  File "/usr/lib/python3.11/http/client.py", line 1474, in connect
+    self.sock = self._context.wrap_socket(self.sock,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/ssl.py", line 517, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/ssl.py", line 1108, in _create
+    self.do_handshake()
+  File "/usr/lib/python3.11/ssl.py", line 1379, in do_handshake
+    self._sslobj.do_handshake()
+ConnectionResetError: [Errno 104] Connection reset by peer
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ahmedyidris/venv-ai/lib/python3.11/site-packages/piper/download_voices.py", line 138, in <module>
+    main()
+  File "/home/ahmedyidris/venv-ai/lib/python3.11/site-packages/piper/download_voices.py", line 60, in main
+    download_voice(voice, download_dir, force_redownload=args.force_redownload)
+  File "/home/ahmedyidris/venv-ai/lib/python3.11/site-packages/piper/download_voices.py", line 114, in download_voice
+    with urlopen(config_url) as response:
+         ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/urllib/request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/urllib/request.py", line 519, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/urllib/request.py", line 536, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/urllib/request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.11/urllib/request.py", line 1391, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/urllib/request.py", line 1351, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 104] Connection reset by peer>
+[WARN] piper.download_voices failed — will try HF direct download
+
+----- Writing /home/ahmedyidris/jarvis-x/code/tts_engine.py -----
+[OK] tts_engine.py written
+
+----- Verification: synthesizing MSA + Egyptian test lines -----
+
+================ TTS VERIFICATION REPORT ================
+  [FAIL   ] MSA (local Piper)
+           -> [Errno 2] No such file or directory: '/home/ahmedyidris/jarvis-x/voices/ar_JO-kareem-medium.onnx.json'  (0 bytes)
+  [FAIL   ] Egyptian (NONE (fell back to local MSA — NOT Egyptian))
+           -> [Errno 2] No such file or directory: '/home/ahmedyidris/jarvis-x/voices/ar_JO-kareem-medium.onnx.json'  (0 bytes)
+=========================================================
+RESULT: FAIL — see errors above and ~/jarvis-x/tts_setup.log
+
+=== Done Tue Aug 25 05:19:08 PM EEST 2026. Log: /home/ahmedyidris/jarvis-x/tts_setup.log ===
+Play a sample:  ffplay -autoexit /tmp/*.wav   (or open the file)
+[?2004h(venv-ai) ]0;ahmedyidris@penguin: ~[01;32mahmedyidris@penguin[00m:[01;34m~[00m$ [7mexport AZURE_TTS_KEY="your-azure-f0-key"[27m
+[7mexport AZURE_TTS_REGION="eastus"     # your resource region[27m
+[7m# optional no-card fallback (Saudi dialect):[27m
+[7mexport GROQ_API_KEY="your-groq-key"[27m[A[A[Aexport AZURE_TTS_KEY="your-azure-f0-key"
+export AZURE_TTS_REGION="eastus"     # your resource region
+# optional no-card fallback (Saudi dialect):
+export GROQ_API_KEY="your-groq-key"
+[?2004l[?2004h(venv-ai) ]0;ahmedyidris@penguin: ~[01;32mahmedyidris@penguin[00m:[01;34m~[00m$ [?2004l[?2004h[?2004l

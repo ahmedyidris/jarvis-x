@@ -1,21 +1,17 @@
 import { useState } from "react"
-import { Activity, Gauge, Newspaper, Clapperboard, Settings } from "lucide-react"
+import { MessageSquare, Settings, History } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Observatory } from "@/components/dashboard/Observatory"
-import { MarketData } from "@/components/dashboard/MarketData"
-import { LiveData } from "@/components/dashboard/LiveData"
-import { VideoPipeline } from "@/components/dashboard/VideoPipeline"
-import { Configuration } from "@/components/dashboard/Configuration"
+import { ChatInterface } from "@/components/dashboard/ChatInterface"
+import { Settings as SettingsComponent } from "@/components/dashboard/Settings"
+import { History as HistoryComponent } from "@/components/dashboard/History"
+
+type DashboardTab = "chat" | "settings" | "history"
 
 const TABS = [
-  { id: "observatory", label: "Observatory", icon: Gauge, Component: Observatory },
-  { id: "live", label: "Live Data", icon: Activity, Component: LiveData },
-  { id: "market", label: "Market Data", icon: Newspaper, Component: MarketData },
-  { id: "video", label: "Video Pipeline", icon: Clapperboard, Component: VideoPipeline },
-  { id: "config", label: "Configuration", icon: Settings, Component: Configuration },
+  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "settings", label: "Settings", icon: Settings },
+  { id: "history", label: "History", icon: History },
 ] as const
-
-export type DashboardTab = (typeof TABS)[number]["id"]
 
 interface DashboardProps {
   activeTab?: DashboardTab
@@ -23,32 +19,87 @@ interface DashboardProps {
 }
 
 export function Dashboard({ activeTab, onTabChange }: DashboardProps) {
-  const [internalTab, setInternalTab] = useState<DashboardTab>("observatory")
+  const [internalTab, setInternalTab] = useState<DashboardTab>("chat")
+  const [tier, setTier] = useState("local")
+  const [voice, setVoice] = useState("en_us_piper")
+  const [language, setLanguage] = useState("en")
+  const [autoPlay, setAutoPlay] = useState(true)
+  const [showCaptions, setShowCaptions] = useState(true)
+  const [textSize, setTextSize] = useState<"sm" | "base" | "lg">("base")
+  const [arabicDialect, setArabicDialect] = useState<"msa" | "egyptian">("msa")
+
   const tab = activeTab ?? internalTab
   const setTab = onTabChange ?? setInternalTab
 
-  const Active = TABS.find((t) => t.id === tab)?.Component ?? Observatory
+  const renderContent = () => {
+    switch (tab) {
+      case "chat":
+        return (
+          <ChatInterface
+            tier={tier}
+            voice={voice}
+            language={language}
+            autoPlay={autoPlay}
+            showCaptions={showCaptions}
+          />
+        )
+      case "settings":
+        return (
+          <SettingsComponent
+            tier={tier}
+            voice={voice}
+            language={language}
+            autoPlay={autoPlay}
+            showCaptions={showCaptions}
+            textSize={textSize}
+            arabicDialect={arabicDialect}
+            onTierChange={setTier}
+            onVoiceChange={setVoice}
+            onLanguageChange={setLanguage}
+            onAutoPlayChange={setAutoPlay}
+            onCaptionsChange={setShowCaptions}
+            onTextSizeChange={setTextSize}
+            onDialectChange={setArabicDialect}
+          />
+        )
+      case "history":
+        return <HistoryComponent />
+      default:
+        return null
+    }
+  }
 
   return (
-    <div className="flex h-full flex-1 flex-col gap-4 overflow-hidden p-4">
-      <div role="tablist" className="flex shrink-0 gap-1.5">
+    <div className="flex h-full flex-col bg-black text-white">
+      {/* Header */}
+      <div className="border-b border-red-500 bg-black px-4 py-3">
+        <h1 className="text-2xl font-bold text-red-500">JARVIS X</h1>
+        <p className="text-xs text-gray-400">Personal AI Assistant</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-red-500 px-4 py-2 bg-gray-950">
         {TABS.map(({ id, label, icon: Icon }) => (
           <Button
             key={id}
-            role="tab"
-            aria-selected={tab === id}
+            variant={tab === id ? "default" : "ghost"}
             size="sm"
-            variant={tab === id ? "default" : "outline"}
-            className="rounded-[3px] font-mono-hud text-xs"
-            onClick={() => setTab(id)}
+            onClick={() => setTab(id as DashboardTab)}
+            className={`gap-2 ${
+              tab === id
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "text-gray-400 hover:text-red-500 hover:bg-gray-900"
+            }`}
           >
-            <Icon className="size-3.5" aria-hidden="true" />
+            <Icon className="size-4" />
             {label}
           </Button>
         ))}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <Active />
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto bg-black">
+        {renderContent()}
       </div>
     </div>
   )

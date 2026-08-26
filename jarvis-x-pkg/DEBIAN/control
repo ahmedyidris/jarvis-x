@@ -1,0 +1,7 @@
+Package: jarvis-x
+Version: 1.0.0
+Architecture: amd64
+Maintainer: Ahmed Yidris <ahmedyidris@jarvis-x.local>
+Description: Local AI Agent — offline-first, voice-enabled, agent executor
+ Hermes + Ollama + TTS/STT + VideoPipeline
+Homepage: https://github.com/ahmedyidris/jarvis-x

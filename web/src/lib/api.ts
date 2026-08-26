@@ -73,3 +73,80 @@ export async function transcribeAudio(blob: Blob): Promise<string> {
   const data = await res.json()
   return data.text
 }
+
+// === DECISION INSPECTOR ===
+
+export interface DecisionDetail {
+  id: string
+  timestamp: string
+  question: string
+  tier: Tier
+  model: string
+  reasoning: string
+  sources: { name: string; value: string; age_ms: number }[]
+  output: string
+  latency_ms: number
+}
+
+export async function getDecision(id: string): Promise<DecisionDetail> {
+  const res = await apiFetch(`/api/decision/${id}`)
+  return res.json()
+}
+
+// === OUTPUT LIBRARY ===
+
+export interface OutputEntry {
+  id: string
+  timestamp: string
+  question: string
+  response: string
+  model: string
+  tier: Tier
+}
+
+export interface OutputQuery {
+  from_date?: string
+  to_date?: string
+  model?: string
+  tier?: Tier
+  search?: string
+  limit?: number
+}
+
+export async function queryOutputs(filters: OutputQuery): Promise<OutputEntry[]> {
+  const params = new URLSearchParams()
+  if (filters.from_date) params.append("from_date", filters.from_date)
+  if (filters.to_date) params.append("to_date", filters.to_date)
+  if (filters.model) params.append("model", filters.model)
+  if (filters.tier) params.append("tier", filters.tier)
+  if (filters.search) params.append("search", filters.search)
+  if (filters.limit) params.append("limit", String(filters.limit))
+  
+  const res = await apiFetch(`/api/outputs/query?${params}`)
+  return res.json()
+}
+
+// === VERTICAL CONTROLS ===
+
+export interface VerticalStatus {
+  name: string
+  enabled: boolean
+  last_run?: string
+  next_run?: string
+  schedule?: string
+}
+
+export async function getVerticalStatus(): Promise<VerticalStatus[]> {
+  const res = await apiFetch("/api/verticals/status")
+  return res.json()
+}
+
+export async function pauseVertical(name: string): Promise<VerticalStatus> {
+  const res = await apiFetch(`/api/verticals/${name}/pause`, { method: "POST" })
+  return res.json()
+}
+
+export async function resumeVertical(name: string): Promise<VerticalStatus> {
+  const res = await apiFetch(`/api/verticals/${name}/resume`, { method: "POST" })
+  return res.json()
+}

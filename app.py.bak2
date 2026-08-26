@@ -115,18 +115,7 @@ async def ask(req: QueryRequest):
         hermes = hermes_module.HermesCore()
         try:
             # System prompt: establish Jarvis X identity
-            system_msg = (
-                "You are Jarvis X, a local AI agent built by Ahmed. "
-                "Never say you are Qwen or any other model. "
-                "Always write your own name in Latin script as 'Jarvis X' — never transliterate it into Arabic. "
-                "If the user writes in Arabic, reply in EGYPTIAN COLLOQUIAL ARABIC (المصري), never Modern Standard Arabic. "
-                "Use Egyptian words: عايز not أريد، إيه not ماذا، دلوقتي not الآن، "
-                "إزيك not كيف حالك، النهاردة not اليوم، ازاي not كيف، مش not ليس. "
-                "Write naturally, the way people actually talk in Cairo. "
-                "Keep answers SHORT — two sentences maximum. "
-                "Never mix English words into Arabic sentences except your own name. "
-                "Never invent capabilities. You answer questions, run guarded local commands, and speak."
-            )
+            system_msg = "You are Jarvis X, a local AI agent. Respond as Jarvis X, not as Qwen or any other model."
             response = hermes.ask(f"{system_msg}\n\n{req.question}", model)
         except hermes_module.HermesBackendError as e:
             # Distinct status from a normal (if terse) answer -- a caller
@@ -136,10 +125,6 @@ async def ask(req: QueryRequest):
             raise HTTPException(status_code=503, detail=f"LLM backend unavailable: {e}")
         finally:
             hermes.close()
-
-        from code.arabic_text import prepare as _prep
-        if _is_arabic(response):
-            response = _prep(response)
 
         result = {
             "question": req.question,

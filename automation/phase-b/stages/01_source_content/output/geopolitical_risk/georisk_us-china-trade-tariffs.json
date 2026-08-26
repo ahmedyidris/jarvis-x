@@ -3,8 +3,8 @@
   "headline_fact": "On August 11, 2026, President Trump announced a further 90-day pause on raising the reciprocal tariff on Chinese goods to 125%; separately, a new 12.5% Section 301 tariff took effect July 24, 2026 over China's failure to enforce a forced-labor import ban, pushing the effective US tariff rate on many Chinese goods to close to 30% -- the highest of any country.",
   "source_name": "China Briefing / Tax Foundation (Tariff Tracker)",
   "source_url": "https://www.china-briefing.com/news/us-china-relations-in-the-trump-2-0-implications/",
-  "narration_script": "President Trump announced a further 90-day pause on raising tariffs on Chinese goods to 125%. Separately, back in July, a new 12.5% tariff took effect over China's failure to enforce a forced-labor import ban.",
-  "on_screen_text": "125% Tariff Hike Paused; New 12.5% Tariff In Effect",
-  "image_prompt": "Container ship in international waters",
+  "narration_script": "President Trump announced on August 11, 2026 a pause of 90 days in increasing tariffs to 125% on Chinese goods. Additionally, a new 12.5% Section 301 tariff took effect July 24, 2026 for China's failure to enforce a forced-labor import ban, raising the US tariff rate on many Chinese goods close to 30%.",
+  "on_screen_text": "US tariffs on Chinese goods now at ~30%; pause in higher tariffs announced.",
+  "image_prompt": "Container ship navigating through a strait",
   "duration_seconds": 25
 }

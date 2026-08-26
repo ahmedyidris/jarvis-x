@@ -264,7 +264,7 @@ class HermesCore:
                        model.split(":", 1)[1],
                        self.build_context(question, turns) if context else question]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
 
             if result.returncode != 0:
@@ -277,8 +277,8 @@ class HermesCore:
 
         except subprocess.TimeoutExpired:
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
-            self._record_failure(question, model, latency_ms, "Query timeout (120s)")
-            raise HermesBackendError("Query timeout (120s)")
+            self._record_failure(question, model, latency_ms, "Query timeout (300s)")
+            raise HermesBackendError("Query timeout (300s)")
         except json.JSONDecodeError as e:
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
             msg = f"Ollama returned unparseable response: {e}"

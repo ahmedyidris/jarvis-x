@@ -3,8 +3,8 @@
   "headline_fact": "Copper fell to $6.59 a pound on August 14, 2026 (down 0.05% on the day) but remains up about 47% year-over-year, with traders citing tightening supply from lower expected output at Chile's state-owned Codelco and US import tariffs diverting metal into US warehouses.",
   "source_name": "Trading Economics",
   "source_url": "https://tradingeconomics.com/commodity/copper",
-  "narration_script": "According to Trading Economics, copper fell to $6.59 per pound on August 14, down just 0.05% for the day, but it's still up about 47% year-over-year.",
-  "on_screen_text": "Copper drops slightly from $6.59/lb, up 47% YTD",
-  "image_prompt": "Copper ingot",
+  "narration_script": "According to Trading Economics, copper closed at $6.59 per pound on August 14, 2026, a small decline from the previous day but still up about 47% year-over-year.",
+  "on_screen_text": "Copper Market Summary: Down slightly, up big year-over-year",
+  "image_prompt": "Metal ingot of copper",
   "duration_seconds": 25
 }

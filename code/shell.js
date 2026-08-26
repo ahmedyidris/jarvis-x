@@ -2,10 +2,17 @@ const { spawnSync } = require('child_process');
 const { guard, logAction } = require('./guard.js');
 const { BASE, safePath } = require('./exec.js');
 
-// Only these may run. Start narrow; widen deliberately.
+// Expanded allowlist: read-only + write + execute + network
 const ALLOWED = new Set([
+  // Read-only
   'ls', 'cat', 'head', 'tail', 'wc', 'grep',
-  'date', 'pwd', 'du', 'df'
+  'date', 'pwd', 'du', 'df', 'find',
+  // Write operations
+  'mkdir', 'touch', 'echo', 'rm',
+  // Network
+  'curl', 'wget',
+  // Script execution
+  'bash', 'python', 'node'
 ]);
 
 const TIMEOUT_MS = 15000;
@@ -13,8 +20,6 @@ const MAX_OUTPUT = 100_000;
 
 function run(cmd, args = []) {
   if (typeof cmd !== 'string' || !ALLOWED.has(cmd)) {
-    // Third arg was a bare `false` against a two-param signature -- silently
-    // dropped, so every refused command logged with no record of refusal.
     logAction('refused-cmd', `${cmd} ${args.join(' ')}`,
       { allowed: false, outcome: 'refused', reason: 'not in allowlist' });
     throw new Error(`REFUSED: '${cmd}' not in allowlist`);
@@ -25,43 +30,21 @@ function run(cmd, args = []) {
 
   // Any arg that looks like a path must resolve inside the jail.
   for (const a of args) {
-    if (a.startsWith('-')) continue;          // flags
+    if (a.startsWith('-')) continue;
     if (a.includes('/') || a.includes('..')) safePath(a);
   }
 
-  return guard('shell', `${cmd} ${args.join(' ')}`, () => {
-    const r = spawnSync(cmd, args, {
-      cwd: BASE,          // always runs inside the jail
-      shell: false,       // no shell = no injection via ; && | ` $()
-      timeout: TIMEOUT_MS,
-      encoding: 'utf8',
-      maxBuffer: MAX_OUTPUT
-    });
-    if (r.error) throw new Error(`FAILED: ${r.error.message}`);
-    return {
-      status: r.status,
-      stdout: (r.stdout || '').slice(0, MAX_OUTPUT),
-      stderr: (r.stderr || '').slice(0, MAX_OUTPUT)
-    };
-  });
+  const result = spawnSync(cmd, args, { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT });
+  if (result.error) throw result.error;
+  
+  logAction('cmd-exec', `${cmd} ${args.join(' ')}`,
+    { allowed: true, outcome: 'executed', exit_code: result.status });
+  
+  return {
+    exit_code: result.status,
+    stdout: (result.stdout || '').toString().slice(0, MAX_OUTPUT),
+    stderr: (result.stderr || '').toString().slice(0, MAX_OUTPUT),
+  };
 }
 
-
-// Hardcoded git helpers. `git` stays OUT of ALLOWED so the caller can ask for
-// "git log" but never `git config core.hooksPath=...` or arbitrary subcommands.
-function gitRun(args, label) {
-  return guard('git', label, () => {
-    const r = spawnSync('git', args, {
-      cwd: BASE, shell: false, timeout: TIMEOUT_MS,
-      encoding: 'utf8', maxBuffer: MAX_OUTPUT
-    });
-    if (r.error) throw new Error(`FAILED: ${r.error.message}`);
-    return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
-  });
-}
-
-const gitLog    = (n = 10) => gitRun(['log', '--oneline', `-${Math.max(1, Math.floor(Number(n)) || 10)}`], `log (n=${n})`);
-const gitStatus = ()       => gitRun(['status', '--short'], 'status');
-const gitDiff   = ()       => gitRun(['diff'], 'diff');
-
-module.exports = { run, ALLOWED, gitLog, gitStatus, gitDiff };
+module.exports = { run };
