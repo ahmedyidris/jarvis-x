@@ -1,34 +1,45 @@
-.env
-logs/scratch.txt
-node_modules/
-logs/
-.env
+
+.agents/
+# and worktrees are full nested checkouts that must never be committed.
+awesome/
+awesome-llm-apps/
+awesome-mcp-servers/
 *.bak
-memory/observed.jsonl
+*.bak2
+# Claude Code local/derived state — regenerable from skills-lock.json,
+.claude/settings.local.json
+.claude/skills/
+.claude/worktrees/
+DeepSeek-V3/
+ds4/
+electron/dist/
+electron/node_modules/
+.env
+.env*
+!.env.template
+free-for-dev/
+jarvis-x_*.deb
+langflow/
+logs/
 logs/plans.jsonl
 logs/queue.jsonl
 logs/scheduled.jsonl
+logs/scratch.txt
+memory/observed.jsonl
 models/
-__pycache__/
-**/__pycache__/
+node_modules/
+ollama/
+open-design/
+OpenHands/
+public-apis/
 *.pyc
-
-# sentinel/ (portfolio subproject — separate from the jarvis-x agent)
-sentinel/.venv/
+**/__pycache__/
+__pycache__/
+Qwen3.6-27B-AEON-Ultimate-Uncensored-DFlash/
+Scrapling/
+scripts/verify/output/
 sentinel/data/vector_store.db
 sentinel/eval/eval_report.json
-
-# Claude Code local/derived state — regenerable from skills-lock.json,
-# and worktrees are full nested checkouts that must never be committed.
-.claude/worktrees/
-.claude/settings.local.json
-.claude/skills/
-.agents/
-electron/dist/
+# sentinel/ (portfolio subproject — separate from the jarvis-x agent)
+sentinel/.venv/
 voices/
-voices/
-.env*
-!.env.template
-electron/dist/
-electron/node_modules/
-scripts/verify/output/
