@@ -10,6 +10,7 @@ import re
 LATIN_NAMES = {
     "جارفيس": "Jarvis",
     "جيرس ناكس": "Jarvis X",
+    "\u062c\u0430\u0440\u0432\u0438\u0441": "Jarvis",
     "جارفيس إكس": "Jarvis X",
     "جارفس": "Jarvis",
     "جيرفس": "Jarvis",

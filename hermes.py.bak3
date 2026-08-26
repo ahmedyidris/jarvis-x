@@ -236,7 +236,7 @@ class HermesCore:
         parts.append(f"Answer completely but concisely -- no padding.\n\nUser: {question}")
         return "\n\n".join(parts)
 
-    def ask(self, question, model="qwen2.5:7b", context=True, turns=3, system=None):
+    def ask(self, question, model="qwen2.5:7b", context=True, turns=3):
         """Query model and store result.
 
         Raises HermesBackendError if Ollama itself failed or was unreachable
@@ -258,7 +258,7 @@ class HermesCore:
                 "curl", "-sS", "http://localhost:11434/api/generate",
                 "-d", json.dumps({
                     "model": model,
-                    "prompt": ((system + "\n\n") if system else "") + (self.build_context(question, turns) if context else question),
+                    "prompt": self.build_context(question, turns) if context else question,
                     "stream": False
                 })
             ]

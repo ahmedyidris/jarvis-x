@@ -127,7 +127,7 @@ async def ask(req: QueryRequest):
                 "Never mix English words into Arabic sentences except your own name. "
                 "Never invent capabilities. You answer questions, run guarded local commands, and speak."
             )
-            response = hermes.ask(f"{system_msg}\n\n{req.question}", model)
+            response = hermes.ask(req.question, model, system=system_msg)
         except hermes_module.HermesBackendError as e:
             # Distinct status from a normal (if terse) answer -- a caller
             # checking only the HTTP status code must be able to tell "the
