@@ -23,7 +23,7 @@ TIERS = {
         "voice": "en_us_piper"
     },
     "quality": {
-        "model": "qwen2.5:7b",
+        "model": "hf.co/bartowski/SILMA-9B-Instruct-v1.0-GGUF:Q4_K_M",
         "voice": "en_us_kokoro"
     },
     # Remote. Each falls back to Ollama if its providers are unavailable or
