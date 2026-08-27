@@ -55,7 +55,7 @@ def synthesize(req: SynthRequest):
     t0 = time.time()
     try:
         kw = {"audio_prompt_path": str(REF)} if (req.clone and REF.exists()) else {}
-        wav = m.generate(text=text, language_id="ar", **kw)
+        wav = m.generate(text=text, language_id=0, **kw)
     except Exception as e:
         raise HTTPException(500, f"synthesis failed: {e}")
     buf = io.BytesIO()

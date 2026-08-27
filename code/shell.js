@@ -30,6 +30,8 @@ function run(cmd, args = []) {
 
   // Any arg that looks like a path must resolve inside the jail.
   for (const a of args) {
+    // Skip URLs from path jail
+    if (typeof a === "string" && /^[a-z][a-z0-9+.-]*:/i.test(a)) continue;
     if (a.startsWith('-')) continue;
     if (a.includes('/') || a.includes('..')) safePath(a);
   }
