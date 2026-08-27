@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react"
 import { Download, RotateCcw, Search } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { queryOutputs, askJarvis, type OutputEntry, type Tier } from "@/lib/api"
+import { queryOutputs, askJarvis, type OutputEntry } from "@/lib/api"
 
 export function OutputLibrary() {
   const [outputs, setOutputs] = useState<OutputEntry[]>([])

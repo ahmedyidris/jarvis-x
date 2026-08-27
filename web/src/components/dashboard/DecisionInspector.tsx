@@ -11,7 +11,6 @@ export function DecisionInspector() {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [selected, setSelected] = useState<DecisionDetail | null>(null)
   const [search, setSearch] = useState("")
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     getHistory(50).then(setHistory).catch(console.error)
@@ -22,7 +21,6 @@ export function DecisionInspector() {
   )
 
   async function inspect(entry: HistoryEntry) {
-    setLoading(true)
     try {
       const id = entry.timestamp
       const detail = await getDecision(id)
@@ -30,7 +28,6 @@ export function DecisionInspector() {
     } catch (e) {
       console.error("Failed to fetch decision:", e)
     } finally {
-      setLoading(false)
     }
   }
 
