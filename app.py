@@ -214,7 +214,7 @@ async def killswitch_set(req: KillSwitchRequest):
 @app.post("/api/transcribe", dependencies=[Depends(require_token)])
 async def transcribe(audio: UploadFile = File(...)):
     wav_bytes = await audio.read()
-    text = await asyncio.to_thread(get_stt_engine().transcribe, wav_bytes)
+    text = await asyncio.to_thread(get_stt_engine().transcribe, wav_bytes, "ar")
     return {"text": text}
 
 # ---------------------------------------------------------------------------

@@ -16,14 +16,20 @@ class STTEngine:
         # other non-English language) could not be transcribed at all, let
         # alone detected. "tiny" is the multilingual build of the same size.
         #
-        # NOT upgraded to base/small despite the usual assumption that bigger
+        # 2026-08-28: measured tiny vs small vs large-v3 on 40s of real
+        # Egyptian speech. tiny produced nonsense with Latin fragments and
+        # repetition loops; small produced partial sense; large-v3 produced a
+        # coherent, recognizable transcript in 34s on CPU. large-v3 is the
+        # default. Not resident -- loads per call, so RAM cost is transient.
+        # Override: JX_STT_MODEL (small is ~8x faster if latency matters).
+        # Superseded note: NOT upgraded to base/small despite the assumption that bigger
         # is better for Arabic: on the one clean Piper-synthesized MSA sample
         # tested (2026-08-24), base was WORSE -- it mis-transcribed the ending
         # of وبركاته and dropped punctuation that tiny kept. n=1 on clean
         # synthesized audio, so this is not a WER measurement; base may still
         # win on noisy real-microphone input. Re-measure against real
         # recordings before changing the default. Override: JX_STT_MODEL.
-        model_size = model_size or os.environ.get("JX_STT_MODEL", "tiny")
+        model_size = model_size or os.environ.get("JX_STT_MODEL", "large-v3")
         logger.info(f"Loading faster-whisper model: {model_size}")
         self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
 
