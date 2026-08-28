@@ -50,7 +50,10 @@ export function Settings() {
   const [status, setStatus] = useState<any>(null)
 
   useEffect(() => {
-    fetch("/api/status").then(r => r.json()).then(setStatus).catch(() => {})
+    fetch("/api/status")
+      .then(r => r.json())
+      .then(setStatus)
+      .catch(e => setStatus({ _err: String(e) }))
     try {
       const s = JSON.parse(localStorage.getItem("jarvisx.settings") || "{}")
       if (s.tier) setModel(s.tier)
