@@ -1,105 +1,48 @@
 import { useState } from "react"
-import { MessageSquare, Settings, History } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { MessageSquare, Settings as SettingsIcon, History as HistoryIcon } from "lucide-react"
 import { ChatInterface } from "@/components/dashboard/ChatInterface"
-import { Settings as SettingsComponent } from "@/components/dashboard/Settings"
-import { History as HistoryComponent } from "@/components/dashboard/History"
+import { Settings } from "@/components/dashboard/Settings"
+import { History } from "@/components/dashboard/History"
 
-type DashboardTab = "chat" | "settings" | "history"
+type Tab = "chat" | "settings" | "history"
 
 const TABS = [
-  { id: "chat", label: "Chat", icon: MessageSquare },
-  { id: "settings", label: "Settings", icon: Settings },
-  { id: "history", label: "History", icon: History },
-] as const
+  { id: "chat" as const, label: "Chat", icon: MessageSquare },
+  { id: "settings" as const, label: "Settings", icon: SettingsIcon },
+  { id: "history" as const, label: "History", icon: HistoryIcon },
+]
 
-interface DashboardProps {
-  activeTab?: DashboardTab
-  onTabChange?: (tab: DashboardTab) => void
-}
-
-export function Dashboard({ activeTab, onTabChange }: DashboardProps) {
-  const [internalTab, setInternalTab] = useState<DashboardTab>("chat")
-  const [tier, setTier] = useState("local")
-  const [voice, setVoice] = useState("en_us_piper")
-  const [language, setLanguage] = useState("en")
-  const [autoPlay, setAutoPlay] = useState(true)
-  const [showCaptions, setShowCaptions] = useState(true)
-  const [textSize, setTextSize] = useState<"sm" | "base" | "lg">("base")
-  const [arabicDialect, setArabicDialect] = useState<"msa" | "egyptian">("msa")
-
-  const tab = activeTab ?? internalTab
-  const setTab = onTabChange ?? setInternalTab
-
-  const renderContent = () => {
-    switch (tab) {
-      case "chat":
-        return (
-          <ChatInterface
-            tier={tier}
-            voice={voice}
-            language={language}
-            autoPlay={autoPlay}
-            showCaptions={showCaptions}
-          />
-        )
-      case "settings":
-        return (
-          <SettingsComponent
-            tier={tier}
-            voice={voice}
-            language={language}
-            autoPlay={autoPlay}
-            showCaptions={showCaptions}
-            textSize={textSize}
-            arabicDialect={arabicDialect}
-            onTierChange={setTier}
-            onVoiceChange={setVoice}
-            onLanguageChange={setLanguage}
-            onAutoPlayChange={setAutoPlay}
-            onCaptionsChange={setShowCaptions}
-            onTextSizeChange={setTextSize}
-            onDialectChange={setArabicDialect}
-          />
-        )
-      case "history":
-        return <HistoryComponent />
-      default:
-        return null
-    }
-  }
+export function Dashboard() {
+  const [tab, setTab] = useState<Tab>("chat")
 
   return (
-    <div className="flex h-full flex-col bg-black text-white">
-      {/* Header */}
-      <div className="border-b border-red-500 bg-black px-4 py-3">
-        <h1 className="text-2xl font-bold text-red-500">JARVIS X</h1>
-        <p className="text-xs text-gray-400">Personal AI Assistant</p>
+    <div className="flex h-full w-full flex-col bg-black text-zinc-100">
+      <div className="border-b border-red-900/60 px-5 pb-2 pt-4">
+        <div className="text-xl font-bold tracking-wide text-red-600">JARVIS X</div>
+        <div className="text-xs text-zinc-500">Personal AI Assistant</div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-red-500 px-4 py-2 bg-gray-950">
+      <div className="flex gap-1 border-b border-red-900/60 bg-zinc-950 px-3 py-2">
         {TABS.map(({ id, label, icon: Icon }) => (
-          <Button
+          <button
             key={id}
-            variant={tab === id ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setTab(id as DashboardTab)}
-            className={`gap-2 ${
+            onClick={() => setTab(id)}
+            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm transition ${
               tab === id
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "text-gray-400 hover:text-red-500 hover:bg-gray-900"
+                ? "bg-red-700 text-white"
+                : "text-zinc-400 hover:bg-zinc-900 hover:text-red-400"
             }`}
           >
             <Icon className="size-4" />
             {label}
-          </Button>
+          </button>
         ))}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto bg-black">
-        {renderContent()}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {tab === "chat" && <ChatInterface />}
+        {tab === "settings" && <Settings />}
+        {tab === "history" && <History />}
       </div>
     </div>
   )
