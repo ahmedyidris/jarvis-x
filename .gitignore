@@ -43,3 +43,4 @@ sentinel/eval/eval_report.json
 # sentinel/ (portfolio subproject — separate from the jarvis-x agent)
 sentinel/.venv/
 voices/
+*.sw[a-p]
