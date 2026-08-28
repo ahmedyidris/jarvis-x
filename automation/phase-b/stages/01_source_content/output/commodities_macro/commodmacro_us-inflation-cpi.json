@@ -3,8 +3,8 @@
   "headline_fact": "US annual inflation slowed to 3.4% in July 2026, down from 3.5% in June -- the second straight monthly slowdown -- with the consumer price index up 0.1% for the month and core CPI (excluding food and energy) up 0.2%. Released August 12, 2026.",
   "source_name": "CNBC (Bureau of Labor Statistics data)",
   "source_url": "https://www.cnbc.com/2026/08/12/cpi-inflation-report-july-2026.html",
-  "narration_script": "According to CNBC and Bureau of Labor Statistics data, US inflation slowed to 3.4% in July 2026 after hitting 3.5% in June.",
-  "on_screen_text": "US Inflation at 3.4%, Down from 3.5%",
-  "image_prompt": "Graph showing CPI trend over time",
+  "narration_script": "According to CNBC and Bureau of Labor Statistics data, US inflation as measured by the Consumer Price Index dropped to 3.4% in July 2026, marking the second consecutive monthly decline.",
+  "on_screen_text": "US Inflation at 3.4%, Down from June's 3.5%",
+  "image_prompt": "Graph showing CPI data over time",
   "duration_seconds": 25
 }

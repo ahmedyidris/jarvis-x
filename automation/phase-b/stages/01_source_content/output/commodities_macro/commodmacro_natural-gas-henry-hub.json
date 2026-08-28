@@ -3,8 +3,8 @@
   "headline_fact": "The Henry Hub natural gas spot price stood at $2.79 per million BTU as of August 11, 2026, per U.S. Energy Information Administration data.",
   "source_name": "Federal Reserve Economic Data (FRED) / EIA",
   "source_url": "https://fred.stlouisfed.org/series/DHHNGSP",
-  "narration_script": "As of August 11, 2026, the Henry Hub natural gas spot price was $2.79 per million BTU, according to Federal Reserve Economic Data (FRED) / EIA.",
-  "on_screen_text": "Henry Hub Natural Gas Spot Price: $2.79/MMBtu as of Aug 11, 2026",
-  "image_prompt": "Bar graph showing natural gas spot price over time",
+  "narration_script": "According to Federal Reserve Economic Data (FRED) / EIA, the Henry Hub natural gas spot price was $2.79 per million BTU as of August 11, 2026.",
+  "on_screen_text": "Henry Hub Natural Gas Spot Price: $2.79/MMBtu",
+  "image_prompt": "Natural gas pipeline",
   "duration_seconds": 25
 }
