@@ -650,18 +650,6 @@ async def dashboard_ws(websocket: WebSocket):
 # catch-all matches before any 404 would occur. Serving the real file when
 # it exists on disk keeps the SPA-fallback behavior for genuine client
 # routes while not breaking the manifest/icons/favicon.
-@app.get("/{full_path:path}")
-async def spa_fallback(full_path: str):
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="Not found")
-    candidate = WEB_DIST / full_path
-    if full_path and candidate.is_file():
-        return FileResponse(candidate)
-    return FileResponse(WEB_DIST / "index.html")
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 # === DECISION INSPECTOR ===
 @app.get("/api/decision/{decision_id}")
