@@ -1,5 +1,5 @@
 const { spawnSync } = require('child_process');
-const { guard, logAction } = require('./guard.js');
+const { isStopped, logAction } = require('./guard.js');
 const { BASE, safePath } = require('./exec.js');
 
 // Expanded allowlist: read-only + write + execute + network
@@ -19,6 +19,17 @@ const TIMEOUT_MS = 15000;
 const MAX_OUTPUT = 100_000;
 
 function run(cmd, args = []) {
+  // lib.js's execute() already checks isStopped() before dispatching to any
+  // action type, including 'shell' -- but that made this file's own kill
+  // switch enforcement depend entirely on every future caller routing
+  // through execute() first. It doesn't: test-shell.js calls run() directly,
+  // and nothing stops another caller from doing the same in production.
+  // Check here too, so this module is self-defending regardless of caller.
+  if (isStopped()) {
+    logAction('refused-cmd', `${cmd} ${(args || []).join(' ')}`,
+      { allowed: false, outcome: 'killswitch' });
+    throw new Error('⛔ Kill switch active – action blocked');
+  }
   if (typeof cmd !== 'string' || !ALLOWED.has(cmd)) {
     logAction('refused-cmd', `${cmd} ${args.join(' ')}`,
       { allowed: false, outcome: 'refused', reason: 'not in allowlist' });
