@@ -110,6 +110,17 @@ async def ask(req: QueryRequest):
     # this codebase (code/guard.js, code/lib.js's execute()).
     if STOP_FILE.exists():
         raise HTTPException(status_code=503, detail="Kill switch active — Jarvis is halted")
+    busy = _generation_job_in_progress()
+    if busy:
+        started = datetime.fromisoformat(busy["started_at"])
+        elapsed = int((datetime.now() - started).total_seconds())
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Content generation running for '{busy['vertical']}' "
+                f"({elapsed}s so far) — Ollama is busy, try again shortly"
+            ),
+        )
     try:
         model, voice = router.resolve(req.tier, voice_override=req.voice)
         hermes = hermes_module.HermesCore()
@@ -257,6 +268,18 @@ VERTICAL_GENERATORS = {
 # need a persistent job queue -- this is intentionally the simplest thing
 # that actually works, not a placeholder for something bigger.
 _generation_jobs: dict[str, dict] = {}
+
+
+def _generation_job_in_progress() -> dict | None:
+    """The running Phase B vertical job, if any -- these call Ollama
+    directly (content_generator.py et al) and contend with /api/ask's own
+    Ollama call for Ollama's single-slot internal request queue
+    (REMAINING_WORK.md P7). Excludes "_test_run" (scripts/status.sh --
+    no Ollama call, doesn't contend)."""
+    for job in _generation_jobs.values():
+        if job.get("vertical") in VERTICAL_GENERATORS and job.get("status") == "running":
+            return job
+    return None
 
 
 def _dashboard_path_for(vertical: str, filename: str, root: Path) -> Path:
