@@ -3,8 +3,8 @@
   "headline_fact": "On July 29, 2026, the Federal Open Market Committee voted 9-3 to hold the federal funds rate at a target range of 3.5% to 3.75%, with three regional bank presidents dissenting as inflation has stayed above the Fed's 2% goal for more than five years.",
   "source_name": "Federal Reserve (official FOMC statement)",
   "source_url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm",
-  "narration_script": "On July 29, 2026, the Federal Open Market Committee decided to keep the federal funds rate at a target range of 3.5% to 3.75%, with three regional bank presidents disagreeing over high inflation rates.",
-  "on_screen_text": "Fed Hesitates: Funds Rate Holds Steady",
-  "image_prompt": "Federal Reserve Building",
+  "narration_script": "On July 29, 2026, the Federal Open Market Committee decided to keep interest rates at a target range of 3.5% to 3.75%, with three regional bank presidents disagreeing due to persistent inflation above the Fed's goal.",
+  "on_screen_text": "Fed Keeps Interest Rates at 3.5%-3.75%",
+  "image_prompt": "Central Bank Building",
   "duration_seconds": 25
 }

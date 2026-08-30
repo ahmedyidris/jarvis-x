@@ -3,8 +3,8 @@
   "headline_fact": "Egypt's annual urban inflation rate accelerated to 14.9% in July 2026, up from 14.3% in June -- the first acceleration in four months -- according to CAPMAS data, with analysts citing a roughly 12% electricity price hike as a key driver.",
   "source_name": "Bloomberg",
   "source_url": "https://www.bloomberg.com/news/articles/2026-08-10/egypt-headline-inflation-quickens-for-the-first-time-since-march",
-  "narration_script": "According to Bloomberg, Egypt saw its urban inflation rate increase to 14.9% in July, marking the first rise since March after June's rate was 14.3%. Analysts point to a substantial 12% hike in electricity prices as the primary cause.",
-  "on_screen_text": "Egyptian Urban Inflation Surges to 14.9%, Highest Since March",
-  "image_prompt": "Electricity meter symbol",
+  "narration_script": "According to Bloomberg, Egypt's urban inflation rate increased to 14.9% in July from 14.3% in June -- the first rise in four months -- driven by a significant electricity price hike.",
+  "on_screen_text": "Egyptian Urban Inflation Hits 14.9% - Up from 14.3%",
+  "image_prompt": "Electricity meter",
   "duration_seconds": 25
 }

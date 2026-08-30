@@ -3,8 +3,8 @@
   "headline_fact": "As of August 10, 2026, gasoline (95-octane) in Egypt is priced at EGP 24.00 per liter (about USD 0.48), with 92-octane at EGP 22.25/liter, 80-octane at EGP 20.75/liter, and diesel at EGP 20.50/liter -- unchanged since the Petroleum Ministry's last EGP 3/liter increase in March 2026.",
   "source_name": "GlobalPetrolPrices.com",
   "source_url": "https://www.globalpetrolprices.com/Egypt/gasoline_prices/",
-  "narration_script": "According to GlobalPetrolPrices.com, Egypt's fuel prices have remained stable since March with the exception of a slight increase in diesel. The current price for 95-octane gasoline is EGP 24.00 per liter.",
-  "on_screen_text": "Egyptian Fuel Prices: Gasoline (95-octane) at EGP 24.00/liter, Diesel at EGP 20.50/liter - No Change Since March 2026",
-  "image_prompt": "Egyptian gas station with various fuel pumps",
+  "narration_script": "According to GlobalPetrolPrices.com, the current fuel prices in Egypt have remained unchanged since March 2026.",
+  "on_screen_text": "Egyptian Fuel Prices: Unchanged Since March 2026 - EGP 24.00/L for 95-octane Gasoline (unchanged).",
+  "image_prompt": "Gas pump next to a currency symbol",
   "duration_seconds": 25
 }
