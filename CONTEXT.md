@@ -179,3 +179,37 @@ local checkout at `~/repos/agency-agents`), reinstall with:
 ```
 cd ~/repos/agency-agents && bash scripts/install.sh --tool claude-code --path /home/ahmedyidris/jarvis-x/.claude/agents
 ```
+
+## Skill/plugin vetting round 2 (2026-08-31) — global installs, not repo-specific
+
+None of the below touch jarvis-x's own code — recorded here only because Ahmed
+asked for a standing "install everything I paste, including future pastes"
+policy and to keep it in memory (see `[[vet-before-install]]` in Claude's own
+memory). Vetting stays mandatory regardless of blanket pre-authorization —
+this round it caught two real problems: `MemPalace/mempalace` (fake/bot-farm
+stars, a fabricated celebrity-adjacent maintainer identity, undisclosed
+telemetry + Wikipedia data exfiltration by default) and
+`thedotmack/claude-mem` (4 open HIGH-severity issues incl. an unauthenticated
+local API leaking API keys in cleartext, plus a promoted crypto token) — both
+skipped, not installed.
+
+Installed globally (`claude plugin`, scope: user — not jarvis-x-scoped):
+`superpowers-developing-for-claude-code`, `token-optimizer` (ooples), plus
+from the prior round `watch@claude-watch`, `pixelbrowse@pixelrag-plugins`,
+`document-skills`/`example-skills@anthropic-agent-skills`.
+
+Cloned to `~/repos/` for reference only, not installed/run:
+`superpowers-lab` (has a plugin.json but no marketplace.json, so it doesn't
+install via `claude plugin` — would need manual config if ever wanted),
+`Jarvis-Desktop-Voice-Assistant`, `claude-memory-compiler`,
+`claude-token-efficient`, `token-optimizer` (alexgreensh),
+`claude-context` (Zilliz — sends embeddings to OpenAI + Zilliz Cloud by
+default; use self-hosted Milvus + Ollama if code privacy matters),
+`caveman` (bigger than a prompt snippet — ships a traffic-intercepting proxy
++ curl\|bash installer; only the CLAUDE.md/skill text was vetted as safe, not
+the proxy component), `free-claude-code`.
+
+Skipped entirely: `superpowers-skills` (archived Oct 2025, superseded by the
+core `superpowers` plugin already installed), `BolisettySujith/J.A.R.V.I.S`
+(setup instructs pasting a Gmail password into plaintext source), `AI-GestureControl`
+(needs an OAK-D Lite camera, not a webcam — no evidence one is owned).
