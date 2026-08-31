@@ -10,6 +10,8 @@ awesome-mcp-servers/
 .claude/settings.local.json
 .claude/skills/
 .claude/worktrees/
+# regenerable via CONTEXT.md's "Agency Agents personas" section
+.claude/agents/
 DeepSeek-V3/
 ds4/
 electron/dist/

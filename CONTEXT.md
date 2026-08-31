@@ -146,3 +146,36 @@ shared `.jarvis-x-STOP` file (`STOP_FILE.exists()` in
 
 These are separate files with separate purposes despite the similar name;
 don't assume a fix or constraint on one applies to the other.
+
+## Agency Agents personas (2026-08-31)
+
+`.claude/agents/` (273 `.md` files, project-scoped, **not global**
+`~/.claude/agents/`) holds the full [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents)
+roster, installed via that repo's own official `claude-code` integration
+target (native `.md` + YAML frontmatter, no conversion needed) — vetted
+first (MIT, established maintainer, markdown-only, no executable payload).
+These are Claude Code subagents usable when *working on* jarvis-x
+(`Activate <name>` in a session), not something the running `hermes-api`
+service loads at runtime — no Jarvis-X source code references this
+directory.
+
+Deliberately scoped to this repo rather than the global
+`~/.claude/agents/` to avoid the same skill-trigger-collision problem
+already seen with the design/UI skills (see the 2026-08-13 addendum in
+`docs/archive/JARVIS_X_STATUS_SNAPSHOT.md`) — 273 more overlapping personas
+in the global config would make that worse for every other project on this
+machine, not just this one.
+
+Considered installing `agency-agents`' own `hermes` integration target too
+(a lazy-router plugin at `~/.hermes/plugins/`) — checked `~/.hermes/`
+first: it's Jarvis-X's own `hermes.py` state directory (`state.db` +
+generated TTS audio), not a real third-party Hermes Agent CLI install
+(no `plugins.enabled` config schema present). Installing that target would
+have written a plugin nothing loads. Skipped.
+
+Gitignored (`.claude/agents/`) as regenerable, not tracked — provenance:
+source commit `3c9588880b7cafaec325a104899fd8bbe27e7d72` (`msitarzewski/agency-agents`,
+local checkout at `~/repos/agency-agents`), reinstall with:
+```
+cd ~/repos/agency-agents && bash scripts/install.sh --tool claude-code --path /home/ahmedyidris/jarvis-x/.claude/agents
+```
