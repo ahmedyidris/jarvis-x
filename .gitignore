@@ -12,6 +12,8 @@ awesome-mcp-servers/
 .claude/worktrees/
 # regenerable via CONTEXT.md's "Agency Agents personas" section
 .claude/agents/
+# local cache dir created by the global token-optimizer-mcp plugin, not jarvis-x's own code
+.token-optimizer/
 DeepSeek-V3/
 ds4/
 electron/dist/
