@@ -223,9 +223,23 @@ async def killswitch_set(req: KillSwitchRequest):
     return {"stopped": STOP_FILE.exists()}
 
 @app.post("/api/transcribe", dependencies=[Depends(require_token)])
-async def transcribe(audio: UploadFile = File(...)):
+async def transcribe(audio: UploadFile = File(...), language: str = "ar"):
+    # `language` used to be hardcoded to "ar" with no way to override --
+    # confirmed that forced English speech into a garbled Arabic transcript.
+    # Tried defaulting this to None (auto-detect) instead: fixed English, but
+    # broke short Arabic clips exactly as code/stt_engine.py's own comment
+    # warns ("the smaller models will happily romanize Arabic into Latin
+    # script" -- turns out large-v3 does this too on short audio, not just
+    # smaller models) -- a real espeak-ng Arabic sample under 3s came back
+    # as "Mh-ba-ka-fah-a-lick." instead of Arabic text. This system is
+    # Arabic-first by design (system prompt, EGTTS voice cloning), so "ar"
+    # stays the default -- unchanged behavior for the primary use case --
+    # but is now an explicit, overridable parameter instead of a hardcoded
+    # literal, so a caller that knows it's getting English speech (e.g. a
+    # future language-toggle UI) can pass ?language=en or language=None to
+    # auto-detect.
     wav_bytes = await audio.read()
-    text = await asyncio.to_thread(get_stt_engine().transcribe, wav_bytes, "ar")
+    text = await asyncio.to_thread(get_stt_engine().transcribe, wav_bytes, language)
     return {"text": text}
 
 # ---------------------------------------------------------------------------
