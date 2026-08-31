@@ -59,10 +59,13 @@ human-gated toggle — never automatic.
 
 `app.py` (FastAPI) runs under `jarvis-supervisord.service` — confirmed
 `systemctl is-enabled jarvis-supervisord.service` still reports **enabled**.
-That systemd unit runs `supervisord`, which manages two programs (confirmed
-via `supervisorctl -c config/supervisord.conf status`, both `RUNNING`):
+That systemd unit runs `supervisord`, which manages **three** programs as of
+2026-08-31 (confirmed via `supervisorctl -c config/supervisord.conf status`,
+all `RUNNING`) — a `tts-worker` program has been added since this section
+was first written and was not previously documented here:
 - `hermes-api` (uvicorn, `app:app`)
 - `ollama`
+- `tts-worker`
 
 Never start a second manual `uvicorn`/`ollama` process — use
 `supervisorctl -c /home/ahmedyidris/jarvis-x/config/supervisord.conf ...`.
