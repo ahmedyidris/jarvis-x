@@ -59,6 +59,7 @@ from content_generator import (
     _detect_json_format_support,
     _extract_json_object,
     enforce_numeric_fidelity,
+    enforce_semantic_fidelity,
 )
 
 CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "economic_facts"
@@ -292,11 +293,17 @@ def generate_economic_content(fact: dict) -> dict:
         fact["headline_fact"], llm_fields, _call_ollama, use_json_format,
         REQUIRED_LLM_FIELDS, MAX_ATTEMPTS,
     )
-    # enforce_semantic_fidelity() deliberately NOT wired in here -- see
-    # REMAINING_WORK.md P4's 2026-08-24 addendum: the Gemini judge
-    # reproduced the same 5/5 false-positive rate on known-faithful
-    # content that disqualified the earlier local-model (qwen) attempt.
-    # Wiring it in would block every generation, not just bad ones.
+    # enforce_semantic_fidelity() wired in 2026-08-31, per Ahmed's go-ahead:
+    # the hardening DECISION_RECORD_p4-gemini-judge.md called for (any-flag
+    # votes=3, Groq fallback, INCONCLUSIVE-vs-MISSED separation) is done and
+    # re-verified live (0/5 false positives, both historical defects caught).
+    # A judge-call failure (both Gemini and Groq unreachable/exhausted)
+    # raises RuntimeError here and blocks the write -- fail closed, same
+    # contract as enforce_numeric_fidelity().
+    llm_fields = enforce_semantic_fidelity(
+        fact["headline_fact"], llm_fields, _call_ollama, use_json_format,
+        REQUIRED_LLM_FIELDS, MAX_ATTEMPTS,
+    )
 
     content = {
         "topic": fact["topic"],
