@@ -49,6 +49,65 @@ def test_run_falls_back_to_raw_findings_when_explain_backend_fails(monkeypatch):
     assert "review largest consumers" in result
 
 
+def test_run_no_observation_gaps_when_no_unavailable_candidates(monkeypatch):
+    monkeypatch.setattr(
+        scan_module.storage_evidence, "collect",
+        lambda: {"disk_usage": {}, "candidates": {"x": {"path": "/x", "size_bytes": 1, "on_root_filesystem": True}}},
+    )
+    monkeypatch.setattr(scan_module.state, "last_snapshot", lambda domain: None)
+    monkeypatch.setattr(scan_module.state, "append_snapshot", lambda domain, evidence: None)
+    monkeypatch.setattr(scan_module.diagnose, "run_rules", lambda evidence, previous: [])
+    result = scan_module.run()
+    assert "What I couldn't check" not in result
+
+
+def test_run_includes_observation_gaps_when_no_findings(monkeypatch):
+    monkeypatch.setattr(
+        scan_module.storage_evidence, "collect",
+        lambda: {"disk_usage": {}, "candidates": {"Downloads": {"path": "/d", "unavailable": "path does not exist or is unreadable"}}},
+    )
+    monkeypatch.setattr(scan_module.state, "last_snapshot", lambda domain: None)
+    monkeypatch.setattr(scan_module.state, "append_snapshot", lambda domain, evidence: None)
+    monkeypatch.setattr(scan_module.diagnose, "run_rules", lambda evidence, previous: [])
+    result = scan_module.run()
+    assert "What I couldn't check:" in result
+    assert "- Downloads: path does not exist or is unreadable" in result
+
+
+def test_run_includes_observation_gaps_when_explain_succeeds(monkeypatch):
+    monkeypatch.setattr(
+        scan_module.storage_evidence, "collect",
+        lambda: {"disk_usage": {}, "candidates": {"Downloads": {"path": "/d", "unavailable": "path does not exist or is unreadable"}}},
+    )
+    monkeypatch.setattr(scan_module.state, "last_snapshot", lambda domain: None)
+    monkeypatch.setattr(scan_module.state, "append_snapshot", lambda domain, evidence: None)
+    monkeypatch.setattr(scan_module.diagnose, "run_rules", lambda evidence, previous: [_finding()])
+    monkeypatch.setattr(scan_module.explain_module, "explain", lambda findings: "LLM report")
+    result = scan_module.run()
+    assert result.startswith("LLM report")
+    assert "What I couldn't check:" in result
+    assert "- Downloads: path does not exist or is unreadable" in result
+
+
+def test_run_includes_observation_gaps_when_explain_falls_back(monkeypatch):
+    monkeypatch.setattr(
+        scan_module.storage_evidence, "collect",
+        lambda: {"disk_usage": {}, "candidates": {"Downloads": {"path": "/d", "unavailable": "path does not exist or is unreadable"}}},
+    )
+    monkeypatch.setattr(scan_module.state, "last_snapshot", lambda domain: None)
+    monkeypatch.setattr(scan_module.state, "append_snapshot", lambda domain, evidence: None)
+    monkeypatch.setattr(scan_module.diagnose, "run_rules", lambda evidence, previous: [_finding()])
+
+    def raise_backend_error(findings):
+        raise scan_module.explain_module.ExplainBackendError("offline")
+
+    monkeypatch.setattr(scan_module.explain_module, "explain", raise_backend_error)
+    result = scan_module.run()
+    assert "Local model unavailable" in result
+    assert "What I couldn't check:" in result
+    assert "- Downloads: path does not exist or is unreadable" in result
+
+
 def test_run_passes_previous_snapshot_to_rules(monkeypatch):
     previous = {"candidates": {"x": {"path": "/x", "size_bytes": 1}}}
     monkeypatch.setattr(scan_module.storage_evidence, "collect", lambda: {"disk_usage": {}})

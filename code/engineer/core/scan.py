@@ -30,6 +30,17 @@ def _fallback_report(findings: list, error: Exception) -> str:
     return "\n".join(lines)
 
 
+def _observation_gaps(evidence: dict) -> list[str]:
+    """Lines describing candidates the evidence layer couldn't observe
+    (marked `{"unavailable": "<reason>"}`), so gaps are always visible in
+    the CLI output rather than silently living only in the history file."""
+    return [
+        f"- {label}: {info['unavailable']}"
+        for label, info in evidence.get("candidates", {}).items()
+        if "unavailable" in info
+    ]
+
+
 def run() -> str:
     """Run one storage-domain scan end-to-end: Observe -> Diagnose ->
     Explain. Prints the report and returns it."""
@@ -49,6 +60,10 @@ def run() -> str:
             report = explain_module.explain(findings)
         except explain_module.ExplainBackendError as e:
             report = _fallback_report(findings, e)
+
+    gap_lines = _observation_gaps(evidence)
+    if gap_lines:
+        report += "\n\nWhat I couldn't check:\n" + "\n".join(gap_lines)
 
     print(report)
     return report
