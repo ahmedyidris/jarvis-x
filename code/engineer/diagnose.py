@@ -129,7 +129,13 @@ def check_backup_file_clutter(evidence: dict, previous: dict | None) -> list[Fin
     )]
 
 
-ALL_RULES = [check_low_free_space, check_space_hogs, check_rapid_growth, check_backup_file_clutter]
+# check_backup_file_clutter is deliberately excluded from ALL_RULES: it is
+# superseded by diagnose_file_intel.check_home_backup_clutter, which scans
+# the same *.bak files across the whole home directory (a superset of this
+# repo-scoped check), so including both here would produce duplicate
+# near-identical findings in one merged scan report. The function itself
+# stays defined and tested -- only its aggregation into run_rules() is removed.
+ALL_RULES = [check_low_free_space, check_space_hogs, check_rapid_growth]
 
 
 def run_rules(evidence: dict, previous: dict | None) -> list[Finding]:
