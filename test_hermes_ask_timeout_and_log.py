@@ -12,7 +12,8 @@ def _fake_curl_result(response_text="ok"):
     return result
 
 
-def test_ask_passes_custom_timeout_to_subprocess():
+def test_ask_passes_custom_timeout_to_subprocess(tmp_path, monkeypatch):
+    monkeypatch.setattr(hermes_module, "DB_PATH", tmp_path / "test_state.db")
     core = hermes_module.HermesCore()
     try:
         with patch("subprocess.run", return_value=_fake_curl_result()) as mock_run:
@@ -23,7 +24,8 @@ def test_ask_passes_custom_timeout_to_subprocess():
         core.close()
 
 
-def test_ask_default_timeout_is_300():
+def test_ask_default_timeout_is_300(tmp_path, monkeypatch):
+    monkeypatch.setattr(hermes_module, "DB_PATH", tmp_path / "test_state.db")
     core = hermes_module.HermesCore()
     try:
         with patch("subprocess.run", return_value=_fake_curl_result()) as mock_run:
@@ -34,7 +36,8 @@ def test_ask_default_timeout_is_300():
         core.close()
 
 
-def test_ask_log_false_does_not_insert_conversation():
+def test_ask_log_false_does_not_insert_conversation(tmp_path, monkeypatch):
+    monkeypatch.setattr(hermes_module, "DB_PATH", tmp_path / "test_state.db")
     core = hermes_module.HermesCore()
     try:
         before = core.db.execute("SELECT COUNT(*) AS c FROM conversations").fetchone()["c"]
@@ -46,7 +49,8 @@ def test_ask_log_false_does_not_insert_conversation():
         core.close()
 
 
-def test_ask_log_true_still_inserts_conversation():
+def test_ask_log_true_still_inserts_conversation(tmp_path, monkeypatch):
+    monkeypatch.setattr(hermes_module, "DB_PATH", tmp_path / "test_state.db")
     core = hermes_module.HermesCore()
     try:
         before = core.db.execute("SELECT COUNT(*) AS c FROM conversations").fetchone()["c"]
