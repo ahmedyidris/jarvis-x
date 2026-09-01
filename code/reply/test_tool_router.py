@@ -25,6 +25,11 @@ def test_no_match_returns_empty():
     assert matched == []
 
 
+def test_routes_system_stats_keyword_arabic():
+    matched = route("الرامات والمعالج كويسين؟", TOOLS)
+    assert [t.name for t in matched] == ["getSystemStats"]
+
+
 def test_both_match_preserves_input_order():
     matched = route("check cpu and weather", TOOLS)
     assert [t.name for t in matched] == ["getWeather", "getSystemStats"]

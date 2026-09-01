@@ -15,6 +15,7 @@ KEYWORDS = {
     "getSystemStats": (
         "cpu", "memory", "ram", "disk", "storage", "uptime", "load average",
         "system stats", "processor",
+        "معالج", "المعالج", "ذاكرة", "الرامات", "تخزين", "القرص", "مساحة التخزين",
     ),
 }
 
