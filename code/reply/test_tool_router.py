@@ -33,3 +33,20 @@ def test_routes_system_stats_keyword_arabic():
 def test_both_match_preserves_input_order():
     matched = route("check cpu and weather", TOOLS)
     assert [t.name for t in matched] == ["getWeather", "getSystemStats"]
+
+
+def test_program_does_not_false_positive_on_ram_substring():
+    # "program" contains "ram" as a substring -- must not route.
+    matched = route("can you write a program for me", TOOLS)
+    assert matched == []
+
+
+def test_grammar_does_not_false_positive_on_ram_substring():
+    # "grammar" contains "ram" as a substring -- must not route.
+    matched = route("explain grammar rules", TOOLS)
+    assert matched == []
+
+
+def test_genuine_short_keyword_still_routes():
+    matched = route("what's my cpu usage", TOOLS)
+    assert [t.name for t in matched] == ["getSystemStats"]

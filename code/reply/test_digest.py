@@ -35,6 +35,24 @@ def test_long_result_fails_open_to_truncation_on_backend_error():
     assert "..." in out
 
 
+def test_empty_llm_response_falls_back_to_truncation():
+    hermes = MagicMock()
+    hermes.ask.return_value = ""
+    result = {"description": "x" * 1000}
+    out = tool_result_digest("getWeather", result, "what's the weather", model="qwen2.5:3b", hermes=hermes)
+    assert out.startswith("TOOL RESULT (getWeather):")
+    assert "x" * 50 in out  # real truncated raw data present, not discarded
+    assert out != "TOOL RESULT (getWeather): "
+
+
+def test_whitespace_only_llm_response_falls_back_to_truncation():
+    hermes = MagicMock()
+    hermes.ask.return_value = "   \n  "
+    result = {"description": "y" * 1000}
+    out = tool_result_digest("getWeather", result, "what's the weather", model="qwen2.5:3b", hermes=hermes)
+    assert "y" * 50 in out
+
+
 def test_non_json_serializable_result_does_not_raise():
     hermes = MagicMock()
     # datetime is not JSON-serializable

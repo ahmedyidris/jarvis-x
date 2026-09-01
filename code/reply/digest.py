@@ -31,4 +31,6 @@ def tool_result_digest(tool_name: str, result: dict, question: str, model: str, 
         )
     except HermesBackendError:
         summary = raw[:DIGEST_THRESHOLD_CHARS] + "..."
+    if not summary.strip():
+        summary = raw[:DIGEST_THRESHOLD_CHARS] + "..."
     return f"TOOL RESULT ({tool_name}): {summary}"

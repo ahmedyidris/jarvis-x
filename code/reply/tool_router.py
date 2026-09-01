@@ -5,6 +5,19 @@ approach, needed to scale past 30+ tools) -- with 2 tools a static keyword
 map is sufficient. Revisit as its own future slice once the tool catalogue
 actually grows; see the design spec's Non-goals.
 """
+import re
+
+# Short, collision-prone keywords that substring-match inside unrelated
+# words (e.g. "ram" inside "program", "grammar", "diagram", "parameter").
+# These use word-boundary regex matching instead of plain substring `in`.
+_WORD_KEYS = {"ram", "cpu", "disk", "load"}
+
+
+def _hit(kw: str, q: str) -> bool:
+    if kw in _WORD_KEYS:
+        return re.search(rf"\b{re.escape(kw)}\b", q) is not None
+    return kw in q
+
 
 KEYWORDS = {
     "getWeather": (
@@ -24,6 +37,6 @@ def route(question: str, tools: list) -> list:
     q = question.lower()
     matched_names = {
         name for name, keywords in KEYWORDS.items()
-        if any(kw in q for kw in keywords)
+        if any(_hit(kw, q) for kw in keywords)
     }
     return [t for t in tools if t.name in matched_names]
