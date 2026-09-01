@@ -49,6 +49,18 @@ def test_check_home_backup_clutter_flags_when_present():
     findings = diagnose_file_intel.check_home_backup_clutter(evidence, None)
     assert len(findings) == 1
     assert findings[0].severity == "low"
+    assert "showing first 10" not in findings[0].evidence
+
+
+def test_check_home_backup_clutter_notes_truncation_when_over_ten():
+    evidence = _base_evidence()
+    paths = [f"file{i}.bak" for i in range(17)]
+    evidence["backup_files"] = {"count": 17, "total_bytes": 1700, "paths": paths}
+    findings = diagnose_file_intel.check_home_backup_clutter(evidence, None)
+    assert len(findings) == 1
+    assert len(findings[0].affected_components) == 10
+    assert "17 file(s)" in findings[0].evidence
+    assert "showing first 10 in affected_components" in findings[0].evidence
 
 
 # --- run_rules ---------------------------------------------------

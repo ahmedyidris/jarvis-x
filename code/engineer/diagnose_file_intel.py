@@ -44,10 +44,13 @@ def check_home_backup_clutter(evidence: dict, previous: dict | None) -> list[Fin
     backup = evidence["backup_files"]
     if backup["count"] == 0:
         return []
+    evidence_str = f"{backup['count']} file(s) matching *.bak/*.bak<N> totalling {backup['total_bytes'] / (1024 ** 2):.0f} MB"
+    if backup["count"] > 10:
+        evidence_str += " (showing first 10 in affected_components)"
     return [Finding(
         issue="Stale backup files found across your home directory",
         severity="low",
-        evidence=f"{backup['count']} file(s) matching *.bak/*.bak<N> totalling {backup['total_bytes'] / (1024 ** 2):.0f} MB",
+        evidence=evidence_str,
         probable_root_cause="Manual backup copies (e.g. app.py.bak2) left behind after edits, across your home directory",
         confidence=0.85,
         affected_components=backup["paths"][:10],
