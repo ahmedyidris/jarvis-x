@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from code.reply.resolver import resolve_next_tool_call
+from code.reply.resolver import resolve_next_tool_call, RESOLVER_TIMEOUT_SEC
 from code.reply.tools.weather import WeatherTool
 import hermes as hermes_module
 
@@ -26,6 +26,11 @@ def test_unknown_tool_name_falls_back_to_llm_and_llm_says_null():
     result = resolve_next_tool_call("frobnicate", TOOLS, model="qwen2.5:3b", hermes=hermes)
     assert result is None
     hermes.ask.assert_called_once()
+    # Verify correct parameters: context=False, log=False, timeout=RESOLVER_TIMEOUT_SEC
+    call_kwargs = hermes.ask.call_args[1]
+    assert call_kwargs["context"] is False
+    assert call_kwargs["log"] is False
+    assert call_kwargs["timeout"] == RESOLVER_TIMEOUT_SEC
 
 
 def test_llm_fallback_resolves_valid_json():
@@ -54,3 +59,19 @@ def test_unknown_arg_keys_filtered_out():
     hermes.ask.return_value = '{"name": "getWeather", "arguments": {"bogus_key": "x"}}'
     result = resolve_next_tool_call("get weather with bogus arg", TOOLS, model="qwen2.5:3b", hermes=hermes)
     assert result == {"name": "getWeather", "arguments": {}}
+
+
+def test_llm_returns_integer_returns_none():
+    """Regression: LLM returns syntactically-valid JSON that is an integer."""
+    hermes = MagicMock()
+    hermes.ask.return_value = "42"
+    result = resolve_next_tool_call("get weather", TOOLS, model="qwen2.5:3b", hermes=hermes)
+    assert result is None
+
+
+def test_llm_returns_dict_with_non_dict_arguments_returns_none():
+    """Regression: LLM returns dict but arguments field is not a dict."""
+    hermes = MagicMock()
+    hermes.ask.return_value = '{"name": "getWeather", "arguments": "oops"}'
+    result = resolve_next_tool_call("get weather", TOOLS, model="qwen2.5:3b", hermes=hermes)
+    assert result is None

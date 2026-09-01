@@ -12,7 +12,7 @@ _STEP_RE = re.compile(r"^(\w+)\s*(.*)$")
 _KV_RE = re.compile(r"(\w+)\s*=\s*['\"]([^'\"]*)['\"]")
 
 
-def resolve_next_tool_call(step: str, tools: list, model: str, hermes) -> dict:
+def resolve_next_tool_call(step: str, tools: list, model: str, hermes) -> dict | None:
     step = step.strip()
     if not step or step.lower().startswith("reply to the user"):
         return None
@@ -68,9 +68,17 @@ def _resolve_via_llm(step: str, tools: list, by_name: dict, model: str, hermes):
     except json.JSONDecodeError:
         return None
 
+    # Validate shape: must be a dict with string "name" and optional dict "arguments"
+    if not isinstance(parsed, dict):
+        return None
+
+    arguments = parsed.get("arguments")
+    if arguments is not None and not isinstance(arguments, dict):
+        return None
+
     tool = by_name.get(parsed.get("name"))
     if tool is None:
         return None
-    args = parsed.get("arguments") or {}
+    args = arguments or {}
     args = {k: v for k, v in args.items() if k in tool.property_keys}
     return {"name": tool.name, "arguments": args}
