@@ -598,9 +598,9 @@ def extract_and_store(question: str, response: str, model: str, hermes, store=No
         return
 
     owns_store = store is None
-    if owns_store:
-        store = MemoryStore()
     try:
+        if owns_store:
+            store = MemoryStore()
         for item in parsed:
             if not isinstance(item, dict):
                 continue
@@ -614,8 +614,10 @@ def extract_and_store(question: str, response: str, model: str, hermes, store=No
                 store.append_to_node(branch, fact.strip())
             except Exception:
                 continue
+    except Exception:
+        return
     finally:
-        if owns_store:
+        if owns_store and store is not None:
             store.close()
 ```
 
