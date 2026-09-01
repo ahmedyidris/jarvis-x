@@ -120,11 +120,21 @@ def test_backup_clutter_flags_when_present():
 
 def test_run_rules_aggregates_all_rule_findings():
     evidence = _base_evidence(percent_used=96.0)
-    evidence["backup_files"] = {"count": 1, "total_bytes": 100, "paths": ["a.bak"]}
+    evidence["candidates"] = {"big": {"path": "/big", "size_bytes": 200, "on_root_filesystem": True}}
     findings = diagnose.run_rules(evidence, None)
     issues = {f.issue for f in findings}
     assert "Low free disk space" in issues
-    assert "Stale backup files found" in issues
+    assert "big is a major space consumer" in issues
+
+
+def test_run_rules_does_not_include_backup_file_clutter():
+    """check_backup_file_clutter is excluded from ALL_RULES/run_rules -- it
+    is superseded by diagnose_file_intel.check_home_backup_clutter's
+    home-wide equivalent (see Finding #2 fix)."""
+    evidence = _base_evidence()
+    evidence["backup_files"] = {"count": 1, "total_bytes": 100, "paths": ["a.bak"]}
+    findings = diagnose.run_rules(evidence, None)
+    assert "Stale backup files found" not in {f.issue for f in findings}
 
 
 def test_finding_has_full_schema():
