@@ -29,17 +29,21 @@ def append_snapshot(domain: str, evidence: dict) -> None:
 
 
 def last_snapshot(domain: str) -> dict | None:
-    """Return the most recent snapshot's evidence dict for `domain`, or
-    None if no history exists yet for that domain."""
+    """Return the most recent *valid* snapshot's evidence dict for
+    `domain`, or None if no history exists yet for that domain.
+
+    A truncated or malformed final line (e.g. from an ENOSPC-interrupted
+    write) is skipped rather than raised -- this walks backward through
+    the file trying each line until one parses, so one bad trailing line
+    can never permanently break every future scan."""
     path = _history_path(domain)
     if not path.exists():
         return None
-    last_line = None
     with path.open() as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                last_line = line
-    if last_line is None:
-        return None
-    return json.loads(last_line)["evidence"]
+        lines = [line.strip() for line in f if line.strip()]
+    for line in reversed(lines):
+        try:
+            return json.loads(line)["evidence"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            continue
+    return None
