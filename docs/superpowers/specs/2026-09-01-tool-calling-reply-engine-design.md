@@ -74,6 +74,7 @@ jarvis-x/
         weather.py         # getWeather -> GET http://127.0.0.1:8002/api/weather
         system_stats.py    # getSystemStats -> GET http://127.0.0.1:8002/api/system
   app.py                  # /api/ask calls reply.engine.handle() instead of hermes.ask() directly
+  hermes.py               # ask() gains `timeout` and `log` optional params (both default to today's behavior)
 ```
 
 Naming note: `code/router.py` (existing — resolves tier to model/voice) and
@@ -111,9 +112,22 @@ deliberately, no rename of the existing module.
    voice/audio`. No API contract break, no change to TTS/audio handling.
 
 Every LLM call in this flow (planner, resolver's LLM fallback, digest,
-final synthesis) still goes through `hermes.py`'s `ask()`, so the existing
-state-db audit log (`~/.hermes/state.db`'s `conversations` table) captures
-all of them exactly as it does today — no parallel logging system.
+final synthesis) still goes through `hermes.py`'s `ask()` — no parallel
+LLM-calling system — but only the **final synthesis call** is logged to
+the state-db `conversations` table. `ask()` gains two additive,
+backward-compatible parameters: `timeout` (default 300, unchanged; the
+scaffolding calls pass a short override) and `log` (default `True`,
+unchanged; the scaffolding calls pass `False`). This is not optional
+polish — `hermes.py`'s own `build_context()` replays the most recent rows
+from `conversations` as "EARLIER IN THIS CONVERSATION" context for the
+*next* request (`recall()` returns the last N rows by id, paired verbatim
+as `user_input`/`response`). If a planner call's raw step-list output or a
+digest's compressed tool blurb were logged as a normal turn, the next
+question would see that instead of the real answer as "what I said last"
+— a self-reinforcing corruption of exactly the kind `build_context()`'s
+own code comments describe fighting elsewhere. Suppressing logging for
+scaffolding calls keeps the audit trail (and future-turn context) showing
+only real question/answer pairs, matching today's behavior exactly.
 
 ## Error handling
 
