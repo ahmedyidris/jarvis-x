@@ -17,6 +17,8 @@ class WeatherTool(Tool):
             data = resp.json()
         except requests.RequestException as e:
             return {"error": f"weather backend unavailable: {e}"}
+        if not isinstance(data, dict):
+            return {"error": f"weather backend returned invalid data: {type(data).__name__}"}
         if "error" in data:
             return {"error": f"weather backend error: {data['error']}"}
         return data
