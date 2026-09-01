@@ -12,6 +12,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent))
 from code.router import Router
 from code.tts_engine import get_engine
+from code.reply import engine as reply_engine
 from code.stt_engine import get_engine as get_stt_engine
 import hermes as hermes_module
 
@@ -141,7 +142,7 @@ async def ask(req: QueryRequest):
                 "Never mix English words into Arabic sentences except your own name. "
                 "Never invent capabilities. You answer questions, run guarded local commands, and speak."
             )
-            response = hermes.ask(req.question, model, system=system_msg)
+            response = reply_engine.handle(req.question, model, system_msg, hermes)
         except hermes_module.HermesBackendError as e:
             # Distinct status from a normal (if terse) answer -- a caller
             # checking only the HTTP status code must be able to tell "the
