@@ -75,3 +75,11 @@ def test_llm_returns_dict_with_non_dict_arguments_returns_none():
     hermes.ask.return_value = '{"name": "getWeather", "arguments": "oops"}'
     result = resolve_next_tool_call("get weather", TOOLS, model="qwen2.5:3b", hermes=hermes)
     assert result is None
+
+
+def test_llm_returns_non_string_name_returns_none():
+    """Regression: LLM returns dict but name field is not a string (unhashable type)."""
+    hermes = MagicMock()
+    hermes.ask.return_value = '{"name": ["getWeather"], "arguments": {}}'
+    result = resolve_next_tool_call("get weather", TOOLS, model="qwen2.5:3b", hermes=hermes)
+    assert result is None

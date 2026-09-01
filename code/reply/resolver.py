@@ -76,7 +76,11 @@ def _resolve_via_llm(step: str, tools: list, by_name: dict, model: str, hermes):
     if arguments is not None and not isinstance(arguments, dict):
         return None
 
-    tool = by_name.get(parsed.get("name"))
+    name = parsed.get("name")
+    if not isinstance(name, str):
+        return None
+
+    tool = by_name.get(name)
     if tool is None:
         return None
     args = arguments or {}
