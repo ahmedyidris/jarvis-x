@@ -236,13 +236,25 @@ class HermesCore:
         parts.append(f"Answer completely but concisely -- no padding.\n\nUser: {question}")
         return "\n\n".join(parts)
 
-    def ask(self, question, model="qwen2.5:7b", context=True, turns=3, system=None):
+    def ask(self, question, model="qwen2.5:7b", context=True, turns=3, system=None, timeout=300, log=True):
         """Query model and store result.
 
         Raises HermesBackendError if Ollama itself failed or was unreachable
         (curl non-zero exit, timeout, or an unparseable/malformed response) --
         this is a hard backend failure, not an ordinary answer, so it must
         not come back as a plain string a caller could mistake for one.
+
+        `timeout` overrides the subprocess timeout (default 300s) -- callers
+        making short-lived scaffolding calls (planning, tool-step resolution,
+        result digesting) should pass a much shorter value so a stuck small
+        model doesn't stall the whole request.
+
+        `log` controls whether this call is written to the `conversations`
+        table. Must be False for scaffolding calls: build_context() replays
+        the most recent rows from this table as "prior turns" for the NEXT
+        request, so logging a planner's raw step list or a digest's
+        compressed tool blurb here would surface as if it were the
+        assistant's last real reply.
         """
         logger.info(f"Querying {model}...")
         start = datetime.now()
@@ -271,12 +283,13 @@ class HermesCore:
                        model.split(":", 1)[1],
                        self.build_context(question, turns) if context else question]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
 
             if result.returncode != 0:
                 msg = result.stderr.strip() or f"curl exited {result.returncode} with no stderr"
-                self._record_failure(question, model, latency_ms, msg)
+                if log:
+                    self._record_failure(question, model, latency_ms, msg)
                 raise HermesBackendError(msg)
 
             response_data = json.loads(result.stdout)
@@ -284,25 +297,28 @@ class HermesCore:
 
         except subprocess.TimeoutExpired:
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
-            self._record_failure(question, model, latency_ms, "Query timeout (300s)")
-            raise HermesBackendError("Query timeout (300s)")
+            if log:
+                self._record_failure(question, model, latency_ms, f"Query timeout ({timeout}s)")
+            raise HermesBackendError(f"Query timeout ({timeout}s)")
         except json.JSONDecodeError as e:
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
             msg = f"Ollama returned unparseable response: {e}"
-            self._record_failure(question, model, latency_ms, msg)
+            if log:
+                self._record_failure(question, model, latency_ms, msg)
             raise HermesBackendError(msg)
 
-        self.db.execute("""
-            INSERT INTO conversations (timestamp, user_input, response, model, latency_ms)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            datetime.now().isoformat(),
-            question,
-            response,
-            model,
-            latency_ms
-        ))
-        self.db.commit()
+        if log:
+            self.db.execute("""
+                INSERT INTO conversations (timestamp, user_input, response, model, latency_ms)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                datetime.now().isoformat(),
+                question,
+                response,
+                model,
+                latency_ms
+            ))
+            self.db.commit()
 
         logger.info(f"[{latency_ms}ms] {model}")
         return _strip_think(response)
