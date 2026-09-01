@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,20 @@ def test_dir_size_bytes_does_not_double_count_symlinks(tmp_path):
     real.write_bytes(b"z" * 10)
     (tmp_path / "link.txt").symlink_to(real)
     assert storage.dir_size_bytes(tmp_path) == 10
+
+
+def test_dir_size_bytes_returns_none_for_permission_denied(tmp_path):
+    """Permission-denied paths (e.g., chmod 000) should return None, not 0."""
+    locked_dir = tmp_path / "locked"
+    locked_dir.mkdir()
+    (locked_dir / "file.txt").write_bytes(b"x" * 50)
+    # Remove read+execute permissions
+    try:
+        locked_dir.chmod(0o000)
+        assert storage.dir_size_bytes(locked_dir) is None
+    finally:
+        # Restore permissions so pytest's cleanup can remove the directory
+        locked_dir.chmod(0o755)
 
 
 # --- _downloads_path ----------------------------------------------------

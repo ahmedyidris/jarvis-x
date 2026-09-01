@@ -16,8 +16,10 @@ _SKIP_DIRS = {".git", "node_modules", "__pycache__"}
 
 def dir_size_bytes(path: Path) -> int | None:
     """Total size in bytes of all regular files under `path`, or None if
-    `path` doesn't exist. Unreadable files/dirs are skipped, not raised."""
+    `path` doesn't exist or is not readable. Unreadable files/dirs are skipped, not raised."""
     if not path.exists():
+        return None
+    if not os.access(path, os.R_OK | os.X_OK):
         return None
     total = 0
     for root, _dirs, files in os.walk(path, onerror=lambda e: None):
