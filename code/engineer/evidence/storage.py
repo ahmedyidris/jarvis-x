@@ -47,8 +47,11 @@ CANDIDATE_PATHS: list[tuple[str, Path]] = [
     ("venv-ai", Path.home() / "venv-ai"),
     ("Ollama models", Path("/usr/share/ollama/.ollama/models")),
     ("~/.cache", Path.home() / ".cache"),
-    ("~/.npm", Path.home() / ".npm"),
-    ("apt archive cache", Path("/var/cache/apt/archives")),
+    # ~/.npm and apt archive cache are deliberately not listed here -- they
+    # are owned by evidence/file_intel.py's CACHE_PATHS, which reports them
+    # with more targeted, cache-specific framing (a clear command, not just
+    # "review manually"). Listing them in both domains would risk
+    # contradictory findings about the identical directory.
     ("Downloads", _downloads_path()),
 ]
 
