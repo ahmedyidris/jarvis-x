@@ -21,18 +21,18 @@ def test_low_free_space_no_finding_when_healthy():
 
 
 def test_low_free_space_critical_at_95_percent():
-    findings = diagnose.check_low_free_space(_base_evidence(percent_used=96.0), None)
+    findings = diagnose.check_low_free_space(_base_evidence(percent_used=95.0), None)
     assert len(findings) == 1
     assert findings[0].severity == "critical"
 
 
 def test_low_free_space_high_at_90_percent():
-    findings = diagnose.check_low_free_space(_base_evidence(percent_used=91.0), None)
+    findings = diagnose.check_low_free_space(_base_evidence(percent_used=90.0), None)
     assert findings[0].severity == "high"
 
 
 def test_low_free_space_medium_at_85_percent():
-    findings = diagnose.check_low_free_space(_base_evidence(percent_used=86.0), None)
+    findings = diagnose.check_low_free_space(_base_evidence(percent_used=85.0), None)
     assert findings[0].severity == "medium"
 
 
@@ -40,7 +40,9 @@ def test_low_free_space_medium_at_85_percent():
 
 def test_space_hogs_flags_large_candidate():
     evidence = _base_evidence(total_bytes=1000)
-    evidence["candidates"] = {"big": {"path": "/big", "size_bytes": 200}}  # 20% of total
+    evidence["candidates"] = {
+        "big": {"path": "/big", "size_bytes": 200, "on_root_filesystem": True},  # 20% of total
+    }
     findings = diagnose.check_space_hogs(evidence, None)
     assert len(findings) == 1
     assert "big" in findings[0].issue
@@ -48,13 +50,23 @@ def test_space_hogs_flags_large_candidate():
 
 def test_space_hogs_ignores_small_candidate():
     evidence = _base_evidence(total_bytes=1000)
-    evidence["candidates"] = {"small": {"path": "/small", "size_bytes": 5}}
+    evidence["candidates"] = {"small": {"path": "/small", "size_bytes": 5, "on_root_filesystem": True}}
     assert diagnose.check_space_hogs(evidence, None) == []
 
 
 def test_space_hogs_skips_unavailable_candidates():
     evidence = _base_evidence(total_bytes=1000)
     evidence["candidates"] = {"missing": {"path": "/x", "unavailable": "path does not exist"}}
+    assert diagnose.check_space_hogs(evidence, None) == []
+
+
+def test_space_hogs_skips_candidate_not_on_root_filesystem():
+    """A large candidate on a different mounted filesystem (e.g. a ChromeOS
+    Crostini bind mount) must not be scored as a share of /'s capacity."""
+    evidence = _base_evidence(total_bytes=1000)
+    evidence["candidates"] = {
+        "Downloads": {"path": "/mnt/chromeos/MyFiles/Downloads", "size_bytes": 200, "on_root_filesystem": False},
+    }
     assert diagnose.check_space_hogs(evidence, None) == []
 
 

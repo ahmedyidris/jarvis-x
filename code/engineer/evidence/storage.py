@@ -72,6 +72,14 @@ def _scan_backup_files(root: Path) -> dict:
     return {"count": len(matches), "total_bytes": total, "paths": matches}
 
 
+def _on_root_filesystem(path: Path, root_dev: int) -> bool:
+    """Whether `path` resides on the same mounted filesystem as `/`.
+
+    A candidate on a different filesystem (e.g. a ChromeOS Crostini bind
+    mount) must never be scored as a share of `/`'s capacity."""
+    return os.stat(path).st_dev == root_dev
+
+
 def collect() -> dict:
     """Observe: gather storage/space evidence. Makes no changes."""
     usage = shutil.disk_usage("/")
@@ -79,16 +87,24 @@ def collect() -> dict:
         "total_bytes": usage.total,
         "used_bytes": usage.used,
         "free_bytes": usage.free,
-        "percent_used": round(usage.used / usage.total * 100, 1),
+        # shutil.disk_usage()'s used/free don't sum to total (root-reserved
+        # space), so used/(used+free) is what matches `df` and reflects the
+        # capacity actually contended for by non-root writers.
+        "percent_used": round(usage.used / (usage.used + usage.free) * 100, 1),
     }
 
+    root_dev = os.stat("/").st_dev
     candidates: dict[str, dict] = {}
     for label, path in CANDIDATE_PATHS:
         size = dir_size_bytes(path)
         if size is None:
             candidates[label] = {"path": str(path), "unavailable": "path does not exist or is unreadable"}
         else:
-            candidates[label] = {"path": str(path), "size_bytes": size}
+            candidates[label] = {
+                "path": str(path),
+                "size_bytes": size,
+                "on_root_filesystem": _on_root_filesystem(path, root_dev),
+            }
 
     return {
         "disk_usage": disk_usage,

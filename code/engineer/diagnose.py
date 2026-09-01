@@ -57,6 +57,8 @@ def check_space_hogs(evidence: dict, previous: dict | None) -> list[Finding]:
     for label, info in evidence["candidates"].items():
         if "unavailable" in info:
             continue
+        if info.get("on_root_filesystem") is not True:
+            continue
         size = info["size_bytes"]
         share = size / total * 100
         if share >= HOG_THRESHOLD_PERCENT:
