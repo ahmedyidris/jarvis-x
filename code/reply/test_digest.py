@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
-from code.reply.digest import tool_result_digest
+from datetime import datetime
+from code.reply.digest import tool_result_digest, DIGEST_TIMEOUT_SEC
 import hermes as hermes_module
 
 
@@ -21,6 +22,8 @@ def test_long_result_triggers_llm_compression():
     hermes.ask.assert_called_once()
     _, kwargs = hermes.ask.call_args
     assert kwargs["log"] is False
+    assert kwargs["context"] is False
+    assert kwargs["timeout"] == DIGEST_TIMEOUT_SEC
 
 
 def test_long_result_fails_open_to_truncation_on_backend_error():
@@ -30,3 +33,13 @@ def test_long_result_fails_open_to_truncation_on_backend_error():
     out = tool_result_digest("getWeather", result, "what's the weather", model="qwen2.5:3b", hermes=hermes)
     assert out.startswith("TOOL RESULT (getWeather):")
     assert "..." in out
+
+
+def test_non_json_serializable_result_does_not_raise():
+    hermes = MagicMock()
+    # datetime is not JSON-serializable
+    result = {"when": datetime.now(), "status": "ok"}
+    out = tool_result_digest("getWeather", result, "what's the weather", model="qwen2.5:3b", hermes=hermes)
+    assert out.startswith("TOOL RESULT (getWeather):")
+    # Should use repr() fallback and never raise
+    assert isinstance(out, str)

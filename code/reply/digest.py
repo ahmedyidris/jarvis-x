@@ -9,7 +9,12 @@ DIGEST_TIMEOUT_SEC = 5
 
 
 def tool_result_digest(tool_name: str, result: dict, question: str, model: str, hermes) -> str:
-    raw = json.dumps(result, ensure_ascii=False)
+    try:
+        raw = json.dumps(result, ensure_ascii=False)
+    except (TypeError, ValueError):
+        # Fall back to repr for non-JSON-serializable values
+        raw = repr(result)
+
     if len(raw) <= DIGEST_THRESHOLD_CHARS:
         return f"TOOL RESULT ({tool_name}): {raw}"
 
