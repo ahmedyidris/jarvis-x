@@ -48,3 +48,4 @@ sentinel/eval/eval_report.json
 sentinel/.venv/
 voices/
 *.sw[a-p]
+.worktrees/
