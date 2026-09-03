@@ -11,17 +11,19 @@ Old plans are archived, not deleted.
 
 ---
 
-## 1. Hardware — mostly settled, from the repo's own record
+## 1. Hardware — settled, by direct measurement
 
-The runbook §1.1 called this open across four candidate machines. The repo
-answers it: `MASTER_PLAN_UPDATED.md:45`, sourced from `WEEK_1_COMPLETE.md`,
-records a **verified** profile.
+The runbook §1.1 called this open across four candidate machines. Two sources now
+agree: the repo's own record (`MASTER_PLAN_UPDATED.md:45`, sourced from
+`WEEK_1_COMPLETE.md`) and a live reading taken on the machine on 2026-09-03
+(`AS_BUILT.md` §6.1).
 
 | Property | Value | Source |
 |---|---|---|
 | Machine | Asus Chromebook | `WEEK_1_COMPLETE.md` via `MASTER_PLAN_UPDATED.md:45` |
-| CPU | Intel i5-1135G7, 8 vCPU | same |
-| RAM | **14 GB** | same; corroborated by `JARVIS X v2.pdf` diagnostics (8 cores, 14 GB) |
+| CPU | Intel i5-1135G7, 8 vCPU | same; **confirmed live** by `nproc` → 8 |
+| RAM | **14 GB** | same; **confirmed live** by `free -h` (14Gi total, 12Gi available) |
+| Disk | **72 GB, 6.0 GB free (92% used)** | `df -h $HOME`, 2026-09-03 — the new constraint |
 | GPU | none | same |
 | OS | Crostini, Debian 12, kernel 6.6.119 | same |
 | Ollama | 0.32.9, qwen2.5:7b + 3b | same |
@@ -34,8 +36,11 @@ runbook's four-machine confusion.
 does not overturn runbook §4 — 7B–14B coding models at long context are still
 out of reach on CPU, and the RTX 3060 12 GB remains the unlock.
 
-**Still worth 5 minutes:** run the runbook Session 1 script on the machine to
-confirm RAM and free disk today. Everything below holds at either 14 or 16 GB.
+**Disk, not RAM, is the binding constraint.** The live reading confirmed 14Gi RAM
+with 12Gi available — comfortable headroom — but `df -h $HOME` shows **6.0 GB free
+of 72 GB, 92% used**. RAM was the question the runbook posed; it is answered and it
+is not the limit. Anything that spends disk (model downloads, new dependencies) must
+be sized against 6.0 GB. That is what settles the OCR question in §3.
 
 ---
 
