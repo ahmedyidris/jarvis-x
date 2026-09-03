@@ -47,7 +47,10 @@ function run(cmd, args = []) {
     if (a.includes('/') || a.includes('..')) safePath(a);
   }
 
-  const result = spawnSync(cmd, args, { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT });
+  // cwd must be BASE: the arg check above resolves relative paths against the
+  // jail, so without this the command would execute against the caller's cwd
+  // and a path safePath() approved as in-jail could be written outside it.
+  const result = spawnSync(cmd, args, { cwd: BASE, timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT });
   if (result.error) throw result.error;
   
   logAction('cmd-exec', `${cmd} ${args.join(' ')}`,

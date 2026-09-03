@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE = path.resolve(process.env.HOME || '~', 'jarvis-x');
+// The jail is the repo root -- one level up from code/. Deriving it from
+// __dirname instead of guessing $HOME/jarvis-x means the jail follows the
+// checkout, so realpathSync below can't ENOENT on a path that isn't there.
+const BASE = path.resolve(__dirname, '..');
 
 function safePath(relativePath) {
   const fullPath = path.resolve(BASE, relativePath);

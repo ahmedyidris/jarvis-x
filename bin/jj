@@ -47,17 +47,17 @@ const rest = args.slice(1);
   }
 })();
 
-# Voice commands (append to existing bin/jj)
-# To be added after the main switch statement:
-#
-# case 'voice':
-#   const voiceCmd = rest[0];
-#   if (voiceCmd === 'list') {
-#     const voice = require(path.join(__dirname, '../code/voice.js'));
-#     console.log('Available voices:');
-#     voice.listVoices().forEach(v => {
-#       console.log(`  ${v.key}: ${v.lang} (${v.gender}, ${v.accent})`);
-#     });
-#   }
-#   break;
+// Voice commands (append to existing bin/jj)
+// To be added after the main switch statement:
+//
+// case 'voice':
+//   const voiceCmd = rest[0];
+//   if (voiceCmd === 'list') {
+//     const voice = require(path.join(__dirname, '../code/voice.js'));
+//     console.log('Available voices:');
+//     voice.listVoices().forEach(v => {
+//       console.log(`  ${v.key}: ${v.lang} (${v.gender}, ${v.accent})`);
+//     });
+//   }
+//   break;
 
