@@ -1,0 +1,9 @@
+# Quantum experiment track only. Deliberately NOT in the root package.json or
+# bootstrap/ requirements: nothing on Jarvis's serving path imports this, and
+# PennyLane pulls in autograd + scipy, which is a lot of weight for a module
+# that QUANTUM_FEASIBILITY.md concludes should stay out of the request path.
+#
+#   pip install -r quantum/requirements.txt
+#
+# Verified against pennylane 0.45.1 / numpy 2.x on Python 3.11.
+pennylane>=0.40,<0.46
