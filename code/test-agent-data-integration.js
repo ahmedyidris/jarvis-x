@@ -3,6 +3,11 @@
  * Run with: npm test code/test-agent-data-integration.js
  */
 
+// Needs the live internet (CoinGecko). Skipped unless JX_NET=1 so the default
+// suite is deterministic offline -- see code/test-net.js.
+const { requireNet } = require('./test-net.js');
+requireNet('reaches CoinGecko for live crypto prices');
+
 const assert = require('assert');
 const AgentDataIntegration = require('./agent-data-integration');
 

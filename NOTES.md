@@ -23,7 +23,8 @@ Deliberately **not** built: `paper.js`, `selfdebug.js`. See "Deferred" below.
 1. Everything touching filesystem / network / money goes through `guard()`.
 2. `guard.js`, `validate.js`, `Guidelines.md`, `memory/rules.md` are OFF-LIMITS
    to self-modification and to Claude Code (deny rules in `~/.claude/settings.json`).
-3. Paper trading only. No component places real trades.
+3. No trading, simulated or real. Ruled out 2026-09-04; the paper-trading
+   module was deleted rather than left dormant.
 4. **Unattended means read-only.** `scheduler.js` may only execute
    list/read/git_log/git_status/answer. write/shell go to `logs/queue.jsonl`
    and wait for human review. Verified empirically, not just described.
@@ -123,9 +124,6 @@ hooks load at session start — removing them mid-session doesn't unload them.
 
 ## Deferred, on purpose
 
-- **`paper.js`** — simulated trading. Build with the same discipline: propose,
-  validate, gate. Open design questions: where prices come from, what a
-  "position" means when nothing is real.
 - **`selfdebug.js`** — agent reads its own errors and proposes fixes. Do not
   build while accuracy is 77%. A self-modifying loop plus a model that picks the
   right action three times in four is how a repo ends up editing its own

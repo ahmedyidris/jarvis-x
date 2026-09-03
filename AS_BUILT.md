@@ -15,7 +15,9 @@ than estimated.
 ## 1. The headline number
 
 **20 of 20 JavaScript test files pass, measured on Ahmed's machine. 47 of 47 model-gateway
-tests pass.**
+tests pass.** Since 2026-09-04 the default `npm test` reports **19 passed, 1 skipped** — the
+skip is `test-agent-data-integration.js`, gated behind `JX_NET` (§4). It passes; it is simply
+not run without the network. `npm run test:net` runs all 20.
 
 That is the whole of what the tests prove. There is no single "percent complete" figure in
 this document, because nothing measured here produces one — see §5 for why the old ones did
@@ -23,7 +25,8 @@ not either.
 
 | Suite | Command | Result |
 |---|---|---|
-| JS suite | `node jest-runner.js` | **20 passed, 0 failed** (exit 0) |
+| JS suite, default | `npm test` | **19 passed, 0 failed, 1 skipped** — network test gated |
+| JS suite, with network | `npm run test:net` | **20 passed, 0 failed** (exit 0), measured 2026-09-04 |
 | model-gateway | `npm test` in `packages/model-gateway` | **47 passed, 0 failed** |
 | Python — sentinel | `pytest sentinel/tests/test_smoke.py` | not verifiable (deps absent) |
 | Python — app lock | `pytest test_app_generation_lock.py` | not verifiable (`fastapi` absent) |
@@ -199,11 +202,10 @@ runs.
 
 | Item | Status | Evidence |
 |---|---|---|
-| `code/paper-trading.js` (144 lines) | **Exists, wired into nothing, no test** | Only references are a description string in `hermes.py:96` and an `[ -f ]` existence check in `scripts/status.sh:108`. No `test-paper-trading.js`. |
 | `jj status` | **Stub** | `bin/jj:34-38` prints `✅ Jarvis X ready` unconditionally. It checks nothing — no provider, no quota, no health. Runbook Session 6 wants real quota here. |
 | `test-guard.js` | **Not a test** | Zero assertions. Prints `Result: ACTION RAN` and exits 0 regardless of outcome. `jest-runner.js` counts it as PASS. |
 | `test-shell.js` | **Not a test** | Zero assertions; always exits 0. Also reads `r.status`, but `run()` returns `exit_code` — hence `[exit undefined]` in its output. Its case labelled `rm not allowed` prints `OK`, because `rm` **is** deliberately in the allowlist (`shell.js:11`). The label is stale, not the code. |
-| `JX_NET` test gating | **Declared, never implemented** | `package.json:11` defines `test:net` with `JX_NET=1`, but `JX_NET` is read in **no file in the repo**. Network tests therefore run in the default suite and fail offline — this is why `test-agent-data-integration.js` fails above. |
+| `JX_NET` test gating | **Implemented 2026-09-04** | Was declared in `package.json:11` and read nowhere. Now `code/test-net.js`'s `requireNet()` gates `test-agent-data-integration.js`; `jest-runner.js` counts skips in a separate column so a skip can never read as a pass. `npm test` → skipped; `npm run test:net` → runs. |
 | `jarvis-x_1.0.0_amd64.deb` | **Non-functional** | `dpkg -c` shows it ships an **empty** `/opt/jarvis-x` plus a launcher that does `cd /opt/jarvis-x && python -m uvicorn app:app`. There is no `app.py` at that path. Archived. |
 | Electron app | **3 files** | `electron/` contains only `main.js`, `package.json`, `package-lock.json`. Consistent with the "~20%" working note; no test, no build verified. |
 | E2E tests | **1 script, not a suite** | Only `scripts/verify/03_e2e_flow_test.py`. Consistent with the "E2E 0%" working note. |
@@ -273,30 +275,36 @@ decision against the 6.0 GB figure above; it's stale by one day already.
 Software versions in the container table above are the versions **the Sessions 1–4 test
 results were produced under**, which is their only remaining legitimate use.
 
-### 6.2 The trading-code ruling (runbook §1.3) — the conflict is narrower than stated
-The runbook says your hard exclusions forbid a crypto trading bot, and that `paper-trading.js`
-therefore violates them. But the repo's own constitution does not forbid it:
+### 6.2 The trading-code ruling (runbook §1.3) — **made 2026-09-04: delete**
 
-- `CONSTITUTION.md:35` forbids **"Real money trading (testnet only)"** — which permits paper
-  trading and forbids only real money.
-- `CONSTITUTION.md:30` lists "Proposing trades (even paper trades)" under actions requiring
-  approval — again permitted, gated.
-- `config/trading.json` sets `"mode": "testnet"`.
+Ahmed ruled that "no crypto trading bot" supersedes the constitution's narrower
+testnet carve-out. Carried out:
 
-So `code/paper-trading.js` is consistent with `CONSTITUTION.md` as committed. The conflict is
-between the constitution and the *runbook's* summary of your exclusions.
+- `code/paper-trading.js` and `config/trading.json` **deleted**.
+- `CONSTITUTION.md` §IV now forbids **"Trading of any kind, real or simulated"**; it
+  previously read "Real money trading (testnet only)", which permitted paper trading.
+- `CONSTITUTION.md` §III no longer gates "Proposing trades (even paper trades)" — there is
+  nothing left to propose them.
+- `hermes.py`'s description override and `scripts/status.sh`'s `[ -f ]` milestone for the
+  file are removed (milestones 24 → 23, so the ratio is not distorted by dropping a check
+  that used to pass).
+- `NOTES.md`, `README.md` and the Obsidian glossary updated; `NOTES.md`'s deferred `paper.js`
+  entry removed.
 
-**Your ruling still needed, but on the narrower question:** does "no crypto trading bot"
-supersede `CONSTITUTION.md:35`? If yes, delete `code/paper-trading.js`, `config/trading.json`,
-and amend the constitution. If no, amend the runbook's exclusion list. I have moved neither —
-the file is untouched and still unwired.
+Deleted rather than archived, as instructed — git history retains both files.
+
+**One file was deliberately not touched:** `knowledge/Guidelines.md` §"Intended but NOT yet
+enforced" still lists trading rules (stop-loss, position caps). `NOTES.md:23` and `README.md`
+name that file as **off-limits to Claude Code** via deny rules in `~/.claude/settings.json`,
+so amending it is Ahmed's to do. It is now the only place in the repo that still describes
+trading as a future feature.
 
 ### 6.3 Decisions I did not make for you
-- **`JX_NET` gating.** I did **not** implement it. It was proposed to convert
-  `test-agent-data-integration.js` from a failure into a skip — moot now, since that test
-  passes outright on Ahmed's machine (§2), with no CoinGecko 403 in this run. The flag is
-  still declared in `package.json` and read nowhere (see §4); your call whether it's worth
-  implementing for future network flakiness or removing as dead.
+- **`JX_NET` gating.** Ruled on and implemented 2026-09-04 — see §4. The original
+  objection (that gating converts a red test into a skip) is answered two ways: a
+  skip is reported in its own column and never counted as a pass, and the test
+  passes on Ahmed's machine anyway, so no red result is being concealed.
+
 - **`test-guard.js` / `test-shell.js`.** Both need real assertions before they mean anything.
   Writing them is build work, not reconciliation, so I left them and documented them in §4.
 - **The stale `rm not allowed` label** in `test-shell.js` implies `rm` should be blocked, but

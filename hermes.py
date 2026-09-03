@@ -93,7 +93,6 @@ class HermesCore:
         # answered with the sentinel file instead. 2 of 50 need this.
         OVERRIDES = {
             "code/guard.js": "kill switch (.jarvis-x-STOP) + append-only action audit log; every action routes through guard()",
-            "code/paper-trading.js": "paper trading simulator -- simulated only, no real money anywhere in this system",
             # Named stop.js and sitting next to every kill-switch question,
             # but extracted as "if (cmd === 'off') {" -- a strong wrong
             # attractor with no description to contradict it.

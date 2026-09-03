@@ -75,10 +75,10 @@ These need a ruling or build work, not a file move. Full detail in `AS_BUILT.md`
 
 | File | Flag |
 |---|---|
-| `code/paper-trading.js`, `config/trading.json` | The runbook §1.3 conflict. **Narrower than the runbook states** — `CONSTITUTION.md:35` forbids only *real-money* trading and `config/trading.json` is `"mode": "testnet"`, so this does not violate the constitution as committed. Untouched pending your ruling. Wired into nothing; no test. |
+| `code/paper-trading.js`, `config/trading.json` | ~~Flagged pending a ruling.~~ **Ruled 2026-09-04: delete.** Both files removed and `CONSTITUTION.md` §IV amended to forbid trading outright. Deleted rather than archived, as instructed — an exception to this document's own move-never-delete rule, made explicitly. Git history retains them. |
 | `code/test-guard.js` | Zero assertions, always exits 0, counted as PASS. Not a test. |
 | `code/test-shell.js` | Zero assertions. Reads `r.status` but `run()` returns `exit_code`. Its `rm not allowed` label is stale — `rm` is deliberately allowlisted. |
-| `package.json:11` (`test:net`) | `JX_NET` is defined in the script but read nowhere in the repo. Dead flag; network tests run unconditionally. |
+| `package.json:11` (`test:net`) | ~~Dead flag.~~ **Resolved 2026-09-04:** `code/test-net.js` implements the gate; skips are counted separately from passes. |
 | `.github/workflows/test.yml:29` | The `$HOME/jarvis-x` symlink step is now redundant given the `exec.js` fix. Harmless; removal is your call. |
 | `electron/` (3 files) | `main.js` plus package files only. No test, no verified build. |
 | `jarvis-x-pkg/` | Packaging source for the non-functional `.deb`. Kept — the fix is to make it ship `app.py`, not to delete it. |
@@ -104,7 +104,7 @@ plans get merged.
 | `JARVIS_X_INTEGRATION_RUN.md` | 10.3 KB | **KEEP** pending review — a run log, superseded in substance by `AS_BUILT.md` §1. |
 | `Jarvis_X_Status_Report.pdf` | 228 KB | **ARCHIVE-CANDIDATE.** Largest single file in the repo; a binary status snapshot, unreadable to grep and to every tool that maintains it. |
 | `DECISION_RECORD_*.md` (3) | — | **KEEP permanently.** These are why the codebase is shaped as it is. |
-| `CONSTITUTION.md` | 2.4 KB | **KEEP permanently.** Needs one amendment only if you rule against paper trading. |
+| `CONSTITUTION.md` | 2.4 KB | **KEEP permanently.** Amended 2026-09-04 when trading was ruled out — §IV now forbids trading of any kind. |
 | `BrandGuidelines.md`, `Design.md`, `EGTTS_RESEARCH.md`, `WINDOWS-VOICE-SETUP.md`, `README.md` | — | **KEEP.** Reference material, not status claims. |
 
 Archiving the three ARCHIVE-CANDIDATE docs is one command, once you agree:
@@ -118,4 +118,9 @@ git mv WEEK_1_COMPLETE.md Jarvis_X_Status_Report.pdf archive/2026-09/
 
 ## DELETE
 
-**Nothing.** Per the runbook's rule, this session deleted no file.
+**Nothing in this session.** Per the runbook's rule, the 2026-09-03 triage deleted no
+file — everything went to `archive/2026-09/`.
+
+**Later exception, 2026-09-04:** `code/paper-trading.js` and `config/trading.json` were
+deleted outright on Ahmed's explicit ruling, not archived. Recorded here so the rule and
+its one exception sit in the same place. Git history retains both files.

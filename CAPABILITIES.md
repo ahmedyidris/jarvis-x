@@ -260,8 +260,8 @@ wrong:
    first, because the default mode can cost you the container.
 3. **Point the watcher at something you care about** — edit `watchers.json`,
    run `node code/watcher.js`, then add it to `schedules.json` for a digest.
-4. The two rulings still open from `MASTER_PLAN_v3.md` §3: paper trading, and
-   `JX_NET`.
+4. ~~The two rulings still open from `MASTER_PLAN_v3.md` §3.~~ **Both made
+   2026-09-04:** paper trading deleted, `JX_NET` gated. See §3 there.
 
 ---
 

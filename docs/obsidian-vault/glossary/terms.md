@@ -10,7 +10,7 @@ title: Glossary
 
 **Consequential tier** — `code/router.js`'s `classify()` result for actions requiring human approval (`write`, `shell`, `trade`). Decided by action *level*, never by which model ultimately answered — a degraded fallback must never silently skip the gate.
 
-**P&L (paper trading)** — `code/paper-trading.js`'s mark-to-market calculation. Fixed 2026-08 to actually use live prices when supplied, rather than always computing `0`.
+**P&L (paper trading)** — *historical.* Was `code/paper-trading.js`'s mark-to-market calculation, fixed 2026-08 to use live prices rather than always computing `0`. The module was deleted 2026-09-04 when trading was ruled out entirely; retained here only so the 2026-08 changelog entry resolves.
 
 **SOURCED_FACTS** — the hardcoded list of real, WebSearch-found facts in each fact-constrained Phase B generator (`economic_facts_generator.py`, `commodities_macro_generator.py`, `geopolitical_risk_generator.py`). The LLM never invents these — only narrates around them. See [[geopolitical-risk]] for what happens when the narration itself still invents a number.
 

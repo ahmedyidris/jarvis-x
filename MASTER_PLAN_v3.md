@@ -64,7 +64,7 @@ are unchanged.
 |---|---|---|---|---|
 | Planning | 15 | 90% | 13.5 | `CONSTITUTION.md`, 4 decision records, `AS_BUILT.md`, this plan, triage — all current |
 | Setup | 10 | 85% | 8.5 | Toolchain, Ollama + 4 models, Piper/Kokoro voices, Docker image builds and reaches healthy, CI green on 3 jobs |
-| Build | 45 | 60% | 27.0 | Verified: path jail, validation (23/23), data layer, scheduler, i18n/a11y, voice routing, model-gateway (47/47), `jj` CLI, FastAPI app, TTS engine. Missing/stubbed: Electron (3 files), `jj status` stub, `paper-trading` unwired, `JX_NET` dead |
+| Build | 45 | 60% | 27.0 | Verified: path jail, validation (23/23), data layer, scheduler, i18n/a11y, voice routing, model-gateway (47/47), `jj` CLI, FastAPI app, TTS engine. Missing/stubbed: Electron (3 files), `jj status` stub. (`paper-trading` and `JX_NET` left this list on 2026-09-04 — one deleted, one gated — but the score is unchanged: removing a stub and fixing a dead flag are cleanup, not build progress.) |
 | Test | 20 | 65% | 13.0 | Measured on Ahmed's machine: JS suite **20/20** (up from 19/20 on 2026-09-03, up from 13/19 in the original container run). The one remaining gap from the prior score — `test-vision.js` — is now fixed: Ollama's install was missing its `llama-server` binary; reinstalling it (no model re-pulled) brought vision to 3/3 and the full suite to 20/20 (`AS_BUILT.md` §1). model-gateway unchanged at 47/47. **Not moved, and still the dominant reason this isn't higher:** `test-guard.js`/`test-shell.js` are still zero-assertion stubs that pass unconditionally, the Python suites (`sentinel`, app-lock) are still entirely unverified, and E2E is still one script — none of that was touched by this pass, and it's a bigger gap than the one JS file that just got fixed |
 | Delivery | 10 | 40% | 4.0 | Docker works; `.deb` ships an empty `/opt/jarvis-x`; remote access is git-only; `web/` builds |
 | | | | **66.0%** | |
@@ -84,8 +84,7 @@ suites, and the thin E2E script were already the larger, unchanged discount
 before this fix, and remain exactly as large now. Closing the last 1 of 20 JS
 files moves the total by one point, not several.
 
-**Biggest remaining uncertainty:** Build (unchanged — Electron, `jj status`,
-`paper-trading` wiring) and the three Test-quality gaps just listed. The six
+**Biggest remaining uncertainty:** Build (unchanged — Electron, `jj status`) and the three Test-quality gaps just listed. The six
 previously-unmeasured subsystems are now fully resolved and are no longer an
 uncertainty at all.
 
@@ -95,10 +94,10 @@ uncertainty at all.
 
 | Conflict | Status |
 |---|---|
-| **Paper trading** — `code/paper-trading.js` (144 lines) + `config/trading.json` exist | `CONSTITUTION.md:35` forbids only *real-money* trading ("testnet only"); `:30` permits gated paper trades; config is `"mode": "testnet"`. **No violation as committed.** Conflict is with the runbook's summary of the exclusions, not the code. **Needs a one-line ruling.** |
+| **Paper trading** | **Ruled 2026-09-04: delete.** `code/paper-trading.js` and `config/trading.json` removed; `CONSTITUTION.md` §IV now forbids "trading of any kind, real or simulated" instead of permitting a testnet carve-out, and §III no longer gates trade proposals. Git history retains the code. |
 | **Remote access via `0.0.0.0`** | Rejected. Every binding in the repo is deliberately `127.0.0.1`, port 8000 is already held by the live deployment, and runbook §7 forbids exposure. Git stays the sync layer. |
 | **Local coding models to replace Claude Code** | Unchanged from runbook §4: not viable on CPU. Gemini CLI free tier is the out-of-limit answer. |
-| **`JX_NET` gating** | Dead flag: declared in `package.json:11`, read nowhere. Not implemented deliberately — gating the failing network test would convert a red test to a skip. **Needs a ruling.** |
+| **`JX_NET` gating** | **Ruled 2026-09-04: gate it.** Implemented in `code/test-net.js`; `test-agent-data-integration.js` now skips unless `JX_NET=1`. A skip is counted in its own column and can never read as a pass — the objection that gating hides a red test is answered by the reporting, and the test passes on Ahmed's machine anyway, so nothing red is being hidden. |
 | **Quantum in the request path** | Rejected on measurement: 889× slower, less accurate than the shipped keyword matcher. `QUANTUM_FEASIBILITY.md` §5. Kept as a gated research track. |
 
 ---
@@ -135,7 +134,7 @@ all of this.**
 |---|---|---|---|---|
 | 1 | ~~Run the JS suite on the dev machine~~ | 0.5 | Converts the 6 unmeasured subsystems into knowns. Highest information per minute in the whole plan. | **Done, 2026-09-03.** `node jest-runner.js` → 19/20; `AS_BUILT.md` §1–§2 updated |
 | 2 | ~~Confirm hardware with the Session 1 script~~ | 0.25 | Closes §1 empirically | **Done, 2026-09-03**, via `free -h` / `nproc` / `df -h $HOME` directly rather than the runbook's Session 1 script — no separate `~/PROFILE.md` was produced; the same numbers are recorded in `AS_BUILT.md` §6.1 |
-| 3 | Rule on paper trading + `JX_NET` | 0.25 | Two one-line answers unblock §3 | Rulings recorded |
+| 3 | ~~Rule on paper trading + `JX_NET`~~ | 0.25 | Two one-line answers unblock §3 | **Done, 2026-09-04.** Delete / gate; both carried out, see §3 |
 | 4 | Give `test-guard`/`test-shell` real assertions | 1.5 | Both have **zero** assertions and pass unconditionally. `test-shell` is the file that would have caught the jail escape. | Both assert; both fail if reverted |
 
 ### Tier 2 — close the real gaps
@@ -174,8 +173,8 @@ qubits for anything user-facing.
   zero-assertion stubs and the unverified Python/E2E gaps, which this pass
   didn't touch and which turned out to be the bigger constraint than the six
   subsystems ever were.
-- **A ruling against paper trading.** Deletes `code/paper-trading.js`,
-  `config/trading.json`, and needs a `CONSTITUTION.md` amendment.
+- ~~A ruling against paper trading.~~ **Made 2026-09-04**, and carried out:
+  both files deleted and `CONSTITUTION.md` amended.
 - **The RTX 3060 12 GB.** Unlocks local 14B coding models (runbook §4) *and*
   lifts the quantum ceiling from 16 to ~24+ qubits, which would make gate 4
   reachable and is the one purchase that changes two constraints at once.

@@ -241,7 +241,7 @@ A(table(
      ["Build", "45", "60%", "27.0",
       "Verified: path jail, validation 23/23, data layer, scheduler, i18n/a11y, "
       "voice routing, model-gateway 47/47, jj CLI, FastAPI app, TTS engine. "
-      "Stubbed: Electron (3 files), jj status, paper-trading unwired"],
+      "Stubbed: Electron (3 files), jj status"],
      ["Test", "20", "45%", "9.0",
       "13/19 JS files pass but <b>6 unmeasured</b>; test-guard and test-shell "
       "have <b>zero assertions</b>; Python suites need deps; E2E is one script"],
@@ -478,12 +478,11 @@ A(P("7. Where the plan meets the hard constraints", "h1"))
 A(Spacer(1, 2))
 A(table(
     ["Conflict", "Status"],
-    [["*Paper trading* &mdash; code/paper-trading.js (144 lines) and "
-      "config/trading.json exist",
-      "CONSTITUTION.md:35 forbids only <i>real-money</i> trading ('testnet "
-      "only'); :30 permits gated paper trades; config is testnet mode. "
-      "<b>No violation as committed.</b> The conflict is with the runbook's "
-      "summary of the exclusions, not the code. <b>Needs a one-line ruling.</b>"],
+    [["*Paper trading*",
+      "<b>Ruled 2026-09-04: delete.</b> code/paper-trading.js and "
+      "config/trading.json removed; CONSTITUTION.md section IV now forbids "
+      "trading of any kind, real or simulated, rather than permitting a "
+      "testnet carve-out. Git history retains the code."],
      ["*Remote access via 0.0.0.0*",
       "<b>Rejected.</b> Every binding in the repo is deliberately 127.0.0.1, "
       "port 8000 is already held by the live deployment, and the runbook "
@@ -492,9 +491,9 @@ A(table(
       "Unchanged: not viable on CPU. Gemini CLI free tier is the "
       "out-of-limit answer."],
      ["*JX_NET gating*",
-      "Dead flag: declared in package.json:11, read nowhere. Not implemented "
-      "deliberately &mdash; gating the failing network test would convert a "
-      "red test into a skip. <b>Needs a ruling.</b>"],
+      "<b>Ruled 2026-09-04: gate it.</b> Implemented in code/test-net.js; the "
+      "network test skips unless JX_NET=1, and jest-runner.js counts skips in "
+      "their own column so a skip can never read as a pass."],
      ["*Quantum in the request path*",
       "<b>Rejected on measurement:</b> 889x slower and less accurate than the "
       "shipped keyword matcher. Kept as a gated research track."]],
