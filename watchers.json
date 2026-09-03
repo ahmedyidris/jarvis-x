@@ -1,0 +1,17 @@
+{
+  "_note": "Watch list for code/watcher.js. Reread on every run, like schedules.json, so edits need no restart. 'include' is a regex narrowing the watch to the region that matters -- without it, any sidebar or timestamp on the page reads as a change. Set 'enabled': false to park one.",
+  "watchers": [
+    {
+      "id": "ollama-releases",
+      "url": "https://github.com/ollama/ollama/releases",
+      "include": "v[0-9]+\\.[0-9]+\\.[0-9]+",
+      "enabled": true
+    },
+    {
+      "id": "piper-voices",
+      "url": "https://github.com/rhasspy/piper/releases",
+      "include": "v[0-9]+\\.[0-9]+\\.[0-9]+",
+      "enabled": false
+    }
+  ]
+}
