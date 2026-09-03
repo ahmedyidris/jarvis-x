@@ -35,7 +35,7 @@ in §6.
 | Tool | Verdict for Jarvis | Why |
 |---|---|---|
 | `dgtlmoon/changedetection.io` | **Capability adopted** — built, §3.1 | Its job (watch a page, report the diff) is ~200 lines against the data-layer patterns already here. Its *app* is a full Flask UI with its own scheduler — redundant beside `scheduler.js`. |
-| `PaddlePaddle/PaddleOCR` | **Go on disk math, not yet installed** — §3.2 | Genuinely useful (documents → structured data) and the least legally exposed. 1.4 GB installed clears the 6.0 GB free on Ahmed's machine; runtime cost (RAM/latency/accuracy) still unmeasured pending an actual install. |
+| `PaddlePaddle/PaddleOCR` | **Re-check disk before acting** — §3.2 | Genuinely useful (documents → structured data) and the least legally exposed. 1.4 GB installed against **3.9 GB free (95% used)** as of 2026-09-04 — the Ollama reinstall cost ~2.1 GB since this was ruled on. Margin is now thin, not comfortable; runtime cost (RAM/latency/accuracy) still unmeasured pending an actual install. |
 | `D4Vinci/Scrapling` | **Rejected for the request path** | Adaptive scraping would fix brittle providers, but it advertises bypassing anti-bot protections (Cloudflare Turnstile). BSD-3 governs the *code*; it says nothing about a target's terms of service, and nothing about GDPR/CCPA once a lead list contains named people. Not a dependency to put behind an assistant that acts unattended. |
 | `hugohe3/ppt-master` | **Rejected** | Jarvis has no deck-generation need. A capability with no caller is the `packages/model-gateway` mistake again — 47/47 tests, zero callers. |
 | `every-app/open-seo` | **Rejected** | Requires the operator's own **DataForSEO API keys**: it is a front end to a paid API, not a replacement for one. Adds a metered external cost to a system whose whole design goal is $0 running cost. |
@@ -112,9 +112,11 @@ log). So RAM, latency and accuracy are genuinely unknown.
 RAM was never actually the binding number here — at 14 GB total with 12 GB
 available (`free -h`, same date), RAM has headroom to spare regardless of what
 Ollama holds. Disk does not: the known 1.4 GB dependency install alone would
-consume roughly a quarter of the 6.0 GB currently free, before a single model
-weight downloads. It clears — 6.0 GB comfortably covers 1.4 GB with ~4.6 GB
-left for weights — but the margin is thin on a disk already 92% full, and
+consume more than a third of the free space, before a single model weight
+downloads. **The figure this was ruled on has since moved:** it was 6.0 GB free
+(92% used) on 2026-09-03; restoring Ollama's `llama-server` cost ~2.1 GB, leaving
+**3.9 GB free (95% used)** on 2026-09-04. So 1.4 GB of dependencies now leaves
+~2.5 GB for weights of unmeasured size, not ~4.6 GB. It still clears on paper, but
 weight size is still genuinely unmeasured (below). **Verdict: go, but watch
 the download.** Next step: `pip install paddleocr paddlepaddle` on the
 Chromebook and a real benchmark there, checking `df` again immediately after
@@ -242,15 +244,16 @@ wrong:
 | `watchers.json` config | **Built.** Reread per run, honours `enabled` |
 | Quantum track | **Built.** 31 checks, gated out of the request path |
 | Repo/licence verification | **Done.** All 7 accurate |
-| OCR footprint vs. disk | **Settled, 2026-09-03.** 1.4 GB deps clear the 6.0 GB free on Ahmed's machine (`df -h $HOME`, 92% used) — go, margin is thin |
+| OCR footprint vs. disk | **Re-open before acting.** Ruled go on 2026-09-03 against 6.0 GB free; the Ollama fix has since taken disk to **3.9 GB free, 95% used**. Run `df -h $HOME` immediately before installing — do not act on either recorded figure |
 | OCR runtime cost | **Still blocked/unmeasured.** Network policy previously denied the model hosts; not re-tested from Ahmed's machine this pass |
 | Cross-platform access | **Designed, not installed.** Needs the Chromebook |
 | Scrapling / SEO / CRM / PPT / cloner | **Rejected,** reasons in §2 |
 
 ### Next, in order
 
-1. **OCR is a go on disk math** (§3.2) — 1.4 GB deps clear the 6.0 GB currently
-   free (92% used), with a thin margin for weights of unmeasured size. Next:
+1. **OCR: re-check the disk before committing to it** (§3.2) — ruled go against
+   6.0 GB free, but the Ollama fix took it to 3.9 GB (95% used). 1.4 GB of deps
+   now leaves ~2.5 GB for weights of unmeasured size. Next:
    `pip install paddleocr paddlepaddle` on the Chromebook, benchmark, and check
    `df` right after the weight download.
 2. **Install Tailscale in userspace mode** (§4) — and read the Crostini warning

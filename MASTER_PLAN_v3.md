@@ -26,7 +26,7 @@ agree: the repo's own record (`MASTER_PLAN_UPDATED.md:45`, sourced from
 | Disk | **72 GB, 6.0 GB free (92% used)** | `df -h $HOME`, 2026-09-03 — the new constraint |
 | GPU | none | same |
 | OS | Crostini, Debian 12, kernel 6.6.119 | same |
-| Ollama | 0.32.9, qwen2.5:7b + 3b | same |
+| Ollama | 4 models: `moondream`, `qwen2.5-coder:7b`, `SILMA-9B-Instruct` (Q4_K_M), `nomic-embed-text` | `ollama list`, 2026-09-04 (`AS_BUILT.md` §1) — the `qwen2.5:7b + 3b` set `WEEK_1_COMPLETE.md` records is stale |
 
 **The 7.7 GB figure was a different machine.** `00-repo-spec.md` describes a
 Lenovo Y50-70 — not the dev box. That single mismatch generated most of the
