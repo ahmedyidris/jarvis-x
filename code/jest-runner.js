@@ -20,7 +20,6 @@ if (!fs.existsSync(absoluteTestPath)) {
 
 const fileContent = fs.readFileSync(absoluteTestPath, "utf8");
 
-// Safely route self-executing async scripts to native node threads
 if (fileContent.includes("async ()") && !fileContent.includes("describe(") && !fileContent.includes("test(")) {
     console.log(`[HARNESS] Routing raw node async execution path: ${cleanFileName}`);
     try {
