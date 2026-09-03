@@ -14,6 +14,10 @@ awesome-mcp-servers/
 .claude/agents/
 # local cache dir created by the global token-optimizer-mcp plugin, not jarvis-x's own code
 .token-optimizer/
+# regenerable graphify CLI output (graph.json/graph.html/GRAPH_REPORT.md) - a personal
+# navigation aid over this repo, not part of it; can appear at the repo root and under
+# docs/obsidian-vault/
+graphify-out/
 DeepSeek-V3/
 ds4/
 electron/dist/

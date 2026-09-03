@@ -14,7 +14,7 @@ This vault is a navigable companion to the canonical docs, which stay the source
 ## Quick links
 
 - **Architecture:** [[system-overview]]
-- **Decisions:** [[model-gateway-not-wired]] · [[api-ask-kill-switch-gating]] · [[docker-single-container]] · [[elevenlabs-removed]]
+- **Decisions:** [[model-gateway-not-wired]] · [[api-ask-kill-switch-gating]] · [[docker-single-container]] · [[elevenlabs-removed]] · [[deepagents-not-wired]] · [[chatterbox-egyptian-voice-clone]] · [[ollama-signing-key-permission-fix]] · [[hermes-agent-integration]]
 - **Phase B verticals:** [[letters]] · [[economic-facts]] · [[commodities-macro]] · [[geopolitical-risk]]
 - **Runbooks:** [[add-a-phase-b-vertical]] · [[debug-the-kill-switch]] · [[troubleshooting]]
 - **Changelog:** [[2026-08]]

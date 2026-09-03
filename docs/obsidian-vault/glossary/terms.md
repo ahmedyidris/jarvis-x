@@ -17,3 +17,9 @@ title: Glossary
 **Numeric-fidelity gap** — the known, unfixed gap where Phase B's shared validation checks JSON shape but not whether the LLM's narration stayed faithful to its source fact's actual numbers. See [[geopolitical-risk]].
 
 **Two routers** — `code/router.js` (JS agent-autonomy path, Gemini-tiered) and `code/router.py` (the actual web-chat path, 100% local Ollama). Same name, different systems — don't conflate them.
+
+**tts-worker / Chatterbox** — the third `supervisord` program (port 8001), a voice-clone Egyptian Arabic TTS service (`code/tts_worker.py`, `chatterbox-tts` package, checkpoint `voices/chatterbox-eg`). Not the same model as `EGTTS_RESEARCH.md`'s subject (EGTTS-V0.1). See [[chatterbox-egyptian-voice-clone]].
+
+**HUD dashboard** — the standalone `dashboard/dashboard.html` frontend, distinct from the React/Vite PWA in `web/`. Both are served by `app.py`; see [[system-overview]].
+
+**hermes-agent** — a separate third-party CLI tool being integrated as an alt LLM backend/MCP server, unrelated to this repo's own `hermes.py`/`HermesCore` despite the name collision. See [[hermes-agent-integration]].
