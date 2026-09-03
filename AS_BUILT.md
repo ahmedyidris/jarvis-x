@@ -1,7 +1,9 @@
 # Jarvis X — AS-BUILT
 
 **Generated:** 2026-09-03 · **Supersedes:** every completion percentage in the archive
-**Method:** Sessions 1–4 of `JARVIS_X_REBUILD_RUNBOOK.md`, run against commit `8643e6e`
+**Method:** Sessions 1–4 of `JARVIS_X_REBUILD_RUNBOOK.md`, run against commit `8643e6e`,
+with §1 and §6.1 below re-measured the same day directly on Ahmed's machine (post-merge,
+commit `13efc52`) rather than the ephemeral cloud container Sessions 1–4 ran in.
 
 Every claim below cites a command output, a file path, or a test name. Claims that could
 not be verified are quarantined in [§6 Unverified](#6-unverified--needs-your-input) rather
@@ -11,7 +13,8 @@ than estimated.
 
 ## 1. The headline number
 
-**13 of 19 JavaScript test files pass. 47 of 47 model-gateway tests pass.**
+**19 of 20 JavaScript test files pass, measured on Ahmed's machine. 47 of 47 model-gateway
+tests pass.**
 
 That is the whole of what the tests prove. There is no single "percent complete" figure in
 this document, because nothing measured here produces one — see §5 for why the old ones did
@@ -19,28 +22,30 @@ not either.
 
 | Suite | Command | Result |
 |---|---|---|
-| JS suite | `node jest-runner.js` | **13 passed, 6 failed** (exit 1) |
+| JS suite | `node jest-runner.js` | **19 passed, 1 failed** (exit 1) |
 | model-gateway | `npm test` in `packages/model-gateway` | **47 passed, 0 failed** |
 | Python — sentinel | `pytest sentinel/tests/test_smoke.py` | not verifiable (deps absent) |
 | Python — app lock | `pytest test_app_generation_lock.py` | not verifiable (`fastapi` absent) |
 | web build | — | not verifiable (`web/node_modules` absent) |
 
-Before the fixes in §3, the JS suite was **9 passed, 10 failed**.
+Before the fixes in §3, the JS suite was **9 passed, 10 failed**. At the time §1 was first
+written (ephemeral container, Sessions 1–4) it stood at **13 passed, 6 failed** out of 19
+files; the suite has since grown to 20 files (`test-watcher.js` added) and, measured on the
+real machine, 19 of the 20 now pass.
 
-### The 6 remaining JS failures are all missing local dependencies, not code defects
+### The 1 remaining JS failure is a broken local Ollama install, not a missing model
+
+The original **13/19** entry assumed all 6 then-failing files were blocked by missing local
+dependencies (Ollama, Piper voices, Kokoro, network). Measured directly on Ahmed's machine,
+that assumption was right for 5 of the 6 and wrong for the 6th:
 
 | Test file | Blocked by | Evidence |
 |---|---|---|
-| `test-vision.js` | Ollama not installed | `Vision failed: Ollama unreachable (fetch failed)` |
-| `test-voice.js` | 3 Piper `.onnx` voices absent | `Voice model not found: .../en_US-amy-medium.onnx` |
-| `test-voice-router.js` | 4 Piper `.onnx` voices absent | 4/8 cases pass; routing logic itself passes |
-| `test-voice-interaction.js` | Piper voice + Python `soundfile` | 2/4 pass; both route assertions pass |
-| `test-kokoro.js` | Kokoro model files + `soundfile` | 2/5 pass; `ModuleNotFoundError: No module named 'soundfile'` |
-| `test-agent-data-integration.js` | Live network | `Data unavailable for crypto:btc. CoinGecko HTTP 403` |
+| `test-vision.js` | **Ollama itself is broken, not the model.** `code/vision.js:3` requests `moondream`; `ollama list` shows `moondream:latest` already present (1.7 GB, pulled 17h before this measurement) — so pulling it again fixes nothing, and wasn't run. | `node code/test-vision.js` → `Vision failed: Ollama returned 500` on all 3 cases. Direct `curl localhost:11434/api/generate -d '{"model":"moondream","prompt":"test","images":[]}'` → HTTP 500, body: `"error starting llama-server: llama-server binary not found (checked: /usr/local/lib/ollama/llama-server, ...). Run 'cmake -S llama/server --preset cpu && cmake --build --preset cpu' first"`. Rebuilding Ollama's `llama-server` binary is outside the scope of this pass. |
 
-Each of these should pass on the dev machine if Ollama, the Piper voices, and Kokoro are
-installed there. **None of them is evidence of broken application code.** Conversely, none
-of them is evidence of *working* application code — they are simply unmeasured here.
+The other 5 previously-failing files now pass in full on this machine — see §2, which is
+where their evidence now lives. **None of the remaining failure is application code.** It is
+this machine's Ollama installation missing a binary Ollama itself needs to serve any model.
 
 ---
 
@@ -52,13 +57,16 @@ of them is evidence of *working* application code — they are simply unmeasured
 | Action validation (`code/validate.js`) | `test-validate.js` **23/23** after fix |
 | Model gateway — breaker, budget, store, telemetry, tier policy | `packages/model-gateway` **47/47** across 8 `*.test.js` files |
 | Data layer + provider registry | `test-data-layer.js` 5/5; registers market, crypto, energy, news |
-| Query resolution (Bitcoin / S&P 500 / Oil → data keys) | `test-agent-data-integration.js` Tests 1–3 pass |
+| Query resolution + response building + graceful degradation (Bitcoin / S&P 500 / Oil → data keys) | `test-agent-data-integration.js` **5/5**, measured on Ahmed's machine (`node code/test-agent-data-integration.js`) — the CoinGecko 403 that blocked Test 4 in the container no longer reproduces here |
 | Scheduler | `test-scheduler.js` 8/8 |
 | i18n EN/AR + ARIA labels | `test-accessibility.js` 3/3, `test-full-accessibility.js` 5/5 (after adding `i18next`) |
-| Voice routing table (en-us, ar-jo, rejects ar-eg + unknown) | `test-voice-router.js` 4 routing cases pass |
-| Voice accent handling | `test-voice-accents.js` 4/4, `test-voice-full-system.js` 9/9 |
+| Voice routing, including real Piper TTS round-trips | `test-voice-router.js` **8/8** on Ahmed's machine (`node code/test-voice-router.js`) — the 4 routing-table cases plus all 4 end-to-end audio cases (en-us, en-gb, ar-jo, ar-gulf); en-gb is the case `docs/DEVELOPMENT.md:33` flags as historically flaky for this test family and it passed cleanly this run, no re-run needed |
+| Voice accent handling (Piper) | `test-voice-accents.js` 4/4, `test-voice-full-system.js` 9/9, `test-voice.js` **3/3** on Ahmed's machine (en_US-amy, ar_JO-kareem, ar-AE-emirati-female all round-trip) |
+| Voice interaction (transcription + language routing) | `test-voice-interaction.js` **4/4** on Ahmed's machine (`node code/test-voice-interaction.js`) — English and Arabic transcription, both language routes |
+| Kokoro accent synthesis | `test-kokoro.js` **5/5** on Ahmed's machine (`node code/test-kokoro.js`) — American, British and Australian-fallback accents round-trip; unknown accent correctly rejected |
 | Live data provider plumbing | `test-live-data.js` 7/7 |
 | Model listing | `test-list-models.js` 3/3 |
+| Watcher (page-diff monitor) | `test-watcher.js` — file added since the container session, passes as part of the 19/20 measured above |
 | `jj` CLI (`ask`, `plan`, `status`) | `./jj status` runs, after the fix in §3.5 |
 
 ---
@@ -171,7 +179,7 @@ The runbook (§1.2) calls 91% / 95% / 65% "irreconcilable". They are not — the
 |---|---|---|
 | **91%** (22/24 milestones) | `scripts/status.sh` milestone checks | `NOTES.md:10` |
 | **49/49** | `scripts/status.sh` **checks** — the doc that calls them "unit tests" is wrong | `NOTES.md:12` says "Checks: 49/49"; `docs/archive/JARVIS_X_STATUS_SNAPSHOT.md:34` mislabels them "unit tests" |
-| **11/11** | the JS suite **when it had 11 test files**. It now has 19. | `docs/DEVELOPMENT.md:33` |
+| **11/11** | the JS suite **when it had 11 test files**. It now has 20. | `docs/DEVELOPMENT.md:33` |
 | **47/47** | `packages/model-gateway`'s own suite only | `docs/archive/SESSION_FINAL_REPORT.md:40` |
 
 So `49/49` and `11/11` were never in conflict; one is status-script checks, the other the
@@ -188,9 +196,11 @@ exist, not whether they work.** Treat it as an inventory, never as a completion 
 
 ## 6. Unverified — needs your input
 
-### 6.1 The hardware question (runbook §1.1) is still open
-Sessions 1–4 ran in an **ephemeral cloud container**, not on your machine. The profile it
-produced describes the container and is *not* ground truth for any model decision:
+### 6.1 The hardware question (runbook §1.1) — now settled by direct measurement
+
+Sessions 1–4 ran in an **ephemeral cloud container**, not on Ahmed's machine. That profile
+(kept below for the software-version record) was never ground truth for a model or disk
+decision:
 
 ```
 Linux vm 6.18.44-fc-v24 · Ubuntu 24.04.4 LTS · crostini: no
@@ -199,11 +209,24 @@ node v22.22.2 · npm 10.9.7 · python 3.11.15 · git 2.43.0 · docker 29.3.1
 ollama MISSING · supervisord MISSING · uvicorn MISSING · pytest present, fastapi absent
 ```
 
-**Still required:** run the runbook's Session 1 script on the real machine. Nothing about
-RAM, model sizing, or the §4 local-model verdict can be settled from the numbers above.
+**Measured directly on Ahmed's machine, 2026-09-03:**
 
-Software versions in the table are the versions **these test results were produced under**,
-which is their only legitimate use here.
+| Command | Result |
+|---|---|
+| `free -h` | Mem: **14Gi total, 2.1Gi used, 9.5Gi free, 12Gi available**; Swap: 0B |
+| `nproc` | **8** |
+| `df -h $HOME` | `/dev/vdc`: **72G size, 65G used, 6.0G avail, 92% used** |
+
+This corroborates `MASTER_PLAN_v3.md` §1's figures (14 GB RAM, 8 vCPU, sourced there from
+`WEEK_1_COMPLETE.md`) against a live reading rather than an inherited record. RAM has
+comfortable headroom (12 GB available of 14 GB). **Disk does not: only 6.0 GB is free out of
+72 GB (92% used).** RAM was the open question the runbook posed; on these numbers it is
+answered and is not the binding constraint — disk is. Any decision that spends disk (model
+downloads, new dependencies — see `CAPABILITIES.md` §3.2 on OCR) should be sized against
+6.0 GB, not against the 14 GB RAM figure.
+
+Software versions in the container table above are the versions **the Sessions 1–4 test
+results were produced under**, which is their only remaining legitimate use.
 
 ### 6.2 The trading-code ruling (runbook §1.3) — the conflict is narrower than stated
 The runbook says your hard exclusions forbid a crypto trading bot, and that `paper-trading.js`
@@ -224,10 +247,11 @@ and amend the constitution. If no, amend the runbook's exclusion list. I have mo
 the file is untouched and still unwired.
 
 ### 6.3 Decisions I did not make for you
-- **`JX_NET` gating.** I did **not** implement it. Doing so would convert
-  `test-agent-data-integration.js` from a failure into a skip, and turning a red test green
-  by skipping it is exactly the move that produced the numbers in §5. The honest count is
-  13/19 with a network test failing. Your call whether to gate it or make it offline-capable.
+- **`JX_NET` gating.** I did **not** implement it. It was proposed to convert
+  `test-agent-data-integration.js` from a failure into a skip — moot now, since that test
+  passes outright on Ahmed's machine (§2), with no CoinGecko 403 in this run. The flag is
+  still declared in `package.json` and read nowhere (see §4); your call whether it's worth
+  implementing for future network flakiness or removing as dead.
 - **`test-guard.js` / `test-shell.js`.** Both need real assertions before they mean anything.
   Writing them is build work, not reconciliation, so I left them and documented them in §4.
 - **The stale `rm not allowed` label** in `test-shell.js` implies `rm` should be blocked, but
@@ -238,7 +262,7 @@ the file is untouched and still unwired.
 ## 7. What runs, and how
 
 ```bash
-node jest-runner.js                            # JS suite → 13/19
+node jest-runner.js                            # JS suite → 19/20 (Ahmed's machine, 2026-09-03)
 cd packages/model-gateway && npm test          # → 47/47
 ./jj status                                    # CLI smoke (stub output, see §4)
 ```

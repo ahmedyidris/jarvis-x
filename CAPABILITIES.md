@@ -35,7 +35,7 @@ in §6.
 | Tool | Verdict for Jarvis | Why |
 |---|---|---|
 | `dgtlmoon/changedetection.io` | **Capability adopted** — built, §3.1 | Its job (watch a page, report the diff) is ~200 lines against the data-layer patterns already here. Its *app* is a full Flask UI with its own scheduler — redundant beside `scheduler.js`. |
-| `PaddlePaddle/PaddleOCR` | **Deferred, measured** — §3.2 | Genuinely useful (documents → structured data) and the least legally exposed. But 1.4 GB installed, and runtime cost is unmeasured here. Needs a decision on his disk. |
+| `PaddlePaddle/PaddleOCR` | **Go on disk math, not yet installed** — §3.2 | Genuinely useful (documents → structured data) and the least legally exposed. 1.4 GB installed clears the 6.0 GB free on Ahmed's machine; runtime cost (RAM/latency/accuracy) still unmeasured pending an actual install. |
 | `D4Vinci/Scrapling` | **Rejected for the request path** | Adaptive scraping would fix brittle providers, but it advertises bypassing anti-bot protections (Cloudflare Turnstile). BSD-3 governs the *code*; it says nothing about a target's terms of service, and nothing about GDPR/CCPA once a lead list contains named people. Not a dependency to put behind an assistant that acts unattended. |
 | `hugohe3/ppt-master` | **Rejected** | Jarvis has no deck-generation need. A capability with no caller is the `packages/model-gateway` mistake again — 47/47 tests, zero callers. |
 | `every-app/open-seo` | **Rejected** | Requires the operator's own **DataForSEO API keys**: it is a front end to a paid API, not a replacement for one. Adds a metered external cost to a system whose whole design goal is $0 running cost. |
@@ -107,10 +107,18 @@ policy denies all four hosts it tries (`huggingface.co`,
 `paddle-model-ecology.bj.bcebos.com` — confirmed in the proxy's own failure
 log). So RAM, latency and accuracy are genuinely unknown.
 
-**The decision this needs:** 1.4 GB of dependencies plus model weights, on a
-14 GB machine already holding ~8.1 GB of Ollama models. That is a disk call
-only Ahmed can make. If the answer is yes, the next step is `pip install
-paddleocr paddlepaddle` on the Chromebook and a real benchmark there.
+**Settled, on disk rather than RAM.** `df -h $HOME` on Ahmed's machine,
+2026-09-03: `/dev/vdc` is **72 GB total, 65 GB used, 6.0 GB avail, 92% used**.
+RAM was never actually the binding number here — at 14 GB total with 12 GB
+available (`free -h`, same date), RAM has headroom to spare regardless of what
+Ollama holds. Disk does not: the known 1.4 GB dependency install alone would
+consume roughly a quarter of the 6.0 GB currently free, before a single model
+weight downloads. It clears — 6.0 GB comfortably covers 1.4 GB with ~4.6 GB
+left for weights — but the margin is thin on a disk already 92% full, and
+weight size is still genuinely unmeasured (below). **Verdict: go, but watch
+the download.** Next step: `pip install paddleocr paddlepaddle` on the
+Chromebook and a real benchmark there, checking `df` again immediately after
+the weight download completes.
 
 **Cheaper alternative if the answer is no:** `tesseract-ocr` is ~30 MB via apt
 and adequate for clean typed documents — worse on handwriting and layout, which
@@ -234,15 +242,17 @@ wrong:
 | `watchers.json` config | **Built.** Reread per run, honours `enabled` |
 | Quantum track | **Built.** 31 checks, gated out of the request path |
 | Repo/licence verification | **Done.** All 7 accurate |
-| OCR footprint | **Measured.** 1.4 GB; engine omitted from the guide's install |
-| OCR runtime cost | **Blocked.** Network policy denies the model hosts |
+| OCR footprint vs. disk | **Settled, 2026-09-03.** 1.4 GB deps clear the 6.0 GB free on Ahmed's machine (`df -h $HOME`, 92% used) — go, margin is thin |
+| OCR runtime cost | **Still blocked/unmeasured.** Network policy previously denied the model hosts; not re-tested from Ahmed's machine this pass |
 | Cross-platform access | **Designed, not installed.** Needs the Chromebook |
 | Scrapling / SEO / CRM / PPT / cloner | **Rejected,** reasons in §2 |
 
 ### Next, in order
 
-1. **Rule on OCR** — 1.4 GB plus weights on a 14 GB box, yes or no? If yes,
-   `pip install paddleocr paddlepaddle` on the Chromebook and benchmark there.
+1. **OCR is a go on disk math** (§3.2) — 1.4 GB deps clear the 6.0 GB currently
+   free (92% used), with a thin margin for weights of unmeasured size. Next:
+   `pip install paddleocr paddlepaddle` on the Chromebook, benchmark, and check
+   `df` right after the weight download.
 2. **Install Tailscale in userspace mode** (§4) — and read the Crostini warning
    first, because the default mode can cost you the container.
 3. **Point the watcher at something you care about** — edit `watchers.json`,
