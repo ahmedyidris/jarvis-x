@@ -40,7 +40,13 @@ out of reach on CPU, and the RTX 3060 12 GB remains the unlock.
 with 12Gi available — comfortable headroom — but `df -h $HOME` shows **6.0 GB free
 of 72 GB, 92% used**. RAM was the question the runbook posed; it is answered and it
 is not the limit. Anything that spends disk (model downloads, new dependencies) must
-be sized against 6.0 GB. That is what settles the OCR question in §3.
+be sized against current free space, not this figure. That is what settles the OCR
+question in §3.
+
+**Update, 2026-09-04:** fixing `test-vision.js` (§2) required reinstalling Ollama,
+which cost ~2.1 GB of its own binaries (no model re-pulled). `df -h $HOME` now
+reads **3.9 GB free, 95% used** — re-check `df` before spending more disk; the
+6.0 GB figure above is one day stale already.
 
 ---
 
