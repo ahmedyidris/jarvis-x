@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S.</title>
+<style>
+  :root{
+    --bg-0:#03050a;
+    --bg-1:#060b16;
+    --bg-2:#0a1526;
+    --accent:#3fd8ff;
+    --accent-dim:#1a6f8f;
+    --accent-soft:rgba(63,216,255,.14);
+    --accent-glow:rgba(63,216,255,.65);
+    --green:#3dffa0;
+    --amber:#ffb347;
+    --text:#d6ecff;
+    --text-dim:#5c7c9c;
+    --text-faint:#3a5570;
+    --border:rgba(90,190,255,.22);
+    --panel:rgba(7,16,30,.55);
+    --mono:ui-monospace,"SFMono-Regular","Consolas","Liberation Mono","Menlo",monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    background:var(--bg-0);
+    color:var(--text);
+    font-family:var(--mono);
+    -webkit-font-smoothing:antialiased;
+  }
+  body{
+    background:
+      radial-gradient(ellipse at 50% 38%, #0d2038 0%, #071021 42%, #030509 100%);
+  }
+  /* faint structural grid, like a HUD baseplate */
+  .grid-overlay{
+    position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      linear-gradient(rgba(90,190,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(90,190,255,.035) 1px, transparent 1px);
+    background-size:38px 38px;
+    mask-image:radial-gradient(ellipse at 50% 45%, black 10%, transparent 72%);
+  }
+  .scanlines{
+    position:fixed;inset:0;pointer-events:none;z-index:2;
+    background:repeating-linear-gradient(
+      to bottom, rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(0,10,20,.06) 3px
+    );
+    opacity:.5;
+  }
+  .vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:3;
+    box-shadow: inset 0 0 18vw 2vw rgba(0,2,6,.85);
+  }
+  /* faint circuit-trace corner accents, near-black PCB feel */
+  .circuit-corner{
+    position:fixed;width:220px;height:220px;pointer-events:none;z-index:0;
+    border:1px solid rgba(63,216,255,.12);opacity:.6;
+  }
+  .circuit-corner.tl{top:8px;left:8px;border-right:none;border-bottom:none;}
+  .circuit-corner.tr{top:8px;right:8px;border-left:none;border-bottom:none;}
+  .circuit-corner.bl{bottom:8px;left:8px;border-right:none;border-top:none;}
+  .circuit-corner.br{bottom:8px;right:8px;border-left:none;border-top:none;}
+
+  .hud{
+    position:relative;z-index:1;
+    display:grid;
+    height:100vh;width:100vw;
+    padding:18px 26px 14px;
+    gap:12px;
+    grid-template-columns: minmax(220px,300px) 1fr minmax(220px,300px);
+    grid-template-rows: auto 1fr auto auto;
+    grid-template-areas:
+      "header header header"
+      "log     core    stats"
+      "figures figures figures"
+      "bar     bar     bar";
+  }
+
+  /* ---------- panels ---------- */
+  .panel{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:6px;
+    backdrop-filter: blur(2px);
+    box-shadow:0 0 0 1px rgba(0,0,0,.4) inset, 0 0 24px rgba(10,40,70,.25);
+  }
+  .panel::before,.panel::after{
+    content:"";position:absolute;width:14px;height:14px;
+    border:1px solid var(--accent);opacity:.9;
+  }
+  .panel::before{top:-1px;left:-1px;border-right:none;border-bottom:none;}
+  .panel::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
+  .panel-title{
+    font-size:11px;letter-spacing:.2em;color:var(--accent);
+    padding:9px 14px 6px;opacity:.85;font-weight:600;
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel-title::after{
+    content:"";flex:1;height:1px;
+    background:linear-gradient(90deg,var(--border),transparent);
+  }
+
+  /* ---------- header ---------- */
+  header{grid-area:header;display:flex;justify-content:space-between;align-items:flex-start;}
+  .brand h1{
+    margin:0;font-size:26px;letter-spacing:.5px;font-weight:700;color:#eaf8ff;
+    text-shadow:0 0 14px var(--accent-glow), 0 0 2px #fff;
+  }
+  .brand .sub{margin-top:3px;font-size:11px;letter-spacing:.14em;color:var(--text-dim);text-transform:uppercase;}
+  .brand .date{margin-top:9px;font-size:12px;letter-spacing:.08em;color:var(--accent);opacity:.9;}
+  .brand .date::before{content:"◆ ";color:var(--accent-dim);}
+
+  .status-cluster{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+  .clock{
+    font-size:30px;font-weight:600;letter-spacing:.06em;color:#eaf8ff;
+    text-shadow:0 0 14px var(--accent-glow);
+    font-variant-numeric:tabular-nums;
+  }
+  .clock .secs{font-size:16px;color:var(--accent);opacity:.75;margin-left:2px;}
+  .connectors{display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
+  .connector{display:flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.06em;color:var(--text-dim);}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .dot.online{background:var(--green);box-shadow:0 0 6px 1px var(--green);}
+  .dot.offline{background:var(--amber);box-shadow:0 0 6px 1px var(--amber);animation:blink 1.1s steps(1,end) infinite;}
+  @keyframes blink{0%,49%{opacity:1;}50%,100%{opacity:.15;}}
+
+  /* ---------- log ---------- */
+  .log{grid-area:log;display:flex;flex-direction:column;min-height:0;}
+  .log-body{flex:1;overflow:hidden;padding:4px 14px 12px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;}
+  .log-line{
+    font-size:11.5px;line-height:1.4;color:var(--text-dim);
+    opacity:0;transform:translateY(4px);
+    animation:reveal .5s ease forwards;
+    border-left:2px solid var(--accent-dim);padding-left:8px;
+  }
+  .log-line b{color:var(--accent);font-weight:600;}
+  @keyframes reveal{to{opacity:1;transform:none;}}
+
+  /* ---------- core ---------- */
+  .core-wrap{grid-area:core;display:flex;flex-direction:column;gap:12px;min-height:0;}
+  .core-stage{flex:1;position:relative;min-height:0;cursor:pointer;}
+  .core-stage::after{
+    content:"TAP TO TALK";position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+    font-size:9.5px;letter-spacing:.18em;color:var(--text-faint);opacity:0;
+    transition:opacity .2s ease;pointer-events:none;
+  }
+  .core-stage:hover::after{opacity:.8;}
+  #core-canvas{position:absolute;inset:0;width:100%;height:100%;}
+  .core-sub{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:150px;}
+
+  /* weather */
+  .weather{padding:10px 14px;display:flex;gap:14px;align-items:center;}
+  .weather .temp{font-size:34px;font-weight:700;color:#eaf8ff;text-shadow:0 0 10px var(--accent-glow);}
+  .weather .deg{font-size:16px;color:var(--accent);vertical-align:top;}
+  .weather .cond{font-size:11px;color:var(--text-dim);margin-top:2px;letter-spacing:.03em;}
+  .weather .meta{font-size:10.5px;color:var(--text-faint);line-height:1.6;}
+
+  /* calendar */
+  .calendar{padding:8px 12px;}
+  .cal-head{display:flex;justify-content:space-between;font-size:11px;color:var(--accent);margin-bottom:5px;letter-spacing:.06em;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:9.5px;text-align:center;color:var(--text-faint);}
+  .cal-grid .dow{color:var(--text-dim);padding-bottom:2px;}
+  .cal-grid .day{padding:2px 0;border-radius:2px;color:var(--text-dim);}
+  .cal-grid .day.today{background:var(--accent);color:#01131d;font-weight:700;box-shadow:0 0 8px var(--accent-glow);}
+  .cal-grid .day.event{color:var(--accent);font-weight:600;}
+  .cal-grid .day.event::after{content:"";display:block;width:3px;height:3px;margin:1px auto 0;border-radius:50%;background:var(--accent);}
+
+  /* ---------- stats ---------- */
+  .stats{grid-area:stats;padding-bottom:10px;}
+  .stat-row{padding:8px 14px 0;}
+  .stat-top{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-dim);letter-spacing:.06em;margin-bottom:5px;}
+  .stat-top .val{color:var(--accent);font-weight:600;}
+  .bar-track{height:5px;border-radius:3px;background:rgba(90,190,255,.08);overflow:hidden;position:relative;}
+  .bar-fill{
+    height:100%;border-radius:3px;
+    background:linear-gradient(90deg,var(--accent-dim),var(--accent));
+    box-shadow:0 0 8px var(--accent-glow);
+    width:0;transition:width 1.1s cubic-bezier(.2,.8,.2,1);
+  }
+
+  /* ---------- figures ---------- */
+  .figures{grid-area:figures;display:flex;padding:12px 0;}
+  .figure{flex:1;text-align:center;position:relative;}
+  .figure + .figure::before{content:"";position:absolute;left:0;top:12%;bottom:12%;width:1px;background:var(--border);}
+  .figure .fig-val{font-size:26px;font-weight:700;color:#eaf8ff;text-shadow:0 0 12px var(--accent-glow);letter-spacing:.02em;}
+  .figure .fig-label{margin-top:4px;font-size:10px;letter-spacing:.14em;color:var(--text-dim);}
+
+  /* ---------- bottom bar ---------- */
+  .bar{grid-area:bar;display:flex;align-items:center;justify-content:center;gap:18px;padding:8px 0 2px;}
+  .brief-btn{
+    appearance:none;cursor:pointer;
+    font-family:var(--mono);font-size:14px;letter-spacing:.22em;font-weight:700;
+    color:var(--accent);background:rgba(63,216,255,.06);
+    border:1px solid var(--accent-dim);border-radius:30px;
+    padding:13px 38px;
+    box-shadow:0 0 18px rgba(63,216,255,.18), inset 0 0 12px rgba(63,216,255,.08);
+    transition:box-shadow .25s ease, transform .15s ease, color .25s ease, background .25s ease;
+  }
+  .brief-btn:hover{box-shadow:0 0 30px rgba(63,216,255,.4), inset 0 0 16px rgba(63,216,255,.15);}
+  .brief-btn:active{transform:scale(.97);}
+  .brief-btn.speaking{
+    color:#01131d;background:var(--accent);
+    box-shadow:0 0 40px var(--accent-glow), 0 0 80px rgba(63,216,255,.35);
+    animation:pulse-btn 1.1s ease-in-out infinite;
+  }
+  .brief-btn.listening{
+    color:#1a0303;background:#ff4d4d;border-color:#ff4d4d;
+    box-shadow:0 0 40px rgba(255,77,77,.65), 0 0 80px rgba(255,77,77,.3);
+    animation:pulse-btn .7s ease-in-out infinite;
+  }
+  .brief-btn.thinking{
+    color:#1a1103;background:var(--amber);border-color:var(--amber);
+    box-shadow:0 0 40px rgba(255,179,71,.6), 0 0 80px rgba(255,179,71,.3);
+    animation:pulse-btn .5s ease-in-out infinite;
+  }
+  .brief-btn:disabled{opacity:.4;cursor:not-allowed;}
+  @keyframes pulse-btn{0%,100%{filter:brightness(1);}50%{filter:brightness(1.25);}}
+  .bar-status{font-size:10.5px;letter-spacing:.14em;color:var(--text-faint);min-width:160px;}
+  .bar-status.on{color:var(--green);}
+  .bar-status.warn{color:var(--amber);}
+  .bar-status.err{color:#ff6b6b;}
+
+  @media (max-width:980px){
+    .hud{
+      grid-template-columns:1fr;
+      grid-template-rows:auto auto auto auto auto auto;
+      grid-template-areas:
+        "header"
+        "core"
+        "stats"
+        "log"
+        "figures"
+        "bar";
+      overflow-y:auto;height:auto;min-height:100vh;
+    }
+    html,body{overflow:auto;}
+    .core-wrap{height:460px;}
+    .core-stage{height:280px;flex:none;}
+    .log{min-height:220px;}
+    .log-body{justify-content:flex-start;}
+  }
+</style>
+</head>
+<body>
+  <div class="grid-overlay"></div>
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+  <div class="circuit-corner tl"></div>
+  <div class="circuit-corner tr"></div>
+  <div class="circuit-corner bl"></div>
+  <div class="circuit-corner br"></div>
+
+  <div class="hud">
+    <header>
+      <div class="brand">
+        <h1 id="brand-title">J.A.R.V.I.S.</h1>
+        <div class="sub" id="brand-sub">Just A Rather Very Intelligent System</div>
+        <div class="date" id="brand-date">—</div>
+      </div>
+      <div class="status-cluster">
+        <div class="clock" id="clock">00:00<span class="secs" id="clock-secs">:00</span></div>
+        <div class="connectors" id="connectors"></div>
+      </div>
+    </header>
+
+    <section class="log panel">
+      <div class="panel-title">ACTIVITY LOG</div>
+      <div class="log-body" id="log-body"></div>
+    </section>
+
+    <section class="core-wrap">
+      <div class="core-stage panel">
+        <canvas id="core-canvas"></canvas>
+      </div>
+      <div class="core-sub">
+        <div class="weather panel" id="weather"></div>
+        <div class="calendar panel" id="calendar"></div>
+      </div>
+    </section>
+
+    <section class="stats panel">
+      <div class="panel-title">SYSTEMS</div>
+      <div id="stats-body"></div>
+    </section>
+
+    <section class="figures" id="figures"></section>
+
+    <div class="bar">
+      <button class="brief-btn" id="brief-btn">BRIEF ME</button>
+      <button class="brief-btn talk-btn" id="talk-btn">🎙 TALK TO JARVIS</button>
+      <div class="bar-status" id="bar-status">STANDBY</div>
+    </div>
+  </div>
+
+  <audio id="brief-audio" preload="auto"></audio>
+  <audio id="chat-audio" preload="auto"></audio>
+
+<script src="jarvis_data.js"></script>
+<script>
+(function(){
+  "use strict";
+  var DATA = window.JARVIS_DATA || {};
+
+  /* ---------------- header ---------------- */
+  document.getElementById("brand-title").textContent = (DATA.meta && DATA.meta.title) || "J.A.R.V.I.S.";
+  document.getElementById("brand-sub").textContent = (DATA.meta && DATA.meta.subtitle) || "";
+
+  function formatDate(d){
+    var days=["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+    var months=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+    return days[d.getDay()]+" · "+d.getDate()+" "+months[d.getMonth()]+" "+d.getFullYear();
+  }
+  var dateEl = document.getElementById("brand-date");
+  dateEl.textContent = (DATA.meta && DATA.meta.dateOverride) || formatDate(new Date());
+
+  /* ---------------- clock ---------------- */
+  var clockEl = document.getElementById("clock");
+  var secsEl = document.getElementById("clock-secs");
+  function pad(n){return n<10?"0"+n:""+n;}
+  function tickClock(){
+    var d=new Date();
+    clockEl.firstChild.nodeValue = pad(d.getHours())+":"+pad(d.getMinutes());
+    secsEl.textContent = ":"+pad(d.getSeconds());
+  }
+  tickClock();
+  setInterval(tickClock,1000);
+
+  /* ---------------- connectors ---------------- */
+  var connWrap = document.getElementById("connectors");
+  (DATA.connectors||[]).forEach(function(c){
+    var row=document.createElement("div");
+    row.className="connector";
+    var dot=document.createElement("span");
+    dot.className="dot "+(c.status==="online"?"online":"offline");
+    var label=document.createElement("span");
+    label.textContent=c.name+" · "+(c.status==="online"?"ONLINE":"OFFLINE");
+    row.appendChild(dot);row.appendChild(label);
+    connWrap.appendChild(row);
+  });
+
+  /* ---------------- streaming activity log ---------------- */
+  var logBody=document.getElementById("log-body");
+  var lines=(DATA.activityLog||[]).slice();
+  var MAX_VISIBLE=8;
+  function pushLine(text){
+    var el=document.createElement("div");
+    el.className="log-line";
+    var m=text.match(/^(\[[0-9:]+\])\s*(.*)$/);
+    if(m){el.innerHTML="<b>"+m[1]+"</b> "+m[2];}else{el.textContent=text;}
+    logBody.appendChild(el);
+    while(logBody.children.length>MAX_VISIBLE){logBody.removeChild(logBody.firstChild);}
+  }
+  var li=0;
+  function streamNext(){
+    if(li>=lines.length)return;
+    pushLine(lines[li++]);
+    setTimeout(streamNext, 1400);
+  }
+  streamNext();
+
+  /* ---------------- stats bars ---------------- */
+  var statsBody=document.getElementById("stats-body");
+  (DATA.stats||[]).forEach(function(s){
+    var row=document.createElement("div");
+    row.className="stat-row";
+    var pct=Math.max(0,Math.min(100,(s.value/s.max)*100));
+    row.innerHTML =
+      '<div class="stat-top"><span>'+s.label+'</span><span class="val">'+s.value+(s.unit||'')+' / '+s.max+(s.unit||'')+'</span></div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:0%"></div></div>';
+    statsBody.appendChild(row);
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        row.querySelector(".bar-fill").style.width=pct+"%";
+      });
+    });
+  });
+
+  /* ---------------- weather ---------------- */
+  var w=DATA.weather;
+  var weatherEl=document.getElementById("weather");
+  if(w && w.tempC!=null){
+    var extra=[];
+    if(w.high!=null||w.low!=null) extra.push('HI '+w.high+'° / LO '+w.low+'°');
+    if(w.tomorrow) extra.push('TOMORROW: '+w.tomorrow);
+    weatherEl.innerHTML =
+      '<div><div class="temp">'+w.tempC+'<span class="deg">°C</span></div></div>'+
+      '<div>'+
+        '<div class="cond">'+(w.condition||"")+'</div>'+
+        '<div class="meta">HUMIDITY '+w.humidity+'% · WIND '+(w.wind||"")+
+        (extra.length?('<br>'+extra.join('<br>')):'')+'</div>'+
+      '</div>';
+  } else {
+    weatherEl.innerHTML =
+      '<div class="meta" style="opacity:.6">WEATHER UNAVAILABLE<br>set WEATHER_CITY to enable</div>';
+  }
+
+  /* ---------------- calendar ---------------- */
+  var c=DATA.calendar||{};
+  var calEl=document.getElementById("calendar");
+  var dowNames=["SU","MO","TU","WE","TH","FR","SA"];
+  var eventDays={};
+  (c.events||[]).forEach(function(e){eventDays[e.day]=e.label;});
+  var cells="";
+  dowNames.forEach(function(d){cells+='<div class="dow">'+d+'</div>';});
+  for(var i=0;i<(c.firstWeekdayOffset||0);i++){cells+='<div class="day"></div>';}
+  for(var d=1;d<=(c.daysInMonth||30);d++){
+    var cls="day"+(d===c.todayDate?" today":"")+(eventDays[d]?" event":"");
+    cells+='<div class="'+cls+'" title="'+(eventDays[d]||"")+'">'+d+'</div>';
+  }
+  calEl.innerHTML =
+    '<div class="cal-head"><span>'+(c.month||"").toUpperCase()+' '+(c.year||"")+'</span><span>TODAY '+c.todayDate+'</span></div>'+
+    '<div class="cal-grid">'+cells+'</div>';
+
+  /* ---------------- figures ---------------- */
+  var figWrap=document.getElementById("figures");
+  (DATA.bigFigures||[]).forEach(function(f){
+    var el=document.createElement("div");
+    el.className="figure";
+    el.innerHTML='<div class="fig-val">'+f.value+'</div><div class="fig-label">'+f.label+'</div>';
+    figWrap.appendChild(el);
+  });
+
+  /* ---------------- BRIEF ME + audio ---------------- */
+  var briefBtn=document.getElementById("brief-btn");
+  var barStatus=document.getElementById("bar-status");
+  var audio=document.getElementById("brief-audio");
+  var btnCfg=DATA.briefButton||{};
+  briefBtn.textContent=btnCfg.label||"BRIEF ME";
+  audio.src=btnCfg.audioSrc||"brief.mp3";
+
+  function setSpeaking(on){
+    briefBtn.classList.toggle("speaking",on);
+    coreState = on? "speaking":"idle";
+    barStatus.textContent = on? "SPEAKING…" : "STANDBY";
+    barStatus.classList.toggle("on",on);
+    talkBtn.disabled = on;
+  }
+  briefBtn.addEventListener("click",function(){
+    if(briefBtn.disabled) return;
+    if(!audio.paused){audio.pause();audio.currentTime=0;setSpeaking(false);return;}
+    audio.currentTime=0;
+    var p=audio.play();
+    if(p && p.catch){p.catch(function(){barStatus.textContent="AUDIO UNAVAILABLE";});}
+  });
+  audio.addEventListener("play",function(){setSpeaking(true);});
+  audio.addEventListener("pause",function(){setSpeaking(false);});
+  audio.addEventListener("ended",function(){setSpeaking(false);});
+
+  /* ---------------- TALK TO JARVIS (mic + live chat) ----------------
+     Wired to the real jarvis-x backend (app.py, same origin once this page
+     is served from web/dist/dashboard/): mic -> /api/transcribe -> text ->
+     /api/ask -> spoken response. No fabricated replies anywhere in this
+     flow — a failed call is logged and shown as an error, never papered
+     over with a plausible-looking made-up answer. */
+  var talkBtn=document.getElementById("talk-btn");
+  var chatAudio=document.getElementById("chat-audio");
+  var recorder=null, recChunks=[], micStream=null;
+
+  function setBarStatus(text,cls){
+    barStatus.textContent=text;
+    barStatus.className="bar-status"+(cls?" "+cls:"");
+  }
+  function logStamp(prefix,text){
+    pushLine("["+new Date().toTimeString().slice(0,8)+"] "+prefix+": "+text);
+  }
+  function resetTalkUI(){
+    talkBtn.classList.remove("listening","thinking");
+    talkBtn.disabled=false;
+    briefBtn.disabled=false;
+  }
+
+  talkBtn.addEventListener("click",function(){
+    if(talkBtn.classList.contains("listening")){
+      if(recorder && recorder.state==="recording") recorder.stop();
+      return;
+    }
+    if(talkBtn.disabled) return;
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      setBarStatus("MIC NOT SUPPORTED IN THIS BROWSER","err");
+      return;
+    }
+    // Give immediate feedback before the async getUserMedia call. Without
+    // this, a click produced zero visible change until the promise settled
+    // -- if the browser's permission prompt ever stalls, gets suppressed,
+    // or is just slow to render, that looks identical to "the click did
+    // nothing", which is exactly what was reported and cost a long debug
+    // session to rule out a script error (there wasn't one).
+    setBarStatus("REQUESTING MIC ACCESS…","warn");
+    acquireMic(0);
+  });
+
+  // NotSupportedError/AbortError from getUserMedia have been observed to be
+  // transient here (the underlying audio device momentarily busy/contended)
+  // rather than a real permanent block -- retry once before surfacing an
+  // error, since a silent one-shot retry costs nothing and fixes the common
+  // case. NotAllowedError (permission denied) is NOT retried -- that's a
+  // real answer from the user/browser, retrying it is just noise.
+  function acquireMic(attempt){
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+      micStream=stream;
+      recChunks=[];
+      var mime = (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm")) ? "audio/webm" : "";
+      recorder = mime ? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream);
+      recorder.ondataavailable=function(e){ if(e.data && e.data.size) recChunks.push(e.data); };
+      recorder.onstop=function(){
+        micStream.getTracks().forEach(function(t){t.stop();});
+        talkBtn.classList.remove("listening");
+        talkBtn.classList.add("thinking");
+        coreState="thinking";
+        briefBtn.disabled=true;
+        setBarStatus("TRANSCRIBING…","warn");
+
+        var blob=new Blob(recChunks,{type:recorder.mimeType||"audio/webm"});
+        var form=new FormData();
+        form.append("audio",blob,"question.webm");
+
+        fetch("/api/transcribe",{method:"POST",body:form})
+          .then(function(r){ if(!r.ok) throw new Error("transcribe HTTP "+r.status); return r.json(); })
+          .then(function(data){
+            var text=(data.text||"").trim();
+            if(!text) throw new Error("empty transcription — nothing recognizable");
+            logStamp("YOU",text);
+            setBarStatus("THINKING…","warn");
+            return fetch("/api/ask",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({question:text,tier:"local",speak:true}),
+            });
+          })
+          .then(function(r){
+            if(!r.ok) return r.json().then(function(e){ throw new Error(e.detail||("ask HTTP "+r.status)); });
+            return r.json();
+          })
+          .then(function(result){
+            logStamp("JARVIS",result.response||"(no response)");
+            resetTalkUI();
+            if(result.audio){
+              chatAudio.src=result.audio;
+              chatAudio.currentTime=0;
+              var p=chatAudio.play();
+              if(p && p.catch){ p.catch(function(){ setBarStatus("AUDIO UNAVAILABLE","err"); coreState="idle"; }); }
+            } else {
+              coreState="idle";
+              setBarStatus("STANDBY");
+            }
+          })
+          .catch(function(err){
+            logStamp("ERROR",err.message);
+            setBarStatus("ERROR — SEE LOG","err");
+            coreState="idle";
+            resetTalkUI();
+          });
+      };
+      recorder.start();
+      talkBtn.classList.add("listening");
+      briefBtn.disabled=true;
+      coreState="listening";
+      setBarStatus("LISTENING… (click to stop)");
+    }).catch(function(err){
+      var transient = (err.name==="NotSupportedError" || err.name==="AbortError");
+      if(transient && attempt<1){
+        setBarStatus("MIC BUSY — RETRYING…","warn");
+        setTimeout(function(){ acquireMic(attempt+1); },800);
+        return;
+      }
+      setBarStatus("MIC UNAVAILABLE: "+err.name,"err");
+      logStamp("ERROR","mic access failed ("+err.name+"): "+(err.message||"")+" — try /dashboard/mic-diagnostic.html");
+    });
+  }
+  chatAudio.addEventListener("play",function(){ coreState="speaking"; setBarStatus("SPEAKING…","on"); talkBtn.disabled=true; });
+  chatAudio.addEventListener("pause",function(){ coreState="idle"; setBarStatus("STANDBY"); talkBtn.disabled=false; });
+
+  // Tapping the core itself does the same thing as the TALK button — the
+  // labeled button stays as the reliable/discoverable affordance, this is
+  // just the Iron-Man-ish bonus path.
+  document.querySelector(".core-stage").addEventListener("click",function(){
+    if(!talkBtn.disabled) talkBtn.click();
+  });
+  chatAudio.addEventListener("ended",function(){ coreState="idle"; setBarStatus("STANDBY"); talkBtn.disabled=false; });
+
+  /* ================= CORE CANVAS ================= */
+  var canvas=document.getElementById("core-canvas");
+  var ctx=canvas.getContext("2d");
+  var coreState="idle"; // idle | listening | thinking | speaking
+  var dpr=Math.max(1,window.devicePixelRatio||1);
+
+  function resize(){
+    var r=canvas.parentElement.getBoundingClientRect();
+    canvas.width=r.width*dpr;
+    canvas.height=r.height*dpr;
+    canvas.style.width=r.width+"px";
+    canvas.style.height=r.height+"px";
+  }
+  window.addEventListener("resize",resize);
+  resize();
+
+  function ring(cx,cy,r,startAngle,arcLen,dash,lineWidth,color,glow){
+    ctx.save();
+    ctx.strokeStyle=color;
+    ctx.lineWidth=lineWidth;
+    ctx.shadowBlur=glow;
+    ctx.shadowColor=color;
+    if(dash)ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,startAngle,startAngle+arcLen);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  var centerLabel = (DATA.core && DATA.core.centerLabel) || "OK";
+  var t0=performance.now();
+
+  function draw(now){
+    var t=(now-t0)/1000;
+    var w=canvas.width/dpr, h=canvas.height/dpr;
+    // Clear the FULL device-pixel buffer, not the CSS-pixel size — this
+    // runs before ctx.scale(dpr,dpr) below, so at this point canvas
+    // coordinates are raw device pixels. Clearing with w/h (CSS pixels)
+    // here left an always-uncleared strip whenever dpr != 1, which any
+    // glow reaching low enough (bottom of the ring, since cy sits exactly
+    // at the CSS-pixel half-height) would paint into every frame without
+    // ever being erased — compounding frame over frame into a solid blob.
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save();
+    ctx.scale(dpr,dpr);
+
+    var cx=w/2, cy=h/2;
+    var base=Math.min(w,h)*0.5;
+    // Each core state gets its own tint and pulse/rotation character:
+    // listening (mic capturing) reads urgent/red, thinking (waiting on the
+    // backend) reads amber and spins faster, speaking is the original blue
+    // pulse, idle is calm blue.
+    var rgb = coreState==="listening" ? "255,77,77"
+            : coreState==="thinking"  ? "255,179,71"
+            : "63,216,255";
+    var pulsing = (coreState==="speaking"||coreState==="listening");
+    var speak = pulsing ? (1+0.16*Math.sin(t*10)) : 1;
+    var breathe = 1 + 0.02*Math.sin(t*1.3);
+    var rot = coreState==="thinking" ? t*2.6 : t;
+
+    // outer faint ring
+    ring(cx,cy, base*0.94, 0, Math.PI*2, null, 1, "rgba("+rgb+",.18)", 0);
+
+    // rotating dashed HUD arc (outer)
+    ring(cx,cy, base*0.82, rot*0.35, Math.PI*1.5, [2,10], 2, "rgba("+rgb+",.55)", 6);
+    ring(cx,cy, base*0.82, rot*0.35+Math.PI, Math.PI*0.3, [2,10], 2, "rgba("+rgb+",.3)", 4);
+
+    // solid glowing main ring, pulses with breathing/speaking/listening
+    ring(cx,cy, base*0.7*breathe*speak, 0, Math.PI*2, null, 3, "rgba("+rgb+",.9)", 26);
+
+    // cardinal node markers on the main ring (N/E/S/W)
+    var mainR = base*0.7*breathe*speak;
+    [0, Math.PI/2, Math.PI, Math.PI*1.5].forEach(function(a){
+      var nx=cx+Math.cos(a)*mainR, ny=cy+Math.sin(a)*mainR;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(nx,ny,3.4,0,Math.PI*2);
+      ctx.fillStyle="rgba(230,250,255,.95)";
+      ctx.shadowBlur=14;ctx.shadowColor="rgba("+rgb+",.95)";
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // tick ring, rotates opposite direction
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(-rot*0.5);
+    var ticks=48;
+    for(var i=0;i<ticks;i++){
+      var a=(i/ticks)*Math.PI*2;
+      var rIn=base*0.56, rOut = (i%4===0)? base*0.62 : base*0.6;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*rIn, Math.sin(a)*rIn);
+      ctx.lineTo(Math.cos(a)*rOut, Math.sin(a)*rOut);
+      ctx.strokeStyle="rgba("+rgb+",.5)";
+      ctx.lineWidth = (i%4===0)?1.6:0.8;
+      ctx.shadowBlur=4;ctx.shadowColor="rgba("+rgb+",.6)";
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // dashed rotating inner arc
+    ring(cx,cy, base*0.46, -rot*0.9, Math.PI*1.1, [1,6], 2, "rgba(200,240,255,.5)", 5);
+
+    // inner glowing core
+    var coreR = base*0.3*breathe*speak;
+    var grad=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.6);
+    grad.addColorStop(0,"rgba(210,246,255,.95)");
+    grad.addColorStop(0.35,"rgba("+rgb+",.55)");
+    grad.addColorStop(1,"rgba("+rgb+",0)");
+    ctx.beginPath();
+    ctx.fillStyle=grad;
+    ctx.arc(cx,cy,coreR*1.6,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.fillStyle="rgba(230,250,255,.95)";
+    ctx.shadowBlur = pulsing? 30:16;
+    ctx.shadowColor="rgba("+rgb+",.9)";
+    ctx.arc(cx,cy,coreR*0.42,0,Math.PI*2);
+    ctx.fill();
+
+    // center label
+    ctx.shadowBlur=0;
+    ctx.fillStyle="#02141f";
+    ctx.font="700 "+Math.max(10,coreR*0.3)+"px "+getComputedStyle(document.body).fontFamily;
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(centerLabel, cx, cy+1);
+
+    ctx.restore();
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

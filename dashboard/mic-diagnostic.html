@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mic Diagnostic</title>
+<style>
+  body{background:#0a0f18;color:#d6ecff;font-family:ui-monospace,monospace;padding:24px;font-size:14px;line-height:1.6;}
+  h1{color:#3fd8ff;font-size:18px;}
+  .row{margin:10px 0;padding:10px;border-left:3px solid #333;}
+  .ok{border-color:#3dffa0;color:#3dffa0;}
+  .fail{border-color:#ff6b6b;color:#ff9a9a;}
+  .info{border-color:#3fd8ff;}
+  pre{white-space:pre-wrap;word-break:break-all;background:#000;padding:8px;border-radius:4px;}
+  button{background:#3fd8ff;color:#001; border:none;padding:10px 20px;border-radius:6px;font-weight:700;cursor:pointer;margin:10px 0;}
+</style>
+</head>
+<body>
+<h1>JARVIS Mic Diagnostic</h1>
+<p>This page has no dependencies on the dashboard or the app — it only tests what your browser can tell us about microphone access, right here, right now. Read what it says (or screenshot it) so we know exactly what's failing instead of guessing.</p>
+<button id="run">RUN DIAGNOSTIC</button>
+<div id="out"></div>
+
+<script>
+function row(cls, label, content){
+  const d = document.createElement('div');
+  d.className = 'row ' + cls;
+  d.innerHTML = '<b>' + label + '</b><pre>' + content + '</pre>';
+  document.getElementById('out').appendChild(d);
+}
+
+async function run(){
+  document.getElementById('out').innerHTML = '';
+
+  row('info', 'Page context', JSON.stringify({
+    url: location.href,
+    isSecureContext: window.isSecureContext,
+    userAgent: navigator.userAgent,
+    protocol: location.protocol,
+    hostname: location.hostname,
+  }, null, 2));
+
+  if (!navigator.mediaDevices) {
+    row('fail', 'navigator.mediaDevices', 'undefined — this browser/context does not expose the Media Devices API at all. Usually means: not a secure context, or a very old/locked-down browser.');
+    return;
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioIn = devices.filter(d => d.kind === 'audioinput');
+    row(audioIn.length ? 'ok' : 'fail', 'enumerateDevices() — audio input devices found: ' + audioIn.length,
+      JSON.stringify(devices.map(d => ({kind: d.kind, label: d.label || '(no label until permission granted)'})), null, 2));
+  } catch (e) {
+    row('fail', 'enumerateDevices() threw', e.name + ': ' + e.message);
+  }
+
+  // Try getUserMedia up to 3 times, 1.5s apart -- to check if failures are
+  // transient (device momentarily busy) or consistent (real block).
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      const tracks = stream.getAudioTracks();
+      row('ok', `getUserMedia attempt ${attempt}/3 — SUCCEEDED`, JSON.stringify({
+        trackCount: tracks.length,
+        trackLabel: tracks[0]?.label,
+        trackSettings: tracks[0]?.getSettings ? tracks[0].getSettings() : 'n/a',
+      }, null, 2));
+      tracks.forEach(t => t.stop());
+      break; // no need to keep trying once it works
+    } catch (e) {
+      row('fail', `getUserMedia attempt ${attempt}/3 — FAILED`, e.name + ': ' + e.message);
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+
+  row('info', 'Done', 'If every attempt failed with the SAME error name every time, that is a real, consistent block (not flakiness). If it varied, or succeeded on a later attempt, the device is momentarily busy/contended rather than truly unsupported.');
+}
+
+document.getElementById('run').addEventListener('click', run);
+</script>
+</body>
+</html>
