@@ -46,5 +46,6 @@ sentinel/data/vector_store.db
 sentinel/eval/eval_report.json
 # sentinel/ (portfolio subproject — separate from the jarvis-x agent)
 sentinel/.venv/
+quantum/.venv/
 voices/
 *.sw[a-p]

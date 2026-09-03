@@ -28,16 +28,19 @@ jobs:
       - name: Symlink $HOME/jarvis-x -> checkout dir (matches exec.js's BASE)
         run: ln -sfn "$GITHUB_WORKSPACE" "$HOME/jarvis-x"
       # Portable vs. local infra: jest-runner.js runs every code/test-*.js
-      # indiscriminately, but 5 of the 11 (test-kokoro.js, test-vision.js,
+      # indiscriminately, but several of them (test-kokoro.js, test-vision.js,
       # test-voice.js, test-voice-interaction.js, test-voice-router.js) call
       # real local Ollama/Piper/Kokoro binaries and downloaded model files
       # that don't exist on a clean runner -- they'd fail here every single
       # time through no fault of the code, which is worse than not running
-      # CI at all (a perpetually-red badge nobody trusts). Run only the
-      # 6 that are genuinely self-contained instead.
+      # CI at all (a perpetually-red badge nobody trusts). One more
+      # (test-agent-data-integration.js) reaches CoinGecko over the network.
+      # Run only the 7 that are genuinely self-contained instead.
+      # test-watcher.js qualifies because watcher.js takes an injectable
+      # fetcher, so its tests never open a socket.
       - name: Run portable test suite (excludes voice/vision tests needing local Ollama/Piper/Kokoro)
         run: |
-          for f in test-exec test-guard test-helper test-scheduler test-shell test-validate; do
+          for f in test-exec test-guard test-helper test-scheduler test-shell test-validate test-watcher; do
             echo "▶ code/$f.js"
             node "code/$f.js"
           done

@@ -79,6 +79,12 @@
       "skillPath": "skills/brutalist-skill/SKILL.md",
       "computedHash": "8fc355c4aadb7d29c53ca28bc41be3cd6eea765d121e3737c4dc2d0f90a8effa"
     },
+    "midwit": {
+      "source": "coopersimson96/midwit",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "81debcf9f0db4696e8ff624fb0637fc073f486f2eed773032ae1f31fe2eeee2e"
+    },
     "minimalist-ui": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",
