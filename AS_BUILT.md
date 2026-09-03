@@ -113,9 +113,24 @@ nothing appears outside it.
 `"test": "node --test src/ demo/"` fails on Node 22 with
 `Cannot find module '.../src'` — positional directory arguments are no longer scanned. The
 suite reported `tests 2, pass 0, fail 2`, i.e. **the 47/47 claim had become unrunnable, not
-false**. Bare `node --test` finds all 8 files and passes 47/47.
-**Fix:** `"test": "node --test 'src/**/*.test.js' 'demo/**/*.test.js'"` → 47/47 via
-`npm test`.
+false**.
+
+**Fix:** `"test": "node --test"` (bare, auto-discovery) → 47/47.
+
+> **Why bare, and not a glob.** The obvious fix,
+> `node --test 'src/**/*.test.js' 'demo/**/*.test.js'`, works on Node 22 but is **worse than
+> the bug** on Node 20 — which is what CI runs (`.github/workflows/test.yml:17`). Node 20
+> does not expand those globs, so it prints
+> `Could not find '.../src/**/*.test.js'` **and exits 0**. CI would have gone green while
+> running zero tests. Verified on a real `node v20.18.1`:
+>
+> | Script form | Node 20 | Node 22 |
+> |---|---|---|
+> | `node --test src/ demo/` (original) | 47 found | **0 found, error** |
+> | `node --test 'src/**/*.test.js' …` | **0 found, exits 0** | 47 found |
+> | `node --test` (chosen) | **47 found** | **47 found** |
+>
+> Confirmed end-to-end with a clean `npm ci` under Node 20: **47 pass, 0 fail.**
 
 ### 3.5 The `jj` CLI was a syntax error, and its symlink was dangling
 Two separate faults:
@@ -229,6 +244,15 @@ cd packages/model-gateway && npm test          # → 47/47
 ```
 
 Requires `npm install` at the repo root first — `i18next` is now a declared dependency.
+
+### CI (`.github/workflows/test.yml`, Node 20) was simulated before pushing
+
+| Job | Simulation | Result |
+|---|---|---|
+| `js-suite` | its 6 portable tests, run **without** the `$HOME/jarvis-x` symlink | 6/6 pass — the `exec.js` fix stands on its own |
+| `js-suite` | the same 6, run **with** the symlink still in place | 6/6 pass — the redundant step stays harmless |
+| `model-gateway-suite` | clean `npm ci` + `npm test` on real `node v20.18.1` | 47/47 pass |
+| `web-build` | not simulated — `web/` is untouched by this pass | — |
 
 ---
 

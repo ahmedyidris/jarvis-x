@@ -4,7 +4,7 @@
   "description": "Routing, circuit breaking, budget enforcement, and telemetry for multi-provider LLM calls.",
   "main": "src/gateway.js",
   "scripts": {
-    "test": "node --test 'src/**/*.test.js' 'demo/**/*.test.js'",
+    "test": "node --test",
     "demo": "node demo/run-demo.js"
   },
   "dependencies": {
