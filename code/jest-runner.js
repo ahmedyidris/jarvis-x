@@ -18,11 +18,24 @@ if (!fs.existsSync(absoluteTestPath)) {
     process.exit(1);
 }
 
-console.log(`[HARNESS] Launching isolated test file: ${cleanFileName}`);
-try {
-    // Escape regex characters and force Jest to run this exact filename matching string
-    const escapedRegex = cleanFileName.replace(/\./g, "\\.");
-    execSync(`npx jest --no-cache --rootDir="${baseDir}" --testRegex="${escapedRegex}$"`, { stdio: "inherit" });
-} catch (error) {
-    process.exit(1);
+const fileContent = fs.readFileSync(absoluteTestPath, "utf8");
+
+// Safely route self-executing async scripts to native node threads
+if (fileContent.includes("async ()") && !fileContent.includes("describe(") && !fileContent.includes("test(")) {
+    console.log(`[HARNESS] Routing raw node async execution path: ${cleanFileName}`);
+    try {
+        execSync(`node "${absoluteTestPath}"`, { stdio: "inherit" });
+        process.exit(0);
+    } catch (error) {
+        process.exit(1);
+    }
+} else {
+    console.log(`[HARNESS] Launching standard Jest unit runner: ${cleanFileName}`);
+    try {
+        const escapedRegex = cleanFileName.replace(/\./g, "\\.");
+        execSync(`npx jest --no-cache --rootDir="${baseDir}" --testRegex="${escapedRegex}$"`, { stdio: "inherit" });
+        process.exit(0);
+    } catch (error) {
+        process.exit(1);
+    }
 }
