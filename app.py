@@ -886,3 +886,17 @@ async def execute_command(req: ExecuteRequest, _token=Depends(require_token)):
         raise HTTPException(status_code=504, detail="Command timeout")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.exception_handler(HermesBackendError)
+async def hermes_backend_exception_handler(request, exc):
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "error_class": "HermesBackendError",
+            "message": exc.message,
+            "path": request.url.path
+        }
+    )
