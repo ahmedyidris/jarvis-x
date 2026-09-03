@@ -23,7 +23,7 @@ agree: the repo's own record (`MASTER_PLAN_UPDATED.md:45`, sourced from
 | Machine | Asus Chromebook | `WEEK_1_COMPLETE.md` via `MASTER_PLAN_UPDATED.md:45` |
 | CPU | Intel i5-1135G7, 8 vCPU | same; **confirmed live** by `nproc` → 8 |
 | RAM | **14 GB** | same; **confirmed live** by `free -h` (14Gi total, 12Gi available) |
-| Disk | **72 GB, 6.0 GB free (92% used)** | `df -h $HOME`, 2026-09-03 — the new constraint |
+| Disk | **72 GB, 3.9 GB free (95% used)** | `df -h $HOME`, 2026-09-04 — **the binding constraint**; was 6.0 GB / 92% on 2026-09-03, before the Ollama reinstall cost ~2.1 GB. Re-run `df` before spending disk; this row has moved once already |
 | GPU | none | same |
 | OS | Crostini, Debian 12, kernel 6.6.119 | same |
 | Ollama | 4 models: `moondream`, `qwen2.5-coder:7b`, `SILMA-9B-Instruct` (Q4_K_M), `nomic-embed-text` | `ollama list`, 2026-09-04 (`AS_BUILT.md` §1) — the `qwen2.5:7b + 3b` set `WEEK_1_COMPLETE.md` records is stale |
