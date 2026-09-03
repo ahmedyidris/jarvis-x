@@ -39,23 +39,24 @@ confirm RAM and free disk today. Everything below holds at either 14 or 16 GB.
 
 ---
 
-## 2. Completion: 65%
+## 2. Completion: 66%
 
 One number, derived from the runbook's weights. **The weights are the runbook's;
 the per-phase scores are judgment anchored to cited evidence, not measurements** —
-so treat 65% as a defensible estimate, not a reading off an instrument. Of the
-five phases, only **Test** moved from the prior 62% figure, and only as far as
-this session's measurements on Ahmed's machine justify (`AS_BUILT.md` §1–§2,
-2026-09-03) — the other four phase scores are unchanged.
+so treat 66% as a defensible estimate, not a reading off an instrument. Of the
+five phases, only **Test** moved from the prior 65% total (62% originally), and
+only as far as this session's measurements on Ahmed's machine justify
+(`AS_BUILT.md` §1–§2, 2026-09-03 and 2026-09-04) — the other four phase scores
+are unchanged.
 
 | Phase | Weight | Score | Contribution | Basis |
 |---|---|---|---|---|
 | Planning | 15 | 90% | 13.5 | `CONSTITUTION.md`, 4 decision records, `AS_BUILT.md`, this plan, triage — all current |
 | Setup | 10 | 85% | 8.5 | Toolchain, Ollama + 4 models, Piper/Kokoro voices, Docker image builds and reaches healthy, CI green on 3 jobs |
 | Build | 45 | 60% | 27.0 | Verified: path jail, validation (23/23), data layer, scheduler, i18n/a11y, voice routing, model-gateway (47/47), `jj` CLI, FastAPI app, TTS engine. Missing/stubbed: Electron (3 files), `jj status` stub, `paper-trading` unwired, `JX_NET` dead |
-| Test | 20 | 60% | 12.0 | Measured on Ahmed's machine, 2026-09-03: JS suite **19/20** (up from 13/19); of the 6 files this score previously called unmeasured, **5 now pass in full** — `test-voice.js` 3/3, `test-voice-router.js` 8/8 (incl. the en-gb round-trip), `test-voice-interaction.js` 4/4, `test-kokoro.js` 5/5, `test-agent-data-integration.js` 5/5 — and the 6th, `test-vision.js`, fails for a reason now identified: Ollama's own install is missing its `llama-server` binary, not a missing `moondream` model (`AS_BUILT.md` §1). model-gateway unchanged at 47/47. **Not moved:** `test-guard`/`test-shell` are still zero-assertion stubs; Python suites and E2E remain unmeasured this session — those are why this is 60%, not the ~85%+ the raw pass rate alone would suggest |
+| Test | 20 | 65% | 13.0 | Measured on Ahmed's machine: JS suite **20/20** (up from 19/20 on 2026-09-03, up from 13/19 in the original container run). The one remaining gap from the prior score — `test-vision.js` — is now fixed: Ollama's install was missing its `llama-server` binary; reinstalling it (no model re-pulled) brought vision to 3/3 and the full suite to 20/20 (`AS_BUILT.md` §1). model-gateway unchanged at 47/47. **Not moved, and still the dominant reason this isn't higher:** `test-guard.js`/`test-shell.js` are still zero-assertion stubs that pass unconditionally, the Python suites (`sentinel`, app-lock) are still entirely unverified, and E2E is still one script — none of that was touched by this pass, and it's a bigger gap than the one JS file that just got fixed |
 | Delivery | 10 | 40% | 4.0 | Docker works; `.deb` ships an empty `/opt/jarvis-x`; remote access is git-only; `web/` builds |
-| | | | **65.0%** | |
+| | | | **66.0%** | |
 
 **Why not 91%.** That figure was `scripts/status.sh`'s 22/24 milestones, and
 **17 of its 24 checks are bare `[ -f ]` file-existence tests** — one of which
@@ -63,17 +64,19 @@ passed happily while `code/shell.js` held the jail escape fixed in PR #2. It
 measured file presence, not function. `AS_BUILT.md` §5 has the full
 reconciliation of all four historical figures.
 
-**Why not the ~70% this section once forecast if all six subsystems passed.**
-Five of six did — but the sixth (vision) still fails, just for a different,
-now-diagnosed reason, and three separate Test-quality gaps that this
-measurement pass did not touch are unchanged: `test-guard.js`/`test-shell.js`
-still assert nothing, the Python suites are still unverified, and E2E is still
-one script. Test moved from 45% to 60% — real, but short of the optimistic
-full-pass case.
+**Why the move from 65% to 66% is small despite the JS suite going fully
+green.** All six previously-unmeasured subsystems now pass, including vision —
+the full optimistic case this section once forecast. But the forecast's own
+premise was that Test's score was capped mainly by those six unknowns; in
+practice `test-guard`/`test-shell`'s zero assertions, the unverified Python
+suites, and the thin E2E script were already the larger, unchanged discount
+before this fix, and remain exactly as large now. Closing the last 1 of 20 JS
+files moves the total by one point, not several.
 
 **Biggest remaining uncertainty:** Build (unchanged — Electron, `jj status`,
-`paper-trading` wiring) and the Test-quality gaps just listed, not the six
-previously-unmeasured subsystems, which are now measured.
+`paper-trading` wiring) and the three Test-quality gaps just listed. The six
+previously-unmeasured subsystems are now fully resolved and are no longer an
+uncertainty at all.
 
 ---
 
@@ -151,11 +154,15 @@ qubits for anything user-facing.
 
 ## 6. What would change this plan
 
-- **Task 1 is done** (§5) — measured 2026-09-03 on Ahmed's machine. 5 of the 6
-  previously-unmeasured subsystems pass in full; the 6th (vision) fails for a
-  newly-diagnosed reason (broken Ollama install, not a missing model). §2 moved
-  to 65%, short of the ~70% forecast here, because the vision fix didn't land
-  and the separate `test-guard`/`test-shell`/Python/E2E gaps are untouched.
+- **Task 1 is done** (§5). Measured 2026-09-03: 5 of the 6 previously-unmeasured
+  subsystems passed in full; the 6th (vision) failed for a newly-diagnosed
+  reason (Ollama's install was missing its `llama-server` binary, not a
+  missing model). Fixed 2026-09-04 — reinstalled Ollama, no model re-pulled,
+  JS suite now 20/20. §2 moved to only 66%, still short of the ~70% forecast
+  here, because that forecast under-weighted `test-guard`/`test-shell`'s
+  zero-assertion stubs and the unverified Python/E2E gaps, which this pass
+  didn't touch and which turned out to be the bigger constraint than the six
+  subsystems ever were.
 - **A ruling against paper trading.** Deletes `code/paper-trading.js`,
   `config/trading.json`, and needs a `CONSTITUTION.md` amendment.
 - **The RTX 3060 12 GB.** Unlocks local 14B coding models (runbook §4) *and*

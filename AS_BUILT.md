@@ -2,8 +2,9 @@
 
 **Generated:** 2026-09-03 · **Supersedes:** every completion percentage in the archive
 **Method:** Sessions 1–4 of `JARVIS_X_REBUILD_RUNBOOK.md`, run against commit `8643e6e`,
-with §1 and §6.1 below re-measured the same day directly on Ahmed's machine (post-merge,
-commit `13efc52`) rather than the ephemeral cloud container Sessions 1–4 ran in.
+with §1 and §6.1 re-measured 2026-09-03 directly on Ahmed's machine (post-merge, commit
+`13efc52`) rather than the ephemeral cloud container Sessions 1–4 ran in, and §1's
+`test-vision.js` entry updated again 2026-09-04 after fixing the Ollama install it found.
 
 Every claim below cites a command output, a file path, or a test name. Claims that could
 not be verified are quarantined in [§6 Unverified](#6-unverified--needs-your-input) rather
@@ -13,7 +14,7 @@ than estimated.
 
 ## 1. The headline number
 
-**19 of 20 JavaScript test files pass, measured on Ahmed's machine. 47 of 47 model-gateway
+**20 of 20 JavaScript test files pass, measured on Ahmed's machine. 47 of 47 model-gateway
 tests pass.**
 
 That is the whole of what the tests prove. There is no single "percent complete" figure in
@@ -22,7 +23,7 @@ not either.
 
 | Suite | Command | Result |
 |---|---|---|
-| JS suite | `node jest-runner.js` | **19 passed, 1 failed** (exit 1) |
+| JS suite | `node jest-runner.js` | **20 passed, 0 failed** (exit 0) |
 | model-gateway | `npm test` in `packages/model-gateway` | **47 passed, 0 failed** |
 | Python — sentinel | `pytest sentinel/tests/test_smoke.py` | not verifiable (deps absent) |
 | Python — app lock | `pytest test_app_generation_lock.py` | not verifiable (`fastapi` absent) |
@@ -30,22 +31,61 @@ not either.
 
 Before the fixes in §3, the JS suite was **9 passed, 10 failed**. At the time §1 was first
 written (ephemeral container, Sessions 1–4) it stood at **13 passed, 6 failed** out of 19
-files; the suite has since grown to 20 files (`test-watcher.js` added) and, measured on the
-real machine, 19 of the 20 now pass.
+files; the suite grew to 20 files (`test-watcher.js` added), and a day-1 re-measurement on
+the real machine (2026-09-03) found **19 passed, 1 failed** — only `test-vision.js` still
+red, and for a reason distinct from the other 5 (below).
 
-### The 1 remaining JS failure is a broken local Ollama install, not a missing model
+### `test-vision.js` is now fixed — the real cause was a broken local Ollama install, not a missing model
 
 The original **13/19** entry assumed all 6 then-failing files were blocked by missing local
-dependencies (Ollama, Piper voices, Kokoro, network). Measured directly on Ahmed's machine,
-that assumption was right for 5 of the 6 and wrong for the 6th:
+dependencies (Ollama, Piper voices, Kokoro, network). That assumption was right for 5 of the
+6 (§2) and wrong for the 6th. Measured directly on Ahmed's machine, 2026-09-03:
 
-| Test file | Blocked by | Evidence |
+- `code/vision.js:3` requests `moondream`; `ollama list` showed `moondream:latest` already
+  present (1.7 GB) — so the failure was never a missing model.
+- `node code/test-vision.js` → `Vision failed: Ollama returned 500` on all 3 cases. Direct
+  `curl localhost:11434/api/generate -d '{"model":"moondream","prompt":"test","images":[]}'`
+  → HTTP 500, body: `"error starting llama-server: llama-server binary not found (checked:
+  /usr/local/lib/ollama/llama-server, ...)."`
+- `ls -l /usr/local/lib/ollama/llama-server` confirmed the file was absent. Ollama's own
+  binary distribution was incomplete on this machine — the server component every model
+  (not just moondream) depends on to run inference was simply not there.
+
+**Fix, 2026-09-04:** reinstalled Ollama via the same bootstrap the repo already uses
+(`bootstrap/install.sh:36`): `curl -fsSL https://ollama.com/install.sh | sh`. This
+overwrites Ollama's own binaries/libraries only — it does not touch `OLLAMA_MODELS`
+(`/usr/share/ollama/.ollama/models`), so no model was re-downloaded. Deliberately **not**
+done: the `cmake -S llama/server --preset cpu && cmake --build --preset cpu` the 500's own
+error message suggests — that needs build tooling and disk headroom this machine doesn't
+have to spare (§6.1).
+
+**Verified after the fix:**
+
+| Check | Command | Result |
 |---|---|---|
-| `test-vision.js` | **Ollama itself is broken, not the model.** `code/vision.js:3` requests `moondream`; `ollama list` shows `moondream:latest` already present (1.7 GB, pulled 17h before this measurement) — so pulling it again fixes nothing, and wasn't run. | `node code/test-vision.js` → `Vision failed: Ollama returned 500` on all 3 cases. Direct `curl localhost:11434/api/generate -d '{"model":"moondream","prompt":"test","images":[]}'` → HTTP 500, body: `"error starting llama-server: llama-server binary not found (checked: /usr/local/lib/ollama/llama-server, ...). Run 'cmake -S llama/server --preset cpu && cmake --build --preset cpu' first"`. Rebuilding Ollama's `llama-server` binary is outside the scope of this pass. |
+| Binary present | `ls -l /usr/local/lib/ollama/llama-server` | Present — genuine ELF executable (`file` confirms `ELF 64-bit LSB executable, x86-64, dynamically linked`), not a stub |
+| Models intact, nothing re-fetched | `ollama list` | Same 4 models as before the reinstall: `moondream:latest`, `qwen2.5-coder:7b`, `hf.co/bartowski/SILMA-9B-Instruct-v1.0-GGUF:Q4_K_M`, `nomic-embed-text:latest` — same IDs and sizes |
+| Service healthy | `systemctl status ollama` | `active (running)`, started cleanly post-reinstall |
+| Inference works for a non-vision model too | `ollama run qwen2.5-coder:7b "hi"` | Responded ("Hello! How can I assist you today?") in ~28s — confirms the breakage was Ollama-wide, not moondream-specific |
+| Vision test | `node code/test-vision.js` | **3/3 passed** |
+| Full JS suite | `node jest-runner.js` | **20/20 passed** |
 
-The other 5 previously-failing files now pass in full on this machine — see §2, which is
-where their evidence now lives. **None of the remaining failure is application code.** It is
-this machine's Ollama installation missing a binary Ollama itself needs to serve any model.
+**Cost:** `df -h $HOME` before the reinstall: `72G total, 6.0G avail, 92% used`. After:
+`72G total, 3.9G avail, 95% used` — the reinstall itself cost **~2.1 GB** (the current
+Ollama release ships a `libggml-cpu-*.so` per CPU microarchitecture plus CUDA/Vulkan
+scaffolding even though this machine uses none of it — `du -sh /usr/local/lib/ollama` →
+2.1 GB). No model was re-pulled; the entire cost is Ollama's own binaries. **Disk is now
+tighter than before this fix (3.9 GB free, 95% used) — see §6.1.**
+
+**Correction to the task that requested this fix:** it was framed as explaining the outage
+in commit `8643e6e` ("real outage, not hypothetical"). Reading that commit: its outage was
+a **supervisord crash-loop** from a missing `logs/supervisord/` directory failing
+supervisord's own startup validation for the (already-disabled) `ollama_DISABLED` stanza —
+unrelated to the `llama-server` binary or Ollama's ability to serve models. The two are
+separate incidents; this fix does not "explain" `8643e6e`, and nothing here has been written
+into the docs claiming otherwise. `config/supervisord.conf`'s `ollama_DISABLED` stanza
+(`autostart=false`, systemd owns the process now) is unaffected by today's fix and doesn't
+need revisiting on this basis.
 
 ---
 
@@ -64,9 +104,10 @@ this machine's Ollama installation missing a binary Ollama itself needs to serve
 | Voice accent handling (Piper) | `test-voice-accents.js` 4/4, `test-voice-full-system.js` 9/9, `test-voice.js` **3/3** on Ahmed's machine (en_US-amy, ar_JO-kareem, ar-AE-emirati-female all round-trip) |
 | Voice interaction (transcription + language routing) | `test-voice-interaction.js` **4/4** on Ahmed's machine (`node code/test-voice-interaction.js`) — English and Arabic transcription, both language routes |
 | Kokoro accent synthesis | `test-kokoro.js` **5/5** on Ahmed's machine (`node code/test-kokoro.js`) — American, British and Australian-fallback accents round-trip; unknown accent correctly rejected |
+| Vision (`code/vision.js`, Ollama `moondream`) | `test-vision.js` **3/3** on Ahmed's machine, 2026-09-04 (`node code/test-vision.js`), after reinstalling Ollama to restore its missing `llama-server` binary — see §1 |
 | Live data provider plumbing | `test-live-data.js` 7/7 |
 | Model listing | `test-list-models.js` 3/3 |
-| Watcher (page-diff monitor) | `test-watcher.js` — file added since the container session, passes as part of the 19/20 measured above |
+| Watcher (page-diff monitor) | `test-watcher.js` — file added since the container session, passes as part of the 20/20 measured above |
 | `jj` CLI (`ask`, `plan`, `status`) | `./jj status` runs, after the fix in §3.5 |
 
 ---
@@ -223,7 +264,11 @@ comfortable headroom (12 GB available of 14 GB). **Disk does not: only 6.0 GB is
 72 GB (92% used).** RAM was the open question the runbook posed; on these numbers it is
 answered and is not the binding constraint — disk is. Any decision that spends disk (model
 downloads, new dependencies — see `CAPABILITIES.md` §3.2 on OCR) should be sized against
-6.0 GB, not against the 14 GB RAM figure.
+current free space, not against the 14 GB RAM figure.
+
+**Update, 2026-09-04:** the Ollama reinstall in §1 cost a further ~2.1 GB. `df -h $HOME`
+now reads **3.9 GB avail, 95% used** — re-check `df` before sizing any future disk-spending
+decision against the 6.0 GB figure above; it's stale by one day already.
 
 Software versions in the container table above are the versions **the Sessions 1–4 test
 results were produced under**, which is their only remaining legitimate use.
@@ -262,7 +307,7 @@ the file is untouched and still unwired.
 ## 7. What runs, and how
 
 ```bash
-node jest-runner.js                            # JS suite → 19/20 (Ahmed's machine, 2026-09-03)
+node jest-runner.js                            # JS suite → 20/20 (Ahmed's machine, 2026-09-04)
 cd packages/model-gateway && npm test          # → 47/47
 ./jj status                                    # CLI smoke (stub output, see §4)
 ```
