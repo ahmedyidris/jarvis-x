@@ -61,13 +61,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install pytest
-      # Same portability rule as the JS job. These two files need only pytest
+      - run: pip install pytest requests
+      # Same portability rule as the JS job. These need only pytest, requests
       # and the repo itself; the other Python tests here import fastapi or
       # reach a live backend and would be red on every run through no fault
       # of the code.
       - name: Run portable Python tests
         run: python -m pytest test_hermes_ask_timeout_and_log.py test_hermes_market_context.py -q
+      # automation/ had never been run by CI at all. Both fidelity suites are
+      # offline by construction -- the numeric guard is pure, and both the
+      # Ollama and the Gemini calls are injected or monkeypatched -- so the
+      # only thing that kept them off the runner was that nobody added them.
+      # rootdir differs (content_generator is imported as a top-level module),
+      # hence the separate step.
+      - name: Run portable content-pipeline tests
+        working-directory: automation/phase-b
+        run: python -m pytest test_content_generator_numeric_fidelity.py test_content_generator_semantic_fidelity.py -q
 
   model-gateway-suite:
     runs-on: ubuntu-latest
