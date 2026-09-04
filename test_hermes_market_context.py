@@ -9,8 +9,11 @@ silence for the model to fill, and that the injected text forbids claiming a
 trade was placed.
 """
 import subprocess
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 import hermes as hermes_module
+
+RULES = Path(__file__).parent / "memory" / "rules.md"
 
 
 def _core(tmp_path, monkeypatch):
@@ -125,3 +128,31 @@ def test_the_real_brief_runs_and_never_claims_to_have_traded():
     assert "WHERE PRICES SIT" in out
     for forbidden in ["position opened", "trade placed", "I bought", "I sold"]:
         assert forbidden not in out
+
+
+# ── memory/rules.md must not contradict CONSTITUTION.md ────────────────────
+# This drifted twice in one evening: knowledge/Guidelines.md, then rules.md,
+# both still asserting "no trading exists" after CONSTITUTION.md IV was
+# amended to permit a gated simulation. rules.md is the worse of the two,
+# because its first three bullets are sent to the model on EVERY query -- a
+# false one is re-asserted as authoritative context hundreds of times a day.
+# These are the only two claims a future edit could get wrong in the direction
+# that matters, so they are pinned rather than the whole file.
+
+def test_the_always_sent_bullets_do_not_deny_that_paper_trading_exists():
+    bullets = [l for l in RULES.read_text().splitlines() if l.strip().startswith("-")][:3]
+    text = " ".join(bullets).lower()
+    for stale in ["nothing in this system places trades", "no trading bot",
+                  "no real-money trading exists"]:
+        assert stale not in text, (
+            f"rules.md's always-sent bullets still claim {stale!r}, which "
+            f"CONSTITUTION.md IV and code/paper-trading.js contradict")
+
+
+def test_rules_still_forbids_the_things_that_are_actually_forbidden():
+    """Correcting a stale rule must not quietly drop the real prohibition."""
+    text = RULES.read_text().lower()
+    assert "no real money moves" in text, "the real-money prohibition must survive"
+    assert "no real-money trading and no broker connection" in text
+    assert "no autonomous trade execution" in text, (
+        "autonomous execution is ungranted; rules.md must keep saying so")
