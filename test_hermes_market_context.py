@@ -21,6 +21,14 @@ def _core(tmp_path, monkeypatch):
     return hermes_module.HermesCore()
 
 
+def _ollama_result(text="ok"):
+    r = MagicMock()
+    r.returncode = 0
+    r.stdout = '{"response": "%s"}' % text
+    r.stderr = ""
+    return r
+
+
 def _brief_result(stdout="btc  insufficient", returncode=0):
     r = MagicMock()
     r.returncode = returncode
@@ -156,3 +164,42 @@ def test_rules_still_forbids_the_things_that_are_actually_forbidden():
     assert "no real-money trading and no broker connection" in text
     assert "no autonomous trade execution" in text, (
         "autonomous execution is ungranted; rules.md must keep saying so")
+
+
+# ── ask()'s log flag, and the docstring that denied it ────────────────────
+# code/engineer/explain.py justified bypassing Hermes on the grounds that
+# ask() "unconditionally logs every call into real chat history". Commit
+# 6b7e73a made that false and the comment went stale for months -- long enough
+# that a decision record was nearly written on top of it. These two tests keep
+# the flag working and keep the docstring honest about it.
+
+def test_ask_with_log_false_writes_nothing_to_conversations(tmp_path, monkeypatch):
+    core = _core(tmp_path, monkeypatch)
+    try:
+        before = core.db.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        with patch("subprocess.run", return_value=_ollama_result("hi")):
+            core.ask("anything", model="qwen2.5:3b", context=False, log=False)
+        after = core.db.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        assert after == before, "log=False must leave chat history untouched"
+    finally:
+        core.close()
+
+
+def test_ask_logs_by_default(tmp_path, monkeypatch):
+    """The flag is opt-out, not opt-in -- the default must keep logging."""
+    core = _core(tmp_path, monkeypatch)
+    try:
+        before = core.db.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        with patch("subprocess.run", return_value=_ollama_result("hi")):
+            core.ask("anything", model="qwen2.5:3b", context=False)
+        after = core.db.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        assert after == before + 1
+    finally:
+        core.close()
+
+
+def test_explain_py_no_longer_asserts_the_expired_reason():
+    doc = (Path(__file__).parent / "code" / "engineer" / "explain.py").read_text()
+    assert "unconditionally logs" not in doc or "NO LONGER TRUE" in doc, (
+        "explain.py must not state the pre-6b7e73a behaviour as current fact")
+    assert "log=False" in doc, "and it should name the parameter that replaced it"

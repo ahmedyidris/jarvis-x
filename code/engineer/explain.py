@@ -2,9 +2,19 @@
 report (What I found / What I recommend / What I can do) using the local
 model.
 
-Calls Ollama directly -- never via hermes.py's HermesCore.ask(), which
-unconditionally logs every call into real chat history (see the wiki
-finding recorded 2026-09-01, anchored to hermes.py and code/router.py).
+Calls Ollama directly rather than via hermes.py's HermesCore.ask().
+
+The original reason -- recorded 2026-09-01 -- was that ask() logged every
+call into real chat history unconditionally. THAT IS NO LONGER TRUE. Commit
+6b7e73a added a `log` parameter, honoured at four sites in ask()
+(hermes.py:354, 363, 369, 373), so ask(..., log=False) leaves
+`conversations` untouched.
+
+The direct call stays for now because nothing has measured what routing
+through ask() would cost here, not because it cannot be done. See
+DECISION_RECORD_hermes-backbone.md 3, option D: this is one of the call
+sites that decision covers, and it should move or stay on evidence rather
+than on a reason that expired.
 """
 import requests
 

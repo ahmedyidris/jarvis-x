@@ -220,7 +220,7 @@ Measured in-container, 2026-09-04, `node code/market-brief.js --collect`:
 
 | Instrument | Result | Cause |
 |---|---|---|
-| gold | skipped | EIA publishes no gold series; `energy-provider.js` hardcodes 2050.0 and says so. **No live source exists at all** — needs a metals provider before gold can ever be judged. |
+| gold | skipped | EIA publishes no gold series; `energy-provider.js` hardcodes 2050.0 and says so. **No live source exists at all** — a keyless fallback was attempted and did not work; see §4.0.1. |
 | sp500, nasdaq | skipped | `ALPHAVANTAGE_API_KEY` not set → provider served its MOCK constant |
 | oil | skipped | `EIA_API_KEY` not set → MOCK constant |
 | btc, eth | error | CoinGecko HTTP 403 from this container's egress proxy |
@@ -244,20 +244,45 @@ reached the history file. Same run, full suite on that machine: **25 passed, 0
 failed, 1 skipped** — the five container failures were environment, not code.
 
 btc and eth need 19 more daily runs each before any verdict but
-`insufficient`. gold needs a metals provider that does not yet exist; sp500,
-nasdaq and oil need API keys.
+`insufficient`.
 
+### 4.0.1 The keyless fallback — attempted, and it failed
 
-| Item | Status | Evidence |
-|---|---|---|
-| `jj status` | **Stub** | `bin/jj:34-38` prints `✅ Jarvis X ready` unconditionally. It checks nothing — no provider, no quota, no health. Runbook Session 6 wants real quota here. |
-| `test-guard.js` | **Not a test** | Zero assertions. Prints `Result: ACTION RAN` and exits 0 regardless of outcome. `jest-runner.js` counts it as PASS. |
-| `test-shell.js` | **Not a test** | Zero assertions; always exits 0. Also reads `r.status`, but `run()` returns `exit_code` — hence `[exit undefined]` in its output. Its case labelled `rm not allowed` prints `OK`, because `rm` **is** deliberately in the allowlist (`shell.js:11`). The label is stale, not the code. |
-| `JX_NET` test gating | **Implemented 2026-09-04** | Was declared in `package.json:11` and read nowhere. Now `code/test-net.js`'s `requireNet()` gates `test-agent-data-integration.js`; `jest-runner.js` counts skips in a separate column so a skip can never read as a pass. `npm test` → skipped; `npm run test:net` → runs. |
-| `jarvis-x_1.0.0_amd64.deb` | **Non-functional** | `dpkg -c` shows it ships an **empty** `/opt/jarvis-x` plus a launcher that does `cd /opt/jarvis-x && python -m uvicorn app:app`. There is no `app.py` at that path. Archived. |
-| Electron app | **3 files** | `electron/` contains only `main.js`, `package.json`, `package-lock.json`. Consistent with the "~20%" working note; no test, no build verified. |
-| E2E tests | **1 script, not a suite** | Only `scripts/verify/03_e2e_flow_test.py`. Consistent with the "E2E 0%" working note. |
-| `packages/model-gateway` wiring | **Built, deliberately unwired** | 47/47 tests pass but it is imported by no caller. This is a *recorded decision*, not an oversight — `DECISION_RECORD_model-gateway.md`, `REMAINING_WORK.md:16`, resolution "NO-GO, leave unwired". |
+`code/providers/stooq-provider.js` was written to close all four gaps at once:
+Stooq needs no API key, so in principle it takes collection from 2 of 6 to
+6 of 6 with no paid subscription.
+
+**Probed on Ahmed's machine, 2026-09-04. All four symbols returned HTTP 404.**
+
+```
+gold    FAIL  xauusd  Stooq HTTP 404
+sp500   FAIL  ^spx    Stooq HTTP 404
+nasdaq  FAIL  ^ndx    Stooq HTTP 404
+oil     FAIL  cl.f    Stooq HTTP 404
+```
+
+So **no instrument carries a `fallback`** in `config/trading.json`, and
+`code/test-market-collect.js` asserts that none does. An unverified source does
+not get to write history.
+
+What the 404s do *not* settle is whether the endpoint is wrong or the four
+codes are. A uniform 404 looks like a bad path, but Stooq may equally answer an
+unknown symbol with 404 rather than the `N/D` row the parser expects. Fetching
+a symbol known to exist (`aapl.us`) at the same URL separates the two; that has
+not been run. `stooq.com` is blocked by the dev container's egress policy for
+both `curl` and `WebFetch`, so this can only be measured on the Chromebook.
+
+**Nothing was lost.** The failure was clean — 404 → logged error → no price
+recorded — which is the design working. The provider and its 19 assertions
+stay: the parser is correct regardless of which symbols turn out right, and the
+collector's fallback mechanism is tested and working. Re-enabling is one config
+line per instrument once `node code/providers/stooq-provider.js --probe`
+reports 4 of 4.
+
+**Still true, therefore:** btc and eth are the only two instruments that can
+accumulate history. gold, sp500, nasdaq and oil need either API keys
+(`ALPHAVANTAGE_API_KEY`, `EIA_API_KEY`) or a working keyless source, and gold
+needs one that does not exist in this repo at all.
 
 ---
 

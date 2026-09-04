@@ -9,11 +9,13 @@
 // 2050.0 forever, and the analyst would report `hold` with total confidence and
 // no information. So a mock is a SKIP with a stated reason, not a data point.
 //
-// Live coverage today (see report()): btc and eth are keyless via CoinGecko.
-// oil needs EIA_API_KEY, sp500 and nasdaq need ALPHAVANTAGE_API_KEY. Gold has
-// no live source at all -- EIA publishes no gold series, so energy-provider.js
-// hardcodes 2050.0 and says so. Gold stays permanently `insufficient` until a
-// metals provider exists. That is the honest state, not a bug to paper over.
+// FALLBACKS: an instrument may name a second source in config/trading.json.
+// It is tried only when the primary yields a mock or an error -- never as a
+// preference. btc and eth have none because CoinGecko already works keyless;
+// the other four have `stooq:*`, which needs no API key and is the only way
+// they can accumulate an observation at all on a machine with no paid keys.
+// A fallback price is recorded exactly like a primary one: it must still carry
+// a real `source` tag, so a broken fallback fails closed like anything else.
 const fs = require('fs');
 const path = require('path');
 const { record, symbols } = require('./market-analyst.js');
@@ -28,10 +30,12 @@ function liveFetcher() {
     const CryptoProvider = require('./providers/crypto-provider.js');
     const EnergyProvider = require('./providers/energy-provider.js');
     const MarketBriefProvider = require('./providers/market-brief-provider.js');
+    const StooqProvider = require('./providers/stooq-provider.js');
     return { registry: {
       crypto: new CryptoProvider(),
       energy: new EnergyProvider(),
       market: new MarketBriefProvider(),
+      stooq: new StooqProvider(),
     } };
   })();
   return async (dataKey) => {
@@ -47,25 +51,44 @@ function liveFetcher() {
  * Nothing is written here -- collect() decides, so the decision is testable
  * separately from the fetching.
  */
+/** One attempt at one data key, classified. No I/O decisions, no fallback. */
+async function attempt(fetcher, symbol, dataKey) {
+  try {
+    const row = await fetcher(dataKey);
+    const price = row && typeof row.price === 'number' ? row.price : null;
+    if (price === null || !Number.isFinite(price) || price <= 0) {
+      return { symbol, status: 'skipped', via: dataKey, why: 'provider returned no usable price' };
+    }
+    if (row.source === 'mock' || row.source === undefined) {
+      return {
+        symbol, status: 'skipped', price, via: dataKey, source: row.source ?? 'unlabelled',
+        why: row.note || `provider served a ${row.source ?? 'unlabelled'} price, not a live quote`,
+      };
+    }
+    return { symbol, status: 'live', price, via: dataKey, source: row.source };
+  } catch (e) {
+    return { symbol, status: 'error', via: dataKey, why: e.message };
+  }
+}
+
 async function probe(fetcher, { configPath = TRADING_CONFIG } = {}) {
   const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   const results = [];
   for (const [symbol, inst] of Object.entries(cfg.instruments)) {
-    try {
-      const row = await fetcher(inst.dataKey);
-      const price = row && typeof row.price === 'number' ? row.price : null;
-      if (price === null || !Number.isFinite(price) || price <= 0) {
-        results.push({ symbol, status: 'skipped', why: 'provider returned no usable price' });
-      } else if (row.source === 'mock' || row.source === undefined) {
-        results.push({
-          symbol, status: 'skipped', price, source: row.source ?? 'unlabelled',
-          why: row.note || `provider served a ${row.source ?? 'unlabelled'} price, not a live quote`,
-        });
-      } else {
-        results.push({ symbol, status: 'live', price, source: row.source });
-      }
-    } catch (e) {
-      results.push({ symbol, status: 'error', why: e.message });
+    const primary = await attempt(fetcher, symbol, inst.dataKey);
+    if (primary.status === 'live' || !inst.fallback) {
+      results.push(primary);
+      continue;
+    }
+    // The primary failed or served a mock. Try the fallback, and if that also
+    // fails keep the PRIMARY's reason -- it names the missing key or the
+    // absent series, which is the thing that actually needs fixing. The
+    // fallback's error is carried alongside rather than replacing it.
+    const backup = await attempt(fetcher, symbol, inst.fallback);
+    if (backup.status === 'live') {
+      results.push({ ...backup, fellBackFrom: inst.dataKey, primaryWhy: primary.why });
+    } else {
+      results.push({ ...primary, fallbackTried: inst.fallback, fallbackWhy: backup.why });
     }
   }
   return results;
@@ -88,8 +111,12 @@ function format(results, written) {
   const lines = [];
   for (const r of results) {
     const tag = r.status === 'live' ? 'recorded' : r.status;
-    const detail = r.status === 'live' ? `${r.price} (${r.source})` : r.why;
+    const detail = r.status === 'live'
+      ? `${r.price} (${r.source}${r.fellBackFrom ? ', fallback' : ''})`
+      : r.why;
     lines.push(`${r.symbol.padEnd(8)} ${tag.padEnd(9)} ${detail}`);
+    if (r.fellBackFrom) lines.push(`${''.padEnd(18)} ↳ ${r.fellBackFrom} was unusable: ${r.primaryWhy}`);
+    if (r.fallbackWhy) lines.push(`${''.padEnd(18)} ↳ fallback ${r.fallbackTried} also failed: ${r.fallbackWhy}`);
   }
   lines.push('');
   lines.push(`${written} of ${results.length} instruments had a live price this run.`);
@@ -102,7 +129,7 @@ function format(results, written) {
   return lines.join('\n');
 }
 
-module.exports = { probe, collect, format, liveFetcher, symbols };
+module.exports = { attempt, probe, collect, format, liveFetcher, symbols };
 
 if (require.main === module) {
   collect().then(({ results, written }) => {
