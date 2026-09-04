@@ -15,14 +15,31 @@ const BaseProvider = require('./base-provider');
 // account and no quota headers. That makes it the only source found that can
 // close all four gaps at once on a machine with no paid subscriptions.
 //
-// WHAT IS NOT VERIFIED HERE: the symbol codes below. This container's egress
-// proxy returns 403 for stooq.com (the same block that made CoinGecko look
-// broken until it was run on the real machine), so the parser is tested
-// exhaustively offline and the symbols are confirmed by running
-// `node code/providers/stooq-provider.js --probe` on a machine with real
-// egress. Until that probe passes, treat the symbol table as a hypothesis.
-// fetch() surfaces an unknown symbol as an explicit error rather than a price,
-// so a wrong code cannot quietly become a recorded observation.
+// STATUS: NOT WIRED IN. Probed on the real machine 2026-09-04 and all four
+// symbols returned HTTP 404:
+//
+//   gold    FAIL  xauusd  Stooq HTTP 404
+//   sp500   FAIL  ^spx    Stooq HTTP 404
+//   nasdaq  FAIL  ^ndx    Stooq HTTP 404
+//   oil     FAIL  cl.f    Stooq HTTP 404
+//
+// So config/trading.json carries no `fallback` for any instrument. This file
+// is kept because the parser is correct regardless of which symbols turn out
+// to be right, and because the collector's fallback mechanism it was written
+// for is tested and working -- re-enabling is one config line per instrument.
+//
+// WHAT THE 404s DO NOT TELL US: whether the endpoint below is wrong or the
+// four codes are. A uniform 404 looks like a bad path, but Stooq may equally
+// answer an unknown symbol with 404 rather than the N/D row this parser was
+// written for. Fetching a symbol known to exist (aapl.us) at this same URL
+// separates the two, and that has not been run. Do not guess a third time:
+// measure first.
+//
+//   node code/providers/stooq-provider.js --probe
+//
+// Nothing was at risk from the wrong guess, which was the point of the
+// design: fetch() surfaces an unknown symbol as an explicit error rather
+// than a price, so a bad code cannot quietly become a recorded observation.
 
 // Stooq symbol per instrument. Index symbols carry a leading ^ which must be
 // percent-encoded in the query string.

@@ -126,10 +126,27 @@ await test('the summary names what was skipped instead of quietly reporting 5', 
 });
 
 // ── fallbacks ─────────────────────────────────────────────────────────────
-// config/trading.json gives the four keyless-source-less instruments a
-// `stooq:*` fallback. It is tried ONLY when the primary yields a mock or an
-// error -- never as a preference -- and a fallback price must clear exactly
-// the same source check as a primary one.
+// An instrument may carry a `fallback` data key, tried ONLY when the primary
+// yields a mock or an error -- never as a preference -- and a fallback price
+// must clear exactly the same source check as a primary one.
+//
+// These tests use their own config fixture rather than the shipped one. The
+// mechanism is what is under test, and it has to keep working whether or not
+// any instrument happens to use it today -- which none does: the stooq symbol
+// codes 404'd when probed, so nothing is wired in. A test that read the
+// shipped config would go quiet the moment a fallback was removed, which is
+// exactly when the mechanism most needs to still be proven.
+const cfgWithFallbacks = () => {
+  const base = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '..', 'config', 'trading.json'), 'utf8'));
+  for (const [sym, inst] of Object.entries(base.instruments)) {
+    if (['gold', 'sp500', 'nasdaq', 'oil'].includes(sym)) inst.fallback = `stooq:${sym}`;
+  }
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jx-cfg-')), 'trading.json');
+  fs.writeFileSync(f, JSON.stringify(base));
+  return f;
+};
+
 const WITH_STOOQ = {
   ...LIVE,
   'stooq:gold':   { symbol: 'gold',   price: 3308.75, source: 'stooq' },
@@ -140,7 +157,8 @@ const WITH_STOOQ = {
 
 await test('a mock primary falls back, and all six record', async () => {
   const f = tmp();
-  const { results, written } = await C.collect({ fetcher: fetcherFor(WITH_STOOQ), historyPath: f, now });
+  const { results, written } = await C.collect({
+    fetcher: fetcherFor(WITH_STOOQ), historyPath: f, now, configPath: cfgWithFallbacks() });
   assert.strictEqual(written, 6, 'the fallback closes the four gaps');
   assert.deepStrictEqual(load(f).map(r => r.symbol).sort(),
     ['btc', 'eth', 'gold', 'nasdaq', 'oil', 'sp500']);
@@ -152,7 +170,8 @@ await test('a mock primary falls back, and all six record', async () => {
 
 await test('a working primary is never displaced by a fallback', async () => {
   const table = { ...WITH_STOOQ, 'energy:gold': { symbol: 'gold', price: 3300, source: 'eia' } };
-  const gold = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now }))
+  const gold = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now,
+                                  configPath: cfgWithFallbacks() }))
     .results.find(r => r.symbol === 'gold');
   assert.strictEqual(gold.price, 3300, 'the primary won');
   assert.strictEqual(gold.source, 'eia');
@@ -161,7 +180,8 @@ await test('a working primary is never displaced by a fallback', async () => {
 
 await test('btc has no fallback, so a CoinGecko outage is simply an outage', async () => {
   const table = { ...WITH_STOOQ, 'crypto:btc': new Error('CoinGecko HTTP 429') };
-  const btc = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now }))
+  const btc = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now,
+                                 configPath: cfgWithFallbacks() }))
     .results.find(r => r.symbol === 'btc');
   assert.strictEqual(btc.status, 'error');
   assert.ok(/429/.test(btc.why), btc.why);
@@ -170,29 +190,41 @@ await test('btc has no fallback, so a CoinGecko outage is simply an outage', asy
 await test('when the fallback fails too, the PRIMARY reason survives', async () => {
   // The primary's reason names the missing key or absent series -- the thing
   // that actually needs fixing. A fallback's transport error must not bury it.
-  const table = { ...WITH_STOOQ, 'stooq:gold': new Error('Stooq HTTP 403') };
-  const gold = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now }))
+  const table = { ...WITH_STOOQ, 'stooq:gold': new Error('Stooq HTTP 404') };
+  const gold = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now,
+                                  configPath: cfgWithFallbacks() }))
     .results.find(r => r.symbol === 'gold');
   assert.strictEqual(gold.status, 'skipped');
   assert.ok(/EIA does not publish gold/.test(gold.why), gold.why);
-  assert.ok(/403/.test(gold.fallbackWhy), 'and the fallback failure is carried alongside');
+  assert.ok(/404/.test(gold.fallbackWhy), 'and the fallback failure is carried alongside');
   assert.strictEqual(gold.fallbackTried, 'stooq:gold');
 });
 
 await test('a fallback serving a mock is refused like any other mock', async () => {
   const table = { ...WITH_STOOQ, 'stooq:gold': { symbol: 'gold', price: 3308, source: 'mock' } };
   const f = tmp();
-  const { results } = await C.collect({ fetcher: fetcherFor(table), historyPath: f, now });
+  const { results } = await C.collect({ fetcher: fetcherFor(table), historyPath: f, now,
+                                        configPath: cfgWithFallbacks() });
   assert.strictEqual(results.find(r => r.symbol === 'gold').status, 'skipped');
   assert.ok(!load(f).some(r => r.symbol === 'gold'), 'a fallback gets no special trust');
 });
 
 await test('the summary shows which instruments fell back and why', async () => {
-  const { results, written } = await C.collect({ fetcher: fetcherFor(WITH_STOOQ), historyPath: tmp(), now });
+  const { results, written } = await C.collect({
+    fetcher: fetcherFor(WITH_STOOQ), historyPath: tmp(), now, configPath: cfgWithFallbacks() });
   const out = C.format(results, written);
   assert.ok(/6 of 6 instruments had a live price/.test(out), out);
   assert.ok(/gold\s+recorded\s+3308.75 \(stooq, fallback\)/.test(out), out);
   assert.ok(/energy:gold was unusable/.test(out), out);
+});
+
+await test('the shipped config wires no fallback, because none is verified', async () => {
+  const cfg = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '..', 'config', 'trading.json'), 'utf8'));
+  const wired = Object.entries(cfg.instruments).filter(([, i]) => i.fallback);
+  assert.deepStrictEqual(wired, [],
+    'a fallback may only be wired in after its source has been probed against the ' +
+    'live service — stooq\'s four symbols returned HTTP 404 on 2026-09-04');
 });
 
 await test('attempt() classifies one key and never reaches for another', async () => {

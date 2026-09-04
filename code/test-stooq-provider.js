@@ -135,11 +135,11 @@ await test('the provider records nothing and trades nothing', () => {
   }
 });
 
-await test('the symbol table is documented as unverified until probed', () => {
+await test('the file records the probe result rather than implying it works', () => {
   const src = fs.readFileSync(path.join(__dirname, 'providers', 'stooq-provider.js'), 'utf8');
-  assert.ok(/--probe/.test(src), 'the file must tell the reader how to confirm the symbols');
-  assert.ok(/not verified/i.test(src) && /hypothesis/i.test(src),
-    'the symbols are a hypothesis until the probe passes and the file must say so');
+  assert.ok(/NOT WIRED IN/.test(src), 'its status must be the first thing a reader sees');
+  assert.ok(/404/.test(src), 'and the measured result must be written down, not just the intent');
+  assert.ok(/--probe/.test(src), 'with the command that would change that status');
 });
 
 finish();
