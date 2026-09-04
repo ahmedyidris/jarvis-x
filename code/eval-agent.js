@@ -154,7 +154,62 @@ function format(summary, agg) {
   return L.join('\n');
 }
 
-module.exports = { runOnce, summarize, aggregate, format, slice,
+/**
+ * Check the backend can actually answer BEFORE spending 48 cases x N runs on
+ * it. Added after three separate full runs were burned on environmental
+ * faults: a TypeError in agent.js, then a stale checkout, then a model Ollama
+ * did not have. Each printed 144 identical failure lines and a confident
+ * 0.0%, which reads like a routing result and is not one.
+ *
+ * An eval that cannot tell "the model routed badly" from "there is no model"
+ * is not measuring what it claims to measure.
+ *
+ * `fetcher` is injected so this is testable without a daemon.
+ */
+async function preflight({ fetcher = fetch, base = 'http://127.0.0.1:11434',
+                           model = require('./local.js').MODEL,
+                           backend = process.env.JX_BACKEND || 'local' } = {}) {
+  if (backend !== 'local') {
+    return { ok: true, skipped: `backend is ${backend}, not local — not checking Ollama` };
+  }
+  let res;
+  try {
+    res = await fetcher(`${base}/api/tags`);
+  } catch (e) {
+    return { ok: false, reason: `Ollama is unreachable at ${base} (${e.message})`,
+             fix: 'start it with `ollama serve`, then re-run' };
+  }
+  if (!res.ok) {
+    return { ok: false, reason: `Ollama answered ${res.status} for /api/tags`,
+             fix: 'check the daemon; `curl -sf 127.0.0.1:11434/api/tags` should return JSON' };
+  }
+  let tags;
+  try { tags = await res.json(); } catch (e) {
+    return { ok: false, reason: `Ollama's /api/tags was not JSON (${e.message})`, fix: 'check the daemon' };
+  }
+  const installed = (tags.models || []).map(m => m.name || m.model).filter(Boolean);
+  // EXACT match only. The first version also accepted any tag of the same
+  // family, which would have passed `qwen2.5:7b` for a request for
+  // `qwen2.5:3b` -- two different models, and Ollama 404s on the mismatch.
+  // Blocking a run that would have worked costs one command; passing a run
+  // that cannot work costs 48 cases x N runs of identical failures, which is
+  // the thing this function exists to prevent. So err toward blocking.
+  const present = installed.includes(model);
+  if (!present) {
+    // Naming the sibling tags is the difference between a fix and a guess:
+    // "you have 7b, you asked for 3b" is immediately actionable.
+    const family = model.split(':')[0];
+    const siblings = installed.filter(n => n.split(':')[0] === family);
+    return { ok: false, model, installed,
+             reason: `Ollama is running but does not have ${model}`,
+             fix: `ollama pull ${model}` +
+                  (siblings.length ? `   (you have ${siblings.join(', ')} — a different size)`
+                                   : `   (installed: ${installed.join(', ') || 'nothing'})`) };
+  }
+  return { ok: true, model, installed };
+}
+
+module.exports = { runOnce, preflight, summarize, aggregate, format, slice,
                    GATE, MIN_HELDOUT, CASES };
 
 if (require.main === module) {
@@ -163,6 +218,19 @@ if (require.main === module) {
   const runs = runsArg > -1 ? Math.max(1, parseInt(process.argv[runsArg + 1], 10) || 1) : 1;
 
   (async () => {
+    // Fail fast and legibly rather than printing 144 identical lines and a
+    // 0.0% that looks like a measurement.
+    const pf = await preflight();
+    if (!pf.ok) {
+      console.error(`\nCannot run the eval: ${pf.reason}`);
+      console.error(`Fix: ${pf.fix}`);
+      console.error('\nNo cases were run, and no accuracy is reported —');
+      console.error('a broken backend is not a routing score.');
+      process.exit(1);
+    }
+    if (pf.skipped) console.log(`preflight: ${pf.skipped}`);
+    else console.log(`preflight: Ollama has ${pf.model}`);
+
     const summaries = [];
     for (let i = 0; i < runs; i++) {
       if (runs > 1) console.log(`\n--- run ${i + 1} of ${runs} ---`);

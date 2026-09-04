@@ -219,6 +219,80 @@ await test('an undecidable gate prints as undecidable, not as a percentage verdi
   assert.ok(!/GATE 85% on held-out: MET/.test(out), 'a 1-case perfect score must not read as MET');
 });
 
+// ── preflight: telling a broken backend from a bad model ──────────────────
+// Three full runs were burned on environmental faults before this existed --
+// a TypeError, a stale checkout, and a model Ollama did not have -- each
+// printing 144 identical failures and a confident 0.0%. These tests hold the
+// distinction the eval needs to make: "routed badly" is not "there is no
+// model", and only one of them is a score.
+
+const tags = (names) => ({
+  ok: true, status: 200,
+  json: async () => ({ models: names.map(n => ({ name: n })) }),
+});
+
+await test('a reachable Ollama with the model present passes', async () => {
+  const r = await E.preflight({ fetcher: async () => tags(['qwen2.5:3b', 'moondream']), model: 'qwen2.5:3b' });
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.installed, ['qwen2.5:3b', 'moondream']);
+});
+
+await test('an unreachable daemon is reported as unreachable, not as 0%', async () => {
+  const r = await E.preflight({ fetcher: async () => { throw new Error('fetch failed'); } });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/unreachable/.test(r.reason), r.reason);
+  assert.ok(/ollama serve/.test(r.fix), 'and it must say what to do');
+});
+
+await test('a DIFFERENT SIZE of the same model is not a match', async () => {
+  // This is the exact failure that produced "Ollama returned 404" 144 times:
+  // 7b installed, 3b requested. The first version of this check accepted any
+  // tag of the same family and would have waved it through.
+  const r = await E.preflight({ fetcher: async () => tags(['qwen2.5:7b']), model: 'qwen2.5:3b' });
+  assert.strictEqual(r.ok, false, '7b does not satisfy a request for 3b');
+  assert.ok(/does not have qwen2.5:3b/.test(r.reason), r.reason);
+  assert.ok(/ollama pull qwen2.5:3b/.test(r.fix), r.fix);
+  assert.ok(/you have qwen2.5:7b/.test(r.fix),
+    'naming the sibling tag is what makes it a fix rather than a guess');
+});
+
+await test('an empty model list says so rather than reading as a name', async () => {
+  const r = await E.preflight({ fetcher: async () => tags([]), model: 'qwen2.5:3b' });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/installed: nothing/.test(r.fix), r.fix);
+});
+
+await test('only the exact tag counts as present', async () => {
+  // Deliberately strict. A bare `qwen2.5` may or may not resolve to 3b, and
+  // guessing wrong costs a whole run; being told to pull costs one command.
+  assert.strictEqual((await E.preflight({
+    fetcher: async () => tags(['qwen2.5']), model: 'qwen2.5:3b' })).ok, false);
+  assert.strictEqual((await E.preflight({
+    fetcher: async () => tags(['qwen2.5:3b']), model: 'qwen2.5:3b' })).ok, true);
+});
+
+await test('a non-200 from /api/tags is a daemon problem, not a model problem', async () => {
+  const r = await E.preflight({ fetcher: async () => ({ ok: false, status: 503 }) });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/503/.test(r.reason), r.reason);
+  assert.ok(!/ollama pull/.test(r.fix), 'pulling a model would not fix a 503');
+});
+
+await test('malformed JSON from the daemon is caught', async () => {
+  const r = await E.preflight({
+    fetcher: async () => ({ ok: true, status: 200, json: async () => { throw new Error('bad json'); } }) });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/not JSON/.test(r.reason), r.reason);
+});
+
+await test('a non-local backend is not checked against Ollama at all', async () => {
+  let called = false;
+  const r = await E.preflight({ backend: 'gemini', fetcher: async () => { called = true; return tags([]); } });
+  assert.strictEqual(r.ok, true);
+  assert.ok(/not checking Ollama/.test(r.skipped), r.skipped);
+  assert.strictEqual(called, false, 'it must not probe a daemon it does not use');
+});
+
 // ── the shipped case set ──────────────────────────────────────────────────
 await test('the shipped set is large enough for its own gate to mean anything', () => {
   const heldOut = CASES.filter(c => c.origin === 'held-out').length;
