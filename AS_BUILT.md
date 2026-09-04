@@ -25,7 +25,7 @@ not either.
 
 | Suite | Command | Result |
 |---|---|---|
-| JS suite, default | `npm test` | **19 passed, 0 failed, 1 skipped** — network test gated |
+| JS suite, default | `npm test` | **19 passed, 0 failed, 1 skipped** — network test gated. Verified on Ahmed's machine 2026-09-04; when this row was written it was an inference from a container run (14 passed, 5 failed, 1 skipped there), not a measurement |
 | JS suite, with network | `npm run test:net` | **20 passed, 0 failed** (exit 0), measured 2026-09-04 |
 | model-gateway | `npm test` in `packages/model-gateway` | **47 passed, 0 failed** |
 | Python — sentinel | `pytest sentinel/tests/test_smoke.py` | not verifiable (deps absent) |
