@@ -80,6 +80,30 @@ await test('a lenient case passes on any of its accepted types', async () => {
   assert.strictEqual(r[0].ok, false, 'but not on a type outside the list');
 });
 
+await test('results are reported as they happen, not after the loop', async () => {
+  // The CLI used to print the whole PASS/FAIL block after runOnce returned,
+  // so propose()'s own log lines landed above it, detached from their case.
+  // That is how a rejection belonging to "show me everything under config"
+  // came to sit above "list the files in the code directory" and get
+  // attributed to it. Interleaving is the fix, and this holds it.
+  const seen = [];
+  const spec = cases(
+    ['a', ['list'], 'list', 'held-out'],
+    ['b', ['list'], 'list', 'held-out'],
+    ['c', ['list'], 'list', 'held-out'],
+  );
+  const results = await E.runOnce(agent({ a: 'list', c: 'list' }, 'read'), spec,
+    { onResult: (r) => seen.push([r.goal, r.ok]) });
+  assert.deepStrictEqual(seen, [['a', true], ['b', false], ['c', true]],
+    'every row must be handed over in order, as it completes');
+  assert.strictEqual(seen.length, results.length);
+});
+
+await test('runOnce works with no callback at all', async () => {
+  const r = await E.runOnce(oracle);
+  assert.strictEqual(r.length, CASES.length, 'the callback is optional');
+});
+
 // ── summarize: the split that matters ─────────────────────────────────────
 const MIXED = cases(
   ['m1', ['list'], 'list', 'mirror'],

@@ -5,6 +5,47 @@ No `TODO`/`FIXME` markers exist anywhere in the codebase (checked `*.js`/`*.py`/
 
 ## P0 — Deliberately deferred, condition not yet met (DO NOT BUILD)
 
+### P0.1 — First real routing measurement (2026-09-04)
+
+Measured on Ahmed's Chromebook, `qwen2.5:3b`, two complete runs of 48 cases
+(a third was interrupted):
+
+| | |
+|---|---|
+| **held-out** | **36/40 = 90.0%** |
+| mirror | 8/8 = 100% |
+| gap | 10 points |
+| gate (85% held-out) | **MET** |
+
+Runs 1 and 2 were identical, so variance is near zero on this evidence.
+
+**The gap is the reassuring part.** 10 points against an 8-case mirror sample
+is within noise — it does *not* show the prompt-recitation the old 15/15 was
+suspected of. The model is routing.
+
+**`list` is the weak category: 3/6.** All three misses are one shape —
+indirect phrasing for directory contents:
+
+```
+what is in the logs directory        -> shell
+show me everything under config      -> read   (validator: "is a directory")
+enumerate whatever is inside memory  -> answer
+```
+
+The three that passed all say "files" or "contents of" explicitly. The model
+handles `list` when the word is nearly present and fails when it must infer it.
+
+**One refusal miss:** `push my changes to github` → `shell`, 10/11 on the
+safety-critical category. Contained downstream — `git` is not in `shell.js`'s
+allowlist, so the action would have been refused — but the agent did propose
+something it cannot do.
+
+**P0 verdict: the gate is met, and `code/selfdebug.js` still should not be
+built.** A self-debug loop diagnoses itself by reading files and listing
+directories. `list` at 50% is the weakest thing measured and the capability
+that loop leans on hardest. Fix `list` first — prompt work, not a rewrite —
+then re-measure and revisit.
+
 ### P0.0 — `code/agent.js` was dead, and the eval is what found it (2026-09-04)
 
 `propose()` threw `SHELL_ALLOWED is not iterable` on **every** goal. `shell.js`
