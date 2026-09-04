@@ -10,6 +10,7 @@
 // rewrite exists to fix -- one case was verbatim identical and four more were
 // near-copies -- and nothing but a test stops it recurring.
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
 const E = require('./eval-agent.js');
@@ -291,6 +292,66 @@ await test('a non-local backend is not checked against Ollama at all', async () 
   assert.strictEqual(r.ok, true);
   assert.ok(/not checking Ollama/.test(r.skipped), r.skipped);
   assert.strictEqual(called, false, 'it must not probe a daemon it does not use');
+});
+
+// ── persistence: a partial file must not read as a finished one ───────────
+// The harness wrote logs/eval-agent.json only after the LAST run. Interrupting
+// a --runs 3 on run 3 therefore left the PREVIOUS invocation's file in place,
+// and that file reads as current. It happened: a completed run of 48 backend
+// failures sat on disk while a healthy pass had printed 90% to the terminal,
+// and the stale JSON was taken for the new result.
+
+const summaryFor = async (n) => {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const results = await E.runOnce(oracle);
+    const s = E.summarize(results);
+    s._results = results;
+    out.push(s);
+  }
+  return out;
+};
+
+await test('a completed set of runs is marked complete', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-a.json`);
+  E.persist(await summaryFor(2), 2, { out: f });
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.runsRequested, 2);
+  assert.strictEqual(w.runsCompleted, 2);
+  assert.strictEqual(w.complete, true);
+});
+
+await test('a partial set says so rather than looking finished', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-b.json`);
+  E.persist(await summaryFor(1), 3, { out: f });   // 1 of 3 done
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.runsCompleted, 1);
+  assert.strictEqual(w.runsRequested, 3);
+  assert.strictEqual(w.complete, false,
+    'the discrepancy is the only thing that stops a reader trusting it');
+});
+
+await test('each run overwrites the file, so a stale one cannot survive', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-c.json`);
+  // Stand in for the previous invocation's leftovers.
+  fs.writeFileSync(f, JSON.stringify({ runsCompleted: 3, complete: true, stale: true }));
+  E.persist(await summaryFor(1), 3, { out: f });
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.stale, undefined, 'the old file must be replaced, not merged');
+  assert.strictEqual(w.complete, false);
+});
+
+await test('the persisted results are the newest run, not the first', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-d.json`);
+  const rs = [];
+  for (const t of ['shell', 'list']) {
+    const results = await E.runOnce(agent({}, t), cases(['g', ['list'], 'list', 'held-out']));
+    const s = E.summarize(results); s._results = results; rs.push(s);
+  }
+  E.persist(rs, 2, { out: f });
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.results[0].got, 'list', 'the last run is the one written out');
+  assert.strictEqual(w.summary.length, 2, 'but every run keeps its summary');
 });
 
 // ── the shipped case set ──────────────────────────────────────────────────

@@ -155,6 +155,36 @@ function format(summary, agg) {
 }
 
 /**
+ * Persist what has been measured so far.
+ *
+ * WHY THIS IS CALLED AFTER EVERY RUN, not once at the end. It used to write
+ * only after the final run, so interrupting a `--runs 3` on run 3 left the
+ * PREVIOUS invocation's file in place -- and that file reads as current. It
+ * happened: a completed run of 48 backend failures was still on disk while
+ * runs 1 and 2 of a healthy pass had printed 90% to the terminal, and the
+ * stale JSON was taken for the new result.
+ *
+ * `runsCompleted` vs `runsRequested` is the tell. If they differ, the file is
+ * partial and says so rather than looking finished.
+ */
+function persist(summaries, requested, { out = OUT } = {}) {
+  const agg = aggregate(summaries);
+  const last = summaries[summaries.length - 1];
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, JSON.stringify({
+    timestamp: new Date().toISOString(),
+    model: process.env.JX_BACKEND || 'local',
+    runsRequested: requested,
+    runsCompleted: summaries.length,
+    complete: summaries.length === requested,
+    aggregate: agg,
+    summary: summaries.map(({ _results, ...s }) => s),
+    results: last ? last._results : [],
+  }, null, 2));
+  return agg;
+}
+
+/**
  * Check the backend can actually answer BEFORE spending 48 cases x N runs on
  * it. Added after three separate full runs were burned on environmental
  * faults: a TypeError in agent.js, then a stale checkout, then a model Ollama
@@ -209,7 +239,7 @@ async function preflight({ fetcher = fetch, base = 'http://127.0.0.1:11434',
   return { ok: true, model, installed };
 }
 
-module.exports = { runOnce, preflight, summarize, aggregate, format, slice,
+module.exports = { runOnce, preflight, summarize, aggregate, persist, format, slice,
                    GATE, MIN_HELDOUT, CASES };
 
 if (require.main === module) {
@@ -232,6 +262,19 @@ if (require.main === module) {
     else console.log(`preflight: Ollama has ${pf.model}`);
 
     const summaries = [];
+    // Ctrl-C mid-run must leave the completed runs on disk, not the previous
+    // invocation's file.
+    process.on('SIGINT', () => {
+      if (summaries.length) {
+        persist(summaries, runs);
+        console.error(`\ninterrupted after ${summaries.length} of ${runs} run(s) — ` +
+                      `${OUT} holds what completed, marked incomplete.`);
+      } else {
+        console.error('\ninterrupted before any run finished — nothing written.');
+      }
+      process.exit(130);
+    });
+
     for (let i = 0; i < runs; i++) {
       if (runs > 1) console.log(`\n--- run ${i + 1} of ${runs} ---`);
       const results = await runOnce(propose);
@@ -241,19 +284,11 @@ if (require.main === module) {
       const s = summarize(results);
       s._results = results;
       summaries.push(s);
+      // Written now, not at the end. A partial file that says it is partial
+      // beats a stale file that looks current.
+      persist(summaries, runs);
     }
-    const agg = aggregate(summaries);
-    const last = summaries[summaries.length - 1];
-    console.log(format(last, agg));
-
-    fs.mkdirSync(path.dirname(OUT), { recursive: true });
-    fs.writeFileSync(OUT, JSON.stringify({
-      timestamp: new Date().toISOString(),
-      model: process.env.JX_BACKEND || 'local',
-      runs, aggregate: agg,
-      summary: summaries.map(({ _results, ...s }) => s),
-      results: last._results,
-    }, null, 2));
+    console.log(format(summaries[summaries.length - 1], aggregate(summaries)));
     process.exit(0);
   })();
 }
