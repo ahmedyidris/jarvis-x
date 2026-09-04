@@ -10,6 +10,7 @@
 // rewrite exists to fix -- one case was verbatim identical and four more were
 // near-copies -- and nothing but a test stops it recurring.
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
 const E = require('./eval-agent.js');
@@ -217,6 +218,140 @@ await test('an undecidable gate prints as undecidable, not as a percentage verdi
   const out = E.format(E.summarize(await E.runOnce(oracleFor(spec), spec)), null);
   assert.ok(/GATE UNDECIDABLE/.test(out), out);
   assert.ok(!/GATE 85% on held-out: MET/.test(out), 'a 1-case perfect score must not read as MET');
+});
+
+// ── preflight: telling a broken backend from a bad model ──────────────────
+// Three full runs were burned on environmental faults before this existed --
+// a TypeError, a stale checkout, and a model Ollama did not have -- each
+// printing 144 identical failures and a confident 0.0%. These tests hold the
+// distinction the eval needs to make: "routed badly" is not "there is no
+// model", and only one of them is a score.
+
+const tags = (names) => ({
+  ok: true, status: 200,
+  json: async () => ({ models: names.map(n => ({ name: n })) }),
+});
+
+await test('a reachable Ollama with the model present passes', async () => {
+  const r = await E.preflight({ fetcher: async () => tags(['qwen2.5:3b', 'moondream']), model: 'qwen2.5:3b' });
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.installed, ['qwen2.5:3b', 'moondream']);
+});
+
+await test('an unreachable daemon is reported as unreachable, not as 0%', async () => {
+  const r = await E.preflight({ fetcher: async () => { throw new Error('fetch failed'); } });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/unreachable/.test(r.reason), r.reason);
+  assert.ok(/ollama serve/.test(r.fix), 'and it must say what to do');
+});
+
+await test('a DIFFERENT SIZE of the same model is not a match', async () => {
+  // This is the exact failure that produced "Ollama returned 404" 144 times:
+  // 7b installed, 3b requested. The first version of this check accepted any
+  // tag of the same family and would have waved it through.
+  const r = await E.preflight({ fetcher: async () => tags(['qwen2.5:7b']), model: 'qwen2.5:3b' });
+  assert.strictEqual(r.ok, false, '7b does not satisfy a request for 3b');
+  assert.ok(/does not have qwen2.5:3b/.test(r.reason), r.reason);
+  assert.ok(/ollama pull qwen2.5:3b/.test(r.fix), r.fix);
+  assert.ok(/you have qwen2.5:7b/.test(r.fix),
+    'naming the sibling tag is what makes it a fix rather than a guess');
+});
+
+await test('an empty model list says so rather than reading as a name', async () => {
+  const r = await E.preflight({ fetcher: async () => tags([]), model: 'qwen2.5:3b' });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/installed: nothing/.test(r.fix), r.fix);
+});
+
+await test('only the exact tag counts as present', async () => {
+  // Deliberately strict. A bare `qwen2.5` may or may not resolve to 3b, and
+  // guessing wrong costs a whole run; being told to pull costs one command.
+  assert.strictEqual((await E.preflight({
+    fetcher: async () => tags(['qwen2.5']), model: 'qwen2.5:3b' })).ok, false);
+  assert.strictEqual((await E.preflight({
+    fetcher: async () => tags(['qwen2.5:3b']), model: 'qwen2.5:3b' })).ok, true);
+});
+
+await test('a non-200 from /api/tags is a daemon problem, not a model problem', async () => {
+  const r = await E.preflight({ fetcher: async () => ({ ok: false, status: 503 }) });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/503/.test(r.reason), r.reason);
+  assert.ok(!/ollama pull/.test(r.fix), 'pulling a model would not fix a 503');
+});
+
+await test('malformed JSON from the daemon is caught', async () => {
+  const r = await E.preflight({
+    fetcher: async () => ({ ok: true, status: 200, json: async () => { throw new Error('bad json'); } }) });
+  assert.strictEqual(r.ok, false);
+  assert.ok(/not JSON/.test(r.reason), r.reason);
+});
+
+await test('a non-local backend is not checked against Ollama at all', async () => {
+  let called = false;
+  const r = await E.preflight({ backend: 'gemini', fetcher: async () => { called = true; return tags([]); } });
+  assert.strictEqual(r.ok, true);
+  assert.ok(/not checking Ollama/.test(r.skipped), r.skipped);
+  assert.strictEqual(called, false, 'it must not probe a daemon it does not use');
+});
+
+// ── persistence: a partial file must not read as a finished one ───────────
+// The harness wrote logs/eval-agent.json only after the LAST run. Interrupting
+// a --runs 3 on run 3 therefore left the PREVIOUS invocation's file in place,
+// and that file reads as current. It happened: a completed run of 48 backend
+// failures sat on disk while a healthy pass had printed 90% to the terminal,
+// and the stale JSON was taken for the new result.
+
+const summaryFor = async (n) => {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const results = await E.runOnce(oracle);
+    const s = E.summarize(results);
+    s._results = results;
+    out.push(s);
+  }
+  return out;
+};
+
+await test('a completed set of runs is marked complete', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-a.json`);
+  E.persist(await summaryFor(2), 2, { out: f });
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.runsRequested, 2);
+  assert.strictEqual(w.runsCompleted, 2);
+  assert.strictEqual(w.complete, true);
+});
+
+await test('a partial set says so rather than looking finished', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-b.json`);
+  E.persist(await summaryFor(1), 3, { out: f });   // 1 of 3 done
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.runsCompleted, 1);
+  assert.strictEqual(w.runsRequested, 3);
+  assert.strictEqual(w.complete, false,
+    'the discrepancy is the only thing that stops a reader trusting it');
+});
+
+await test('each run overwrites the file, so a stale one cannot survive', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-c.json`);
+  // Stand in for the previous invocation's leftovers.
+  fs.writeFileSync(f, JSON.stringify({ runsCompleted: 3, complete: true, stale: true }));
+  E.persist(await summaryFor(1), 3, { out: f });
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.stale, undefined, 'the old file must be replaced, not merged');
+  assert.strictEqual(w.complete, false);
+});
+
+await test('the persisted results are the newest run, not the first', async () => {
+  const f = path.join(os.tmpdir(), `jx-eval-${Date.now()}-d.json`);
+  const rs = [];
+  for (const t of ['shell', 'list']) {
+    const results = await E.runOnce(agent({}, t), cases(['g', ['list'], 'list', 'held-out']));
+    const s = E.summarize(results); s._results = results; rs.push(s);
+  }
+  E.persist(rs, 2, { out: f });
+  const w = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(w.results[0].got, 'list', 'the last run is the one written out');
+  assert.strictEqual(w.summary.length, 2, 'but every run keeps its summary');
 });
 
 // ── the shipped case set ──────────────────────────────────────────────────
