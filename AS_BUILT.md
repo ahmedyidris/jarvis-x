@@ -231,10 +231,21 @@ record those, which is why the number is 0 and not 4: a range built from
 constants would show gold at exactly 0.00% volatility forever and the analyst
 would report `hold` with total confidence and no information.
 
-**Unverified on Ahmed's machine.** CoinGecko is keyless, so btc and eth are
-expected to work there — expected, not measured. Until `node
-code/market-brief.js --collect` is run on the Chromebook and reports 2 or more,
-this row stays unverified.
+**Now measured on Ahmed's machine, 2026-09-04 01:56 UTC.** `node
+code/market-brief.js --collect` on the Chromebook: **2 of 6 recorded** — btc
+80966 and eth 2504.9, both `LIVE` from CoinGecko. The 403 above was this
+container's egress proxy, not CoinGecko. `logs/market-history.jsonl` holds 2
+rows; the recorder works end to end.
+
+The other four behaved exactly as designed and refused: the run printed
+`[energy] MOCK (no EIA gold series)`, `[market] MOCK (ALPHAVANTAGE_API_KEY not
+set)` twice and `[energy] MOCK (EIA_API_KEY not set)`, and none of those four
+reached the history file. Same run, full suite on that machine: **25 passed, 0
+failed, 1 skipped** — the five container failures were environment, not code.
+
+btc and eth need 19 more daily runs each before any verdict but
+`insufficient`. gold needs a metals provider that does not yet exist; sp500,
+nasdaq and oil need API keys.
 
 
 | Item | Status | Evidence |
