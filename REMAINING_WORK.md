@@ -5,6 +5,33 @@ No `TODO`/`FIXME` markers exist anywhere in the codebase (checked `*.js`/`*.py`/
 
 ## P0 — Deliberately deferred, condition not yet met (DO NOT BUILD)
 
+### P0.0 — `code/agent.js` was dead, and the eval is what found it (2026-09-04)
+
+`propose()` threw `SHELL_ALLOWED is not iterable` on **every** goal. `shell.js`
+exported `{ run, ALLOWED, gitLog, gitStatus, gitDiff }` until commit `7720897`
+("Arabic voice layer: cloned Egyptian TTS worker, name mapping, supervisord
+integration") narrowed it to `{ run }`, while `agent.js:11` still destructured
+`ALLOWED`. `buildPrompt()`'s spread of `undefined` was a TypeError, so the
+agent — the core capability here — produced nothing from that commit onward,
+as collateral damage of an unrelated voice change.
+
+**Why it went unnoticed for that long, which matters more than the one-line
+fix:** there was no test for `agent.js` at all, and `scheduler.js` calls
+`route()` directly rather than `propose()`, so the one thing that runs
+unattended never touched the broken path. It surfaced the first time the
+routing eval was actually run — which is what an eval is for.
+
+Fixed by re-exporting the allowlist as a **frozen array**, not the live Set: a
+caller handed the Set could `ALLOWED.add('git')` and widen a security control
+at runtime. `code/test-agent.js` is new (10 assertions, offline, since
+`buildPrompt()` runs before any model call). Its last test recomputes, for
+every local `require` in `agent.js`, whether each destructured name is really
+exported — so the next silent-`undefined` import fails there instead of at
+runtime.
+
+Mutation-tested: reinstating the original `{ run }` export fails 9 of 10.
+
+
 | Item | Why deferred | Current status |
 |---|---|---|
 | `code/selfdebug.js` (self-debug loop) | `NOTES.md`: *"Do not build while accuracy is 77%. A self-modifying loop plus a model that picks the right action three times in four is how a repo ends up editing its own constraints. Revisit when the accuracy number is boring."* | **Superseded (2026-08-24, `3971f4f`).** The 77% was a hand-count over `logs/proposals.jsonl`, which nothing had appended to since the pre-`type` agent — all 36 rows use the old `{"action":...}` schema and `correct` was added by hand. The gate was unreproducible, not merely stale. `code/eval-agent.js` now measures routing on demand: 40% on first run, 15/15 after `format:'json'` + few-shot + an explicit refusal instruction, stable across 3 runs, 6/6 on held-out goals. ~~**Condition still not met — do not build.** The number is not yet boring: 15 cases, one model (`qwen2.5:3b`), and the eval cases and few-shot examples were written in the same sitting, so 15/15 overstates generalization. Widen the case set and re-measure before revisiting.~~ **CONDITION STILL NOT MET — DO NOT BUILD. The case set has been widened (2026-09-04); it has not been re-measured.** That suspicion was correct and understated: measured against `agent.js`'s few-shot block, one of the 15 cases was **verbatim identical** to an example the model is shown (`show me the last 3 commits`) and four more scored ≥0.5 word overlap. A third of the set was testing recall. `code/eval-cases.js` now holds 48 cases — 40 held-out, 8 mirrors — tagged by their distance from the few-shot examples, categorised, and with the safety-critical `refuse` category at 11. `code/eval-agent.js` reports held-out and mirror accuracy separately (**the gap between them is the overfitting measurement**), breaks the score down per category, supports `--runs N` for variance, and **refuses to issue a gate verdict below 25 held-out cases**. 24 offline assertions cover the scoring logic, mutation-tested against a gate judged on the overall number and against small samples reading as decidable. **Next step is a measurement, not a build:** `node code/eval-agent.js --runs 3` on the Chromebook. Until that has run, the honest state is that the old number is known to be inflated and no new number exists. |

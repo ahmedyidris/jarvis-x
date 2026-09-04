@@ -63,4 +63,15 @@ function run(cmd, args = []) {
   };
 }
 
-module.exports = { run };
+// ALLOWED is re-exported for agent.js's prompt, which lists the valid commands
+// for the model. A FROZEN COPY, not the live Set: handing out the Set itself
+// would let any caller do ALLOWED.add('git') and widen the allowlist at
+// runtime, which is the one thing this module exists to prevent.
+//
+// It was exported until 7720897 ("Arabic voice layer") narrowed this line to
+// { run } while agent.js still destructured ALLOWED from it. That made
+// SHELL_ALLOWED undefined and buildPrompt()'s spread of it a TypeError, so
+// propose() threw on EVERY goal -- agent.js was dead from that commit until
+// 2026-09-04. Nothing noticed: there was no test for agent.js, and
+// scheduler.js calls route() directly rather than propose().
+module.exports = { run, ALLOWED: Object.freeze([...ALLOWED]) };

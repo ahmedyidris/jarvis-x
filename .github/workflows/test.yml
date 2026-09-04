@@ -50,7 +50,7 @@ jobs:
                    test-validate test-watcher test-paper-trading \
                    test-market-analyst test-market-collect test-trade-advisor \
                    test-market-brief test-supervisor test-stooq-provider \
-                   test-eval-agent; do
+                   test-eval-agent test-agent; do
             echo "▶ code/$f.js"
             node "code/$f.js"
           done
