@@ -77,6 +77,19 @@ class HermesCore:
         "codebase", "directory", "folder",
     )
 
+    # A 7B model on CPU will answer "should I buy bitcoin?" with a confident
+    # invented price, and hermes.py's own history shows a wrong answer becoming
+    # self-reinforcing once it lands in `conversations`. So a market question
+    # does not get answered from the model's weights at all: the recorded
+    # arithmetic is injected as CONTEXT first, exactly as MODULES is for repo
+    # questions. Where there is no history, what gets injected is the sentence
+    # saying there is no history.
+    MARKET_TERMS = (
+        "price", "trade", "trading", "buy", "sell", "market", "position",
+        "portfolio", "gold", "sp500", "s&p", "nasdaq", "oil", "btc", "bitcoin",
+        "eth", "ethereum", "crypto", "stop loss", "invest",
+    )
+
     @staticmethod
     def _module_index():
         """One line per module, from its own opening docstring/comment.
@@ -153,6 +166,43 @@ class HermesCore:
         q = question.lower()
         return any(t in q for t in HermesCore.PROJECT_TERMS)
 
+    @staticmethod
+    def _is_market_question(question):
+        q = question.lower()
+        return any(t in q for t in HermesCore.MARKET_TERMS)
+
+    @staticmethod
+    def _market_brief(timeout=20):
+        """Recorded prices, where they sit, and what the book would permit.
+
+        Shells out to `node code/market-brief.js` rather than reimplementing
+        the arithmetic in Python. Two implementations would drift, and the
+        JS one is the one with 57 assertions behind it.
+
+        No --collect flag: this runs on every market question, so it must not
+        hit the network or spend a rate-limited API call to answer a chat
+        message. It reads only what the collector has already written.
+        """
+        script = Path(__file__).parent / "code" / "market-brief.js"
+        if not script.exists():
+            return ""
+        try:
+            r = subprocess.run(
+                ["node", str(script)],
+                capture_output=True, text=True, timeout=timeout,
+                cwd=str(Path(__file__).parent),
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            # Never fabricate a market section. Saying the data is unavailable
+            # is information; a missing section invites the model to fill the
+            # gap from its weights, which is the failure this exists to stop.
+            return ("MARKET DATA: unavailable right now (%s). Say so; do not "
+                    "estimate a price or a range from memory." % type(e).__name__)
+        if r.returncode != 0:
+            return ("MARKET DATA: the market brief exited %d. Say the data is "
+                    "unavailable; do not estimate." % r.returncode)
+        return r.stdout.strip()
+
     def build_context(self, question, turns=3):
         """Prepend durable rules + recent turns to the question.
 
@@ -208,6 +258,20 @@ class HermesCore:
             index = self._module_index()
             if index:
                 parts.append("MODULES (file -> what it does):\n" + index)
+
+        # Injected BEFORE conversation history for the same reason MODULES is:
+        # history is labelled untrusted below, and this is not. If the two
+        # disagree -- the model quoted a bitcoin price last turn and the
+        # recorded range says otherwise -- the recorded numbers win silently.
+        if self._is_market_question(question):
+            mkt = self._market_brief()
+            if mkt:
+                parts.append(
+                    "MARKET (authoritative -- these are the ONLY prices this "
+                    "system has. Quote them or say you do not have the number. "
+                    "Never estimate a price, never predict one, and never say a "
+                    "trade has been placed: opening and closing require Ahmed's "
+                    "approval and this process cannot do either):\n" + mkt)
 
         history = [r for r in reversed(self.recall(limit=turns * 2))
                    if not r["response"].startswith("[BACKEND FAILURE]")][-turns:]
@@ -399,6 +463,8 @@ Examples:
   hermes "Hi" --tier quality --speak              # quality tier + audio
   hermes --status                                 # system status
   hermes --recall 10                              # last 10 conversations
+  hermes --market                                 # recorded prices + advice
+  hermes --market --collect                       # fetch live prices first
         """
     )
     
@@ -419,12 +485,29 @@ Examples:
                        help='Show system status')
     parser.add_argument('--recall', type=int, nargs='?', const=5,
                        help='Show last N conversations (default: 5)')
+    parser.add_argument('--market', action='store_true',
+                       help='Print the market brief: recorded prices, where they '
+                            'sit in their ranges, and what the paper book would '
+                            'permit. Recommends only -- never opens a position.')
+    parser.add_argument('--collect', action='store_true',
+                       help='With --market, fetch live prices and record them '
+                            'first. This is the only flag here that uses the '
+                            'network. Mock prices are refused, not recorded.')
     
     args = parser.parse_args()
     hermes = HermesCore()
     
     try:
-        if args.status:
+        if args.market:
+            # Straight through to the JS entry point: this branch prints data,
+            # it does not ask a model to interpret it. A 7B model paraphrasing
+            # a price is a way to get a wrong price.
+            script = Path(__file__).parent / "code" / "market-brief.js"
+            cmd = ["node", str(script)] + (["--collect"] if args.collect else [])
+            r = subprocess.run(cmd, cwd=str(Path(__file__).parent))
+            sys.exit(r.returncode)
+
+        elif args.status:
             print(json.dumps(hermes.status(), indent=2))
         
         elif args.recall is not None:

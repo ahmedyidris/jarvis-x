@@ -3,7 +3,7 @@
 
 - Ahmed builds and runs Jarvis X from a Chromebook via Crostini (Debian 12).
 - Project root is ~/jarvis-x. All paths are relative to it.
-- No real-money trading exists. Nothing in this system places trades.
+- No real money moves. Paper trading only; every open and close needs approval.
 
 ## What Jarvis X is
 - A local-first personal AI assistant. Local inference (Ollama), CPU-only,
@@ -30,7 +30,10 @@
   human approval for writes, kill switch.
 
 ## Excluded by design — do not suggest these
-- No trading bot. No real money moves anywhere.
+- No real-money trading and no broker connection, ever.
+- No autonomous trade execution: a paper trade is proposed, Ahmed approves it.
+- No instrument outside config/trading.json's six (gold, S&P 500, Nasdaq 100,
+  oil, BTC, ETH).
 - No multi-agent council.
 - No eGPU or hardware modification.
 - No self-debug loop until routing accuracy is boring.

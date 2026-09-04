@@ -14,6 +14,7 @@ const { observe, forPrompt } = require('./memory.js');
 const { execute, parseJSONLoose } = require('./lib.js');
 const { run: route } = require('./router.js');
 const { readFile } = require('./exec.js');
+const { shouldSkip } = require('./supervisor.js');
 
 const ROOT = path.join(__dirname, '..');
 const SCHEDULES = path.join(ROOT, 'schedules.json');
@@ -78,6 +79,20 @@ async function runGoal(goal) {
   // Cheap check up front so a halted scheduler doesn't spend an LLM call
   // just to be told no by guard() a moment later.
   if (isStopped()) { logRun({ goal, outcome: 'halted' }); return; }
+
+  // Borrowed from NVIDIA's AVO supervisor (see code/supervisor.js): watch the
+  // trajectory, and when a goal has been proposing the same action for the
+  // same result every interval, stop spending a model call on it. Same
+  // reasoning as the isStopped() check above -- the cheapest call is the one
+  // not made. The supervisor can only withhold a run; it cannot add one, and
+  // it does not edit schedules.json. Nothing here is permanent either: every
+  // PROBE_AFTER skips one run is let through to re-test the verdict, because a
+  // skip that never lifts is a deletion nobody agreed to.
+  const stale = shouldSkip(goal);
+  if (stale) {
+    logRun({ goal, outcome: `supervisor skip: ${stale.verdict} — ${stale.because[0]}` });
+    return;
+  }
 
   let model, raw;
   try {

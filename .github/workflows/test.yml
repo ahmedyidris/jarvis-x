@@ -35,15 +35,39 @@ jobs:
       # time through no fault of the code, which is worse than not running
       # CI at all (a perpetually-red badge nobody trusts). One more
       # (test-agent-data-integration.js) reaches CoinGecko over the network.
-      # Run only the 7 that are genuinely self-contained instead.
-      # test-watcher.js qualifies because watcher.js takes an injectable
-      # fetcher, so its tests never open a socket.
+      # Run only the ones that are genuinely self-contained instead. A test
+      # qualifies when its inputs are arguments rather than the environment:
+      # test-watcher takes an injectable fetcher, test-paper-trading takes
+      # prices, test-market-collect takes a fetcher, and the rest take rows
+      # and paths. None of them opens a socket.
+      #
+      # test-paper-trading was left out when it was added and had been
+      # untested by CI since -- a tested module CI never runs is the failure
+      # this repo keeps correcting, so it is in the list now with the rest.
       - name: Run portable test suite (excludes voice/vision tests needing local Ollama/Piper/Kokoro)
         run: |
-          for f in test-exec test-guard test-helper test-scheduler test-shell test-validate test-watcher; do
+          for f in test-exec test-guard test-helper test-scheduler test-shell \
+                   test-validate test-watcher test-paper-trading \
+                   test-market-analyst test-market-collect test-trade-advisor \
+                   test-market-brief test-supervisor; do
             echo "▶ code/$f.js"
             node "code/$f.js"
           done
+
+  python-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pytest
+      # Same portability rule as the JS job. These two files need only pytest
+      # and the repo itself; the other Python tests here import fastapi or
+      # reach a live backend and would be red on every run through no fault
+      # of the code.
+      - name: Run portable Python tests
+        run: python -m pytest test_hermes_ask_timeout_and_log.py test_hermes_market_context.py -q
 
   model-gateway-suite:
     runs-on: ubuntu-latest

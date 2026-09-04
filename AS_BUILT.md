@@ -118,6 +118,13 @@ need revisiting on this basis.
 | Model listing | `test-list-models.js` 3/3 |
 | Watcher (page-diff monitor) | `test-watcher.js` — file added since the container session, passes as part of the 20/20 measured above |
 | `jj` CLI (`ask`, `plan`, `status`) | `./jj status` runs, after the fix in §3.5 |
+| Paper trading, limits enforced (`code/paper-trading.js`) | `test-paper-trading.js` **22/22** — sizing derived from `riskPerTrade / stopLoss`, daily loss lockout, kill switch, allowlist |
+| Price history + range signals (`code/market-analyst.js`) | `test-market-analyst.js` **26/26**, offline. Returns `insufficient` below 20 observations and one test fails the build on forward-looking language in any verdict |
+| Live price collection, mock-filtered (`code/market-collect.js`) | `test-market-collect.js` **11/11**, offline. Refuses any price not tagged with a real provider source |
+| Trade recommendations that cannot execute (`code/trade-advisor.js`) | `test-trade-advisor.js` **15/15** — includes a Proxy tripwire that throws if `book.open()` or `book.close()` is touched |
+| Market brief CLI (`code/market-brief.js`) | `test-market-brief.js` **5/5**; also `hermes --market` |
+| Hermes market context injection | `test_hermes_market_context.py` **11/11** (pytest) — injection, ordering above untrusted history, and the three unavailable-paths |
+| Scheduler supervisor, AVO-derived (`code/supervisor.js`) | `test-supervisor.js` **20/20**, offline. Asserts the module contains no write, spawn or unlink primitive at all |
 
 ---
 
@@ -205,6 +212,30 @@ runs.
 ---
 
 ## 4. Exists but untested, stubbed, or never built
+
+### 4.0 The market history is empty, and the data layer is why
+
+Measured in-container, 2026-09-04, `node code/market-brief.js --collect`:
+**0 of 6 instruments recorded a live price.**
+
+| Instrument | Result | Cause |
+|---|---|---|
+| gold | skipped | EIA publishes no gold series; `energy-provider.js` hardcodes 2050.0 and says so. **No live source exists at all** — needs a metals provider before gold can ever be judged. |
+| sp500, nasdaq | skipped | `ALPHAVANTAGE_API_KEY` not set → provider served its MOCK constant |
+| oil | skipped | `EIA_API_KEY` not set → MOCK constant |
+| btc, eth | error | CoinGecko HTTP 403 from this container's egress proxy |
+
+Every provider in `code/providers/` silently substitutes a hardcoded MOCK when
+its key is missing, tagged `source: 'mock'`. `market-collect.js` refuses to
+record those, which is why the number is 0 and not 4: a range built from
+constants would show gold at exactly 0.00% volatility forever and the analyst
+would report `hold` with total confidence and no information.
+
+**Unverified on Ahmed's machine.** CoinGecko is keyless, so btc and eth are
+expected to work there — expected, not measured. Until `node
+code/market-brief.js --collect` is run on the Chromebook and reports 2 or more,
+this row stays unverified.
+
 
 | Item | Status | Evidence |
 |---|---|---|
