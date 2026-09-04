@@ -220,7 +220,7 @@ Measured in-container, 2026-09-04, `node code/market-brief.js --collect`:
 
 | Instrument | Result | Cause |
 |---|---|---|
-| gold | skipped | EIA publishes no gold series; `energy-provider.js` hardcodes 2050.0 and says so. **No live source exists at all** — needs a metals provider before gold can ever be judged. |
+| gold | skipped | EIA publishes no gold series; `energy-provider.js` hardcodes 2050.0 and says so. ~~No live source exists at all.~~ **Addressed 2026-09-04** by `code/providers/stooq-provider.js`, a keyless fallback — pending the symbol probe below. |
 | sp500, nasdaq | skipped | `ALPHAVANTAGE_API_KEY` not set → provider served its MOCK constant |
 | oil | skipped | `EIA_API_KEY` not set → MOCK constant |
 | btc, eth | error | CoinGecko HTTP 403 from this container's egress proxy |
@@ -244,8 +244,30 @@ reached the history file. Same run, full suite on that machine: **25 passed, 0
 failed, 1 skipped** — the five container failures were environment, not code.
 
 btc and eth need 19 more daily runs each before any verdict but
-`insufficient`. gold needs a metals provider that does not yet exist; sp500,
-nasdaq and oil need API keys.
+`insufficient`.
+
+### 4.0.1 The keyless fallback — built, symbols UNVERIFIED
+
+`config/trading.json` now gives gold, sp500, nasdaq and oil a `fallback`
+(`stooq:*`), tried only when the primary yields a mock or an error. Stooq needs
+no API key, so in principle this takes collection from 2 of 6 to 6 of 6 with no
+paid subscription.
+
+**In principle.** This container's egress proxy returns 403 for stooq.com — the
+same block that made CoinGecko look broken until it was run on the real machine
+— so the four symbol codes (`xauusd`, `^spx`, `^ndx`, `cl.f`) are a hypothesis,
+not a measurement. Confirm before trusting them:
+
+```bash
+node code/providers/stooq-provider.js --probe
+```
+
+Nothing is at risk if they are wrong. Stooq answers an unknown symbol with a
+row of `N/D` and HTTP 200, so the parser refuses it explicitly rather than
+recording `NaN` — `code/test-stooq-provider.js` spends most of its 19
+assertions on exactly that case. A wrong symbol produces a logged error, never
+a price. Verified against the real network here: the fallback fired, failed on
+the proxy's 403, kept the primary's reason, and recorded nothing.
 
 
 | Item | Status | Evidence |

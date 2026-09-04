@@ -49,7 +49,7 @@ jobs:
           for f in test-exec test-guard test-helper test-scheduler test-shell \
                    test-validate test-watcher test-paper-trading \
                    test-market-analyst test-market-collect test-trade-advisor \
-                   test-market-brief test-supervisor; do
+                   test-market-brief test-supervisor test-stooq-provider; do
             echo "▶ code/$f.js"
             node "code/$f.js"
           done

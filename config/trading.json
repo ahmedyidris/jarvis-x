@@ -13,12 +13,14 @@
   "maxOpenPositions": 4,
 
   "instruments": {
-    "gold":   { "dataKey": "energy:gold",           "stopLoss": 0.08 },
-    "sp500":  { "dataKey": "market:sp500",          "stopLoss": 0.08 },
-    "nasdaq": { "dataKey": "market:nasdaq100",      "stopLoss": 0.10 },
-    "oil":    { "dataKey": "energy:crude-oil-wti",  "stopLoss": 0.15 },
+    "gold":   { "dataKey": "energy:gold",           "fallback": "stooq:gold",   "stopLoss": 0.08 },
+    "sp500":  { "dataKey": "market:sp500",          "fallback": "stooq:sp500",  "stopLoss": 0.08 },
+    "nasdaq": { "dataKey": "market:nasdaq100",      "fallback": "stooq:nasdaq", "stopLoss": 0.10 },
+    "oil":    { "dataKey": "energy:crude-oil-wti",  "fallback": "stooq:oil",    "stopLoss": 0.15 },
     "btc":    { "dataKey": "crypto:btc",            "stopLoss": 0.20 },
     "eth":    { "dataKey": "crypto:eth",            "stopLoss": 0.20 }
   },
+  "_fallback": "Tried only when dataKey yields a mock or an error. These four have no keyless primary: EIA publishes no gold series at all, and sp500/nasdaq/oil need API keys that are not set -- so without a fallback all four serve MOCK constants, code/market-collect.js correctly refuses them, and they can never accumulate an observation. Stooq needs no key. btc and eth have no fallback because CoinGecko already works keyless.",
+
   "_instruments": "The only tradeable symbols. Anything else is refused. dataKey maps to the existing data layer -- these six are already served by code/providers/. Stop distances are wider for the volatile instruments, which is why their position caps come out smaller: 20% stop on a 3% position loses the same 0.6% as an 8% stop on a 7.5% position."
 }

@@ -125,6 +125,85 @@ await test('the summary names what was skipped instead of quietly reporting 5', 
   assert.ok(/No history recorded for: gold/.test(out), out);
 });
 
+// ── fallbacks ─────────────────────────────────────────────────────────────
+// config/trading.json gives the four keyless-source-less instruments a
+// `stooq:*` fallback. It is tried ONLY when the primary yields a mock or an
+// error -- never as a preference -- and a fallback price must clear exactly
+// the same source check as a primary one.
+const WITH_STOOQ = {
+  ...LIVE,
+  'stooq:gold':   { symbol: 'gold',   price: 3308.75, source: 'stooq' },
+  'stooq:sp500':  { symbol: 'sp500',  price: 6510.2,  source: 'stooq' },
+  'stooq:nasdaq': { symbol: 'nasdaq', price: 24010.5, source: 'stooq' },
+  'stooq:oil':    { symbol: 'oil',    price: 71.4,    source: 'stooq' },
+};
+
+await test('a mock primary falls back, and all six record', async () => {
+  const f = tmp();
+  const { results, written } = await C.collect({ fetcher: fetcherFor(WITH_STOOQ), historyPath: f, now });
+  assert.strictEqual(written, 6, 'the fallback closes the four gaps');
+  assert.deepStrictEqual(load(f).map(r => r.symbol).sort(),
+    ['btc', 'eth', 'gold', 'nasdaq', 'oil', 'sp500']);
+  const gold = results.find(r => r.symbol === 'gold');
+  assert.strictEqual(gold.status, 'live');
+  assert.strictEqual(gold.source, 'stooq');
+  assert.strictEqual(gold.fellBackFrom, 'energy:gold');
+});
+
+await test('a working primary is never displaced by a fallback', async () => {
+  const table = { ...WITH_STOOQ, 'energy:gold': { symbol: 'gold', price: 3300, source: 'eia' } };
+  const gold = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now }))
+    .results.find(r => r.symbol === 'gold');
+  assert.strictEqual(gold.price, 3300, 'the primary won');
+  assert.strictEqual(gold.source, 'eia');
+  assert.strictEqual(gold.fellBackFrom, undefined);
+});
+
+await test('btc has no fallback, so a CoinGecko outage is simply an outage', async () => {
+  const table = { ...WITH_STOOQ, 'crypto:btc': new Error('CoinGecko HTTP 429') };
+  const btc = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now }))
+    .results.find(r => r.symbol === 'btc');
+  assert.strictEqual(btc.status, 'error');
+  assert.ok(/429/.test(btc.why), btc.why);
+});
+
+await test('when the fallback fails too, the PRIMARY reason survives', async () => {
+  // The primary's reason names the missing key or absent series -- the thing
+  // that actually needs fixing. A fallback's transport error must not bury it.
+  const table = { ...WITH_STOOQ, 'stooq:gold': new Error('Stooq HTTP 403') };
+  const gold = (await C.collect({ fetcher: fetcherFor(table), historyPath: tmp(), now }))
+    .results.find(r => r.symbol === 'gold');
+  assert.strictEqual(gold.status, 'skipped');
+  assert.ok(/EIA does not publish gold/.test(gold.why), gold.why);
+  assert.ok(/403/.test(gold.fallbackWhy), 'and the fallback failure is carried alongside');
+  assert.strictEqual(gold.fallbackTried, 'stooq:gold');
+});
+
+await test('a fallback serving a mock is refused like any other mock', async () => {
+  const table = { ...WITH_STOOQ, 'stooq:gold': { symbol: 'gold', price: 3308, source: 'mock' } };
+  const f = tmp();
+  const { results } = await C.collect({ fetcher: fetcherFor(table), historyPath: f, now });
+  assert.strictEqual(results.find(r => r.symbol === 'gold').status, 'skipped');
+  assert.ok(!load(f).some(r => r.symbol === 'gold'), 'a fallback gets no special trust');
+});
+
+await test('the summary shows which instruments fell back and why', async () => {
+  const { results, written } = await C.collect({ fetcher: fetcherFor(WITH_STOOQ), historyPath: tmp(), now });
+  const out = C.format(results, written);
+  assert.ok(/6 of 6 instruments had a live price/.test(out), out);
+  assert.ok(/gold\s+recorded\s+3308.75 \(stooq, fallback\)/.test(out), out);
+  assert.ok(/energy:gold was unusable/.test(out), out);
+});
+
+await test('attempt() classifies one key and never reaches for another', async () => {
+  const seen = [];
+  const spy = async (k) => { seen.push(k); return fetcherFor(WITH_STOOQ)(k); };
+  const r = await C.attempt(spy, 'gold', 'energy:gold');
+  assert.deepStrictEqual(seen, ['energy:gold'], 'attempt is one try, by design');
+  assert.strictEqual(r.status, 'skipped');
+  assert.strictEqual(r.via, 'energy:gold');
+});
+
 // ── the boundary ──────────────────────────────────────────────────────────
 await test('the collector cannot open a position', () => {
   const src = fs.readFileSync(path.join(__dirname, 'market-collect.js'), 'utf8');
