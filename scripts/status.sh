@@ -103,7 +103,10 @@ m "remote quick tier"      "[ -f code/gemini.js ]"
 m "tier router"            "[ -f code/router.js ]"
 m "fallback chains"        "grep -q 'chain' code/router.js"
 m "gate survives fallback" "grep -q 'gate is decided by LEVEL' code/router.js"
-echo " capability (not started):"
+# Was labelled "(not started)" while five of its six entries were already
+# passing -- memory.js, paper-trading.js, scheduler.js and planner.js all
+# exist. The label was written when the section was empty and never revisited.
+echo " capability:"
 m "persistent memory"      "[ -f code/memory.js ]"
 # Deliberately not "[ -f code/paper-trading.js ]": the deleted module would have
 # passed that check every day it sat unwired and untested. This asserts the thing
@@ -112,6 +115,16 @@ m "paper trading enforced" "[ -f code/test-paper-trading.js ] && grep -q riskPer
 m "scheduler / daemon"     "[ -f code/scheduler.js ]"
 m "self-debug loop"        "[ -f code/selfdebug.js ]"
 m "multi-step planning"    "[ -f code/planner.js ]"
+echo " market (paper only -- CONSTITUTION.md IV):"
+# Same principle as the paper-trading milestone above: assert the property that
+# makes each module trustworthy, not merely that a file is present.
+m "price history recorded"  "[ -f code/test-market-analyst.js ] && grep -q MIN_OBSERVATIONS code/market-analyst.js"
+m "mock prices refused"     "grep -q \"source === 'mock'\" code/market-collect.js"
+m "advisor cannot execute"  "[ -f code/trade-advisor.js ] && ! grep -q \"require('./paper-trading\" code/trade-advisor.js"
+m "hermes reads live state" "grep -q '_market_brief' hermes.py"
+echo " oversight:"
+m "stagnation supervisor"   "[ -f code/test-supervisor.js ] && grep -q 'shouldSkip' code/scheduler.js"
+m "supervisor cannot write" "! grep -qE 'writeFileSync|appendFileSync|spawnSync' code/supervisor.js"
 
 if [ "$FIX" = 1 ]; then
   hd "FIXES (safe only)"
