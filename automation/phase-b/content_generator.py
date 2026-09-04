@@ -209,7 +209,7 @@ _NUMBER_WORDS = {
 
 
 def _normalize_number(raw: str) -> str:
-    """'24.00.' -> '24', '1,200' -> '1200', '22.25' -> '22.25', '40%' -> '40%'.
+    r"""'24.00.' -> '24', '1,200' -> '1200', '22.25' -> '22.25', '40%' -> '40%'.
 
     The old regex (r"\d[\d,.]*%?") swallowed trailing sentence punctuation,
     so a faithful restatement ending a sentence ("costs EGP 24.00.") produced
