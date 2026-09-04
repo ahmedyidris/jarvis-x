@@ -1,4 +1,4 @@
-"""Wires the five agents into a LangGraph StateGraph:
+r"""Wires the five agents into a LangGraph StateGraph:
 
     triage -> retriever -> hypothesis -> critic --(ungrounded, <2 revisions)--> hypothesis
                                              \--(grounded, or out of revisions)--> report_writer -> END
