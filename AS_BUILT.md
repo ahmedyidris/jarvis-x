@@ -14,10 +14,16 @@ than estimated.
 
 ## 1. The headline number
 
-**20 of 20 JavaScript test files pass, measured on Ahmed's machine. 47 of 47 model-gateway
-tests pass.** Since 2026-09-04 the default `npm test` reports **19 passed, 1 skipped** — the
+**20 of 20 JavaScript test files passed on Ahmed's machine, 2026-09-04. 47 of 47
+model-gateway tests pass.** The default `npm test` reports **19 passed, 1 skipped** — the
 skip is `test-agent-data-integration.js`, gated behind `JX_NET` (§4). It passes; it is simply
 not run without the network. `npm run test:net` runs all 20.
+
+**The suite is now 21 files.** `code/test-paper-trading.js` was added later the same evening
+with the rebuilt paper module (§6.2) — **22 assertions, all passing**, verified in the build
+container, which is sufficient because that suite is fully offline by construction. The
+21-file run has not been repeated on Ahmed's machine; the five files that need local Piper,
+Kokoro and Ollama are unaffected by this change, so 21/21 there is expected but unmeasured.
 
 That is the whole of what the tests prove. There is no single "percent complete" figure in
 this document, because nothing measured here produces one — see §5 for why the old ones did
@@ -275,16 +281,20 @@ decision against the 6.0 GB figure above; it's stale by one day already.
 Software versions in the container table above are the versions **the Sessions 1–4 test
 results were produced under**, which is their only remaining legitimate use.
 
-### 6.2 The trading-code ruling (runbook §1.3) — **made 2026-09-04: delete**
+### 6.2 The trading-code ruling (runbook §1.3) — **settled 2026-09-04, after a reversal**
 
-Ahmed ruled that "no crypto trading bot" supersedes the constitution's narrower
-testnet carve-out. Carried out:
+Ruled twice the same day. First: delete, on the basis that "no crypto trading bot"
+supersedes the constitution's testnet carve-out. Then re-opened for a *built and tested*
+paper module — a different question from whether to keep a dormant, unwired, untested one.
+`DECISION_RECORD_paper-trading.md` carries the full reasoning; the short version is that
+the net position ended **stricter than the original**.
+
+The first ruling, carried out:
 
 - `code/paper-trading.js` and `config/trading.json` **deleted**.
-- `CONSTITUTION.md` §IV now forbids **"Trading of any kind, real or simulated"**; it
+- `CONSTITUTION.md` §IV set to forbid "Trading of any kind, real or simulated"; it
   previously read "Real money trading (testnet only)", which permitted paper trading.
-- `CONSTITUTION.md` §III no longer gates "Proposing trades (even paper trades)" — there is
-  nothing left to propose them.
+- `CONSTITUTION.md` §III's gate on "Proposing trades" removed.
 - `hermes.py`'s description override and `scripts/status.sh`'s `[ -f ]` milestone for the
   file are removed (milestones 24 → 23, so the ratio is not distorted by dropping a check
   that used to pass).
@@ -293,11 +303,32 @@ testnet carve-out. Carried out:
 
 Deleted rather than archived, as instructed — git history retains both files.
 
-**One file was deliberately not touched:** `knowledge/Guidelines.md` §"Intended but NOT yet
-enforced" still lists trading rules (stop-loss, position caps). `NOTES.md:23` and `README.md`
-name that file as **off-limits to Claude Code** via deny rules in `~/.claude/settings.json`,
-so amending it is Ahmed's to do. It is now the only place in the repo that still describes
-trading as a future feature.
+**Then re-opened, same evening.** Both filenames exist again, rebuilt from scratch rather
+than restored: `config/trading.json` names six permitted instruments (gold, S&P 500, Nasdaq,
+oil, BTC, ETH) and `code/paper-trading.js` enforces every limit in it, with
+`code/test-paper-trading.js` proving each one — **22 assertions, fully offline**. §IV now
+forbids real-money trading and any instrument outside the six; §III gates paper-trade
+proposals. `PaperBook` takes prices as arguments and opens no sockets, so no code path to a
+broker exists.
+
+The distinction that justified re-opening: the deleted module's limits lived in
+`knowledge/Guidelines.md` under "Intended but NOT yet enforced", with no test file and no
+caller. Prose limits are not limits. These execute.
+
+**`knowledge/Guidelines.md`, and why it took a direct instruction.** That file's
+§"Intended but NOT yet enforced" carried the old trading rules, but `NOTES.md:23` and
+`README.md` name it **off-limits to Claude Code** via deny rules in
+`~/.claude/settings.json` — on the principle that whatever can edit its own code must not
+edit its own constraints. It was left alone until Ahmed asked for it directly, which is the
+supervised case that rule exists to require. It now states the enforced paper-trading limits.
+The deny rule on his machine still stands and may block a local session from the same edit.
+
+**A second finding came out of opening it.** Its "Enforced in code" section told Jarvis its
+shell allowlist was ten read-only commands: `ls cat head tail wc grep date pwd du df`.
+`code/shell.js` actually allows **twenty**, including `rm`, `curl`, `wget`, `bash`, `python`
+and `node`. Since that file's own instructions say *"Answer from this file directly; it is
+already in your context"*, Jarvis would have told you it cannot run `rm`. It can. Corrected
+and grouped the way `shell.js` groups them, so future drift between the two is visible.
 
 ### 6.3 Decisions I did not make for you
 - **`JX_NET` gating.** Ruled on and implemented 2026-09-04 — see §4. The original

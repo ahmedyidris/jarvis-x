@@ -75,7 +75,7 @@ These need a ruling or build work, not a file move. Full detail in `AS_BUILT.md`
 
 | File | Flag |
 |---|---|
-| `code/paper-trading.js`, `config/trading.json` | ~~Flagged pending a ruling.~~ **Ruled 2026-09-04: delete.** Both files removed and `CONSTITUTION.md` §IV amended to forbid trading outright. Deleted rather than archived, as instructed — an exception to this document's own move-never-delete rule, made explicitly. Git history retains them. |
+| `code/paper-trading.js`, `config/trading.json` | ~~Flagged pending a ruling.~~ **Deleted, then rebuilt, both on 2026-09-04.** The originals were removed (an explicit exception to this document's move-never-delete rule). Later the same evening both were re-created from scratch as a tested module with enforced limits — not restored from history. The deletion stands as recorded; what exists now shares only the filenames. See `DECISION_RECORD_paper-trading.md`. |
 | `code/test-guard.js` | Zero assertions, always exits 0, counted as PASS. Not a test. |
 | `code/test-shell.js` | Zero assertions. Reads `r.status` but `run()` returns `exit_code`. Its `rm not allowed` label is stale — `rm` is deliberately allowlisted. |
 | `package.json:11` (`test:net`) | ~~Dead flag.~~ **Resolved 2026-09-04:** `code/test-net.js` implements the gate; skips are counted separately from passes. |

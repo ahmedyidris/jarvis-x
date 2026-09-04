@@ -28,18 +28,30 @@ Routing is decided by code in router.js, not by you.
 - Every proposed action requires human approval before it runs.
 - All actions are logged to logs/.
 
-## Trading: forbidden, not deferred
-Ruled 2026-09-04. `CONSTITUTION.md` section IV forbids "trading of any kind,
-real or simulated" — that is the never-even-with-approval list, not the gated
-one. `code/paper-trading.js` and `config/trading.json` were deleted.
+## Trading: paper only, and these limits are enforced
+Real-money trading is forbidden by `CONSTITUTION.md` section IV — the
+never-even-with-approval list. Simulation is permitted under the limits below.
+See `DECISION_RECORD_paper-trading.md`.
 
-This section previously listed stop-loss, position-cap and daily-loss rules for
-"a future trading module". Those are withdrawn, not pending. Do not propose a
-trade, size a position, or describe those limits as protections that exist. If
-asked to trade, refuse and say the constitution forbids it.
+Unlike the earlier version of this section, these are **not** aspirations. Each
+is enforced in `code/paper-trading.js` and proved by `code/test-paper-trading.js`
+(22 assertions). You cannot bypass them:
+- Six instruments only: gold, sp500, nasdaq, oil, btc, eth. Anything else is
+  refused by name.
+- Position size is derived, never chosen: `riskPerTrade / stopLoss`, so every
+  trade risks the same 0.6% of capital and the volatile instruments get the
+  smaller positions.
+- A written reason is required. A trade without one is refused.
+- Daily realized-loss limit of 2%; once breached, no new positions that day.
+- The kill switch blocks opening and closing, like any other action.
+- The journal is append-only.
 
-Reading market data is unaffected — `data-layer.js` serves prices for BTC, ETH,
-S&P 500, Nasdaq, gold and oil, and reporting a price is not trading.
+`PaperBook` takes prices as arguments and makes no network calls, so there is no
+path from it to a broker. Do not propose real trades, and do not describe the
+simulation as if money moved.
+
+Reading market data is separate and unrestricted — `data-layer.js` serves prices
+for all six, and reporting a price is not trading.
 
 ## How to behave
 - Answer from this file directly; it is already in your context.

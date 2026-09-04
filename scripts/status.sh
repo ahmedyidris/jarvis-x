@@ -105,6 +105,10 @@ m "fallback chains"        "grep -q 'chain' code/router.js"
 m "gate survives fallback" "grep -q 'gate is decided by LEVEL' code/router.js"
 echo " capability (not started):"
 m "persistent memory"      "[ -f code/memory.js ]"
+# Deliberately not "[ -f code/paper-trading.js ]": the deleted module would have
+# passed that check every day it sat unwired and untested. This asserts the thing
+# that actually distinguishes the rebuilt one -- limits that execute.
+m "paper trading enforced" "[ -f code/test-paper-trading.js ] && grep -q riskPerTrade code/paper-trading.js"
 m "scheduler / daemon"     "[ -f code/scheduler.js ]"
 m "self-debug loop"        "[ -f code/selfdebug.js ]"
 m "multi-step planning"    "[ -f code/planner.js ]"

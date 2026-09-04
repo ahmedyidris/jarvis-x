@@ -94,7 +94,7 @@ uncertainty at all.
 
 | Conflict | Status |
 |---|---|
-| **Paper trading** | **Ruled 2026-09-04: delete.** `code/paper-trading.js` and `config/trading.json` removed; `CONSTITUTION.md` §IV now forbids "trading of any kind, real or simulated" instead of permitting a testnet carve-out, and §III no longer gates trade proposals. Git history retains the code. |
+| **Paper trading** | **Ruled twice on 2026-09-04.** First: delete — both files removed, §IV amended to forbid trading of any kind. Then re-opened the same evening for a *built and tested* paper module, which is a different question from keeping a dormant untested one. Net position is **stricter than the original**: §IV forbids real-money trading and any instrument outside six named ones, and every limit is enforced in `code/paper-trading.js` (22 assertions) rather than described in prose. `DECISION_RECORD_paper-trading.md` records the flip and why it isn't drift. |
 | **Remote access via `0.0.0.0`** | Rejected. Every binding in the repo is deliberately `127.0.0.1`, port 8000 is already held by the live deployment, and runbook §7 forbids exposure. Git stays the sync layer. |
 | **Local coding models to replace Claude Code** | Unchanged from runbook §4: not viable on CPU. Gemini CLI free tier is the out-of-limit answer. |
 | **`JX_NET` gating** | **Ruled 2026-09-04: gate it.** Implemented in `code/test-net.js`; `test-agent-data-integration.js` now skips unless `JX_NET=1`. A skip is counted in its own column and can never read as a pass — the objection that gating hides a red test is answered by the reporting, and the test passes on Ahmed's machine anyway, so nothing red is being hidden. |

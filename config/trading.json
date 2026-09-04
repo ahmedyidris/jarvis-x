@@ -1,0 +1,24 @@
+{
+  "_note": "Paper trading only. CONSTITUTION.md section IV forbids real-money trading of any kind; this file describes a simulation and there is no code path from it to a broker. Every limit here is ENFORCED in code/paper-trading.js and covered by code/test-paper-trading.js -- the previous version of these rules lived only in knowledge/Guidelines.md as 'intended but not enforced', which is exactly the failure this replaces.",
+
+  "mode": "paper",
+  "startingCapital": 10000,
+
+  "riskPerTrade": 0.006,
+  "_riskPerTrade": "Fraction of capital lost if a position is stopped out. Position size is DERIVED from this and the instrument's stop distance (maxPosition = riskPerTrade / stopLoss), so every instrument risks the same amount and the volatile ones simply get smaller positions.",
+
+  "dailyLossLimit": 0.02,
+  "_dailyLossLimit": "Realized losses in one UTC day, as a fraction of starting capital. Opening is refused once breached.",
+
+  "maxOpenPositions": 4,
+
+  "instruments": {
+    "gold":   { "dataKey": "energy:gold",           "stopLoss": 0.08 },
+    "sp500":  { "dataKey": "market:sp500",          "stopLoss": 0.08 },
+    "nasdaq": { "dataKey": "market:nasdaq100",      "stopLoss": 0.10 },
+    "oil":    { "dataKey": "energy:crude-oil-wti",  "stopLoss": 0.15 },
+    "btc":    { "dataKey": "crypto:btc",            "stopLoss": 0.20 },
+    "eth":    { "dataKey": "crypto:eth",            "stopLoss": 0.20 }
+  },
+  "_instruments": "The only tradeable symbols. Anything else is refused. dataKey maps to the existing data layer -- these six are already served by code/providers/. Stop distances are wider for the volatile instruments, which is why their position caps come out smaller: 20% stop on a 3% position loses the same 0.6% as an 8% stop on a 7.5% position."
+}
