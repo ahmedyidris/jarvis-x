@@ -25,7 +25,18 @@ const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
 const { run } = require('./shell.js');
 const { BASE } = require('./exec.js');
-const { STOP_FILE } = require('./guard.js');
+const { STOP_FILE, LOG_FILE, setLogFile, currentLogFile } = require('./guard.js');
+
+// The two audit assertions at the bottom diffed the REAL logs/actions.jsonl,
+// so every run of this file appended its refusals to the machine's audit
+// trail -- 333 `refused-cmd` rows by 2026-09-07, which is most of what made
+// selfdebug.js unable to tell a real failure from a fixture. Same seam as
+// test-guard.js: a real file on a real disk through the real appendFileSync,
+// just not that one.
+const TMP_LOG = path.join(require('os').tmpdir(),
+  `jx-test-shell-${process.pid}-${Date.now()}.jsonl`);
+setLogFile(TMP_LOG);
+process.on('exit', () => { try { fs.unlinkSync(TMP_LOG); } catch { /* fine */ } });
 
 function withKillSwitch(fn) {
   const had = fs.existsSync(STOP_FILE);
@@ -205,11 +216,11 @@ await test('stdout and stderr are separate', () => {
 });
 
 await test('a refused command is recorded in the audit log', () => {
-  const { LOG_FILE } = require('./guard.js');
-  const before = fs.existsSync(LOG_FILE)
-    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length : 0;
+  const f = currentLogFile();
+  const before = fs.existsSync(f)
+    ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).length : 0;
   try { run('git', ['log']); } catch { /* expected */ }
-  const rows = fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean)
+  const rows = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean)
     .slice(before).map(l => JSON.parse(l));
   assert.strictEqual(rows.length, 1, 'a refusal must leave a trace');
   assert.strictEqual(rows[0].action, 'refused-cmd');
@@ -217,14 +228,20 @@ await test('a refused command is recorded in the audit log', () => {
 });
 
 await test('an executed command is recorded with its exit code', () => {
-  const { LOG_FILE } = require('./guard.js');
-  const before = fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length;
+  const f = currentLogFile();
+  const before = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).length;
   run('echo', ['audited']);
-  const rows = fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean)
+  const rows = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean)
     .slice(before).map(l => JSON.parse(l));
   assert.strictEqual(rows[0].action, 'cmd-exec');
   assert.strictEqual(rows[0].allowed, true);
   assert.strictEqual(rows[0].exit_code, 0);
+});
+
+await test('this suite does not append to the real audit log', () => {
+  // 333 `refused-cmd` rows in logs/actions.jsonl came from here.
+  assert.notStrictEqual(currentLogFile(), LOG_FILE);
+  assert.ok(currentLogFile().includes('jx-test-shell-'), currentLogFile());
 });
 
 finish();

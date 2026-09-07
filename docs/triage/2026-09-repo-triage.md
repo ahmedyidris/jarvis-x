@@ -164,6 +164,14 @@ not use `test-helper.js` are fine. `test-helper.js` is the helper itself.
 mutation-checked by removing `'git_log'` from `scheduler.js`'s `READ_ONLY`
 set, which produced exit 1.
 
+Since 2026-09-07 they share a second fault: none imports `test-helper.js`, so
+none gets the audit-log redirect added that day, and each still appends its
+fixtures to the machine's real `logs/actions.jsonl` when run by hand — which
+is the only way they run. `selfdebug.js` then reads those fixtures. One pass
+over these files should fix both faults at once: make them fail properly and
+route them through `test-helper.js`. `test-agent-data-integration.js` is still
+the cheapest start (network only, no voice hardware).
+
 **The pattern to grep for**, on any new test file that does not use
 `test-helper.js`:
 

@@ -24,13 +24,18 @@
 //   - It is not a claim that unattributable rows are fine. It says how many
 //     it cannot classify, every time.
 //
-// THE PROBLEM THIS FILE HAD TO SOLVE FIRST. logs/actions.jsonl held 2810
-// rows on 2026-09-07 and 599 of them looked like failures. Almost all were
-// test fixtures -- tests call guard() and it appends to the real log. The
-// first useful version of this tool would have reported "gemini 429 occurred
-// 29 times, investigate the Gemini integration" about a string that exists
-// only in test-guard.js. guard.js now records `origin` and stamps rows v3;
-// v2 rows are reported as UNATTRIBUTABLE rather than guessed at.
+// THE PROBLEM THIS FILE HAD TO SOLVE FIRST. In the container this was built
+// in, logs/actions.jsonl held 2810 rows and 599 of them looked like failures.
+// Almost all were test fixtures: tests called guard() and it appended to the
+// real log. The first useful version of this tool would have reported "gemini
+// 429 occurred 29 times, investigate the Gemini integration" about a string
+// that exists only in test-guard.js.
+//
+// logs/ is gitignored, so those counts are one machine's -- but the cause is
+// every machine's, and the same shape appears wherever the suite runs. Two
+// changes closed it: guard.js records `origin` and stamps rows v3 (v2 rows
+// report as UNATTRIBUTABLE rather than being guessed at), and test-helper.js
+// points the audit log at a temp file so the suite stops adding to it at all.
 const fs = require('fs');
 const path = require('path');
 
