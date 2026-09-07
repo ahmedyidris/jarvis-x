@@ -128,3 +128,48 @@ file — everything went to `archive/2026-09/`.
 **Later exception, 2026-09-04:** `code/paper-trading.js` and `config/trading.json` were
 deleted outright on Ahmed's explicit ruling, not archived. Recorded here so the rule and
 its one exception sit in the same place. Git history retains both files.
+
+---
+
+## TESTS THAT CANNOT FAIL — the running tally
+
+This document flagged `test-shell.js` and `test-guard.js` on 2026-09-03 as
+"zero assertions, always exits 0, counted as PASS", and no action was taken
+until 2026-09-04. Keeping the tally here so the next one is found by reading
+rather than by an eval breaking.
+
+| file | fault | in CI then | status |
+|---|---|---|---|
+| `code/test-shell.js` | zero assertions | yes | **fixed 2026-09-04**, 21 assertions |
+| `code/test-guard.js` | zero assertions | yes | **fixed 2026-09-04**, 14 assertions |
+| `code/test-data-layer.js` | had assertions, then `runTests().catch(console.error)` threw them away — and it loaded dotenv so it made live Alpha Vantage calls | no | **fixed 2026-09-07**, 28 assertions, in CI, offline |
+| `code/test-accessibility.js` | `.catch(console.error)` | no | **OPEN** |
+| `code/test-agent-data-integration.js` | `.catch(console.error)` | no | **OPEN** |
+| `code/test-full-accessibility.js` | `.catch(console.error)` | no | **OPEN** |
+| `code/test-voice-accents.js` | `.catch(console.error)` | no | **OPEN** |
+| `code/test-voice-full-system.js` | `.catch(console.error)` | no | **OPEN** |
+
+The five open ones are not in CI, so they are not lying to CI — but they lie
+to anyone who runs them by hand, which is the only way they ever run. They
+are unfixed for a reason worth stating rather than leaving implied: each
+needs hardware or a network this container does not have (Piper/Kokoro
+binaries, downloaded voice models, CoinGecko), so a rewrite here could be
+verified only by reading it. Fixing them means running them on the
+Chromebook. `test-agent-data-integration.js` is the cheapest — it needs only
+network — and would be the one to start with.
+
+**Verified 2026-09-07, so it is not assumed:** the two CI-listed files that do
+not use `test-helper.js` are fine. `test-helper.js` is the helper itself.
+`test-scheduler.js` ends with `process.exitCode = pass === total ? 0 : 1` —
+mutation-checked by removing `'git_log'` from `scheduler.js`'s `READ_ONLY`
+set, which produced exit 1.
+
+**The pattern to grep for**, on any new test file that does not use
+`test-helper.js`:
+
+```bash
+grep -l "catch(console.error)" code/test-*.js
+```
+
+A match is a file that prints its failures and exits 0. (`test-data-layer.js`
+matches only because its header quotes the line it used to end with.)
