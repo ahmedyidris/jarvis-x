@@ -144,7 +144,7 @@ rather than by an eval breaking.
 | `code/test-guard.js` | zero assertions | yes | **fixed 2026-09-04**, 14 assertions |
 | `code/test-data-layer.js` | had assertions, then `runTests().catch(console.error)` threw them away — and it loaded dotenv so it made live Alpha Vantage calls | no | **fixed 2026-09-07**, 28 assertions, in CI, offline |
 | `code/test-accessibility.js` | `.catch(console.error)` | no | **OPEN** |
-| `code/test-agent-data-integration.js` | `.catch(console.error)` | no | **OPEN** |
+| `code/test-agent-data-integration.js` | `.catch(console.error)`, plus `requireNet()` at the top skipping 4 offline cases | no | **fixed 2026-09-07**, 13 offline assertions, in CI |
 | `code/test-full-accessibility.js` | `.catch(console.error)` | no | **OPEN** |
 | `code/test-voice-accents.js` | `.catch(console.error)` | no | **OPEN** |
 | `code/test-voice-full-system.js` | `.catch(console.error)` | no | **OPEN** |

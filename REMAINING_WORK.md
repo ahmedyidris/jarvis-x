@@ -98,6 +98,46 @@ only way they ever run. Each needs hardware or network this container lacks,
 so fixing them means the Chromebook. `test-agent-data-integration.js` needs
 only network and is the cheapest place to start.
 
+### P0.8 — `test-agent-data-integration.js` (2026-09-07, fixed)
+
+Three faults at once, and they compounded:
+
+1. `runAgentDataTests().catch(console.error)` — failures printed, exit 0.
+   Fourth instance of the pattern (after `test-shell`, `test-guard`,
+   `test-data-layer`).
+2. **`requireNet()` at the top of the file**, so the whole thing was skipped
+   without `JX_NET=1`. Four of its five cases never needed the network:
+   `resolveQuery()` is pure keyword matching, and the unknown-query path
+   returns before the data layer is touched. **One live dependency was
+   keeping four offline tests out of CI.**
+3. No `test-helper.js` import, so it audited to the real
+   `logs/actions.jsonl` (P0.7).
+
+**Rewritten:** 13 offline assertions, in CI on every push; the CoinGecko round
+trip is one case behind `JX_NET=1`, last in the file. Split by what each case
+actually needs, not by which file it sits in.
+
+Coverage went from 3 of 11 keyword mappings to all 18 phrases; plus
+case-insensitivity, first-match-wins ordering (pinned against a reorder),
+no-fetch-on-unknown-query, staleness always stated, error degradation carrying
+no price-shaped string, news vs price formatting, a missing change percentage
+printing no arrow rather than `NaN`, and that `buildResponse` routes through
+`this.dataLayer` and nothing else — without which every other case here would
+pass while the real path diverged.
+
+Five mutations, all caught: a keyword typo; unknown query fetching anyway;
+staleness dropped from the text; the error path returning a price shape; a
+missing percentage printing `NaN`.
+
+`AS_BUILT.md`'s "5/5, measured on Ahmed's machine" for this file is corrected.
+It was never a measurement — the file exited 0 either way, and without
+`JX_NET` it did not run at all.
+
+**Three of the eight remain**, all needing voice hardware: `test-kokoro`,
+`test-vision`, `test-voice`, `test-voice-interaction`, `test-voice-router`,
+`test-voice-accents`, `test-voice-full-system`. Same two faults each (cannot
+fail, no audit redirect), same one-pass fix, on the Chromebook.
+
 ### P0.7 — the suite was auditing to the machine's own audit log (2026-09-07, fixed)
 
 `selfdebug.js` shipped and its first live report immediately said something

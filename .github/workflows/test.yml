@@ -34,7 +34,11 @@ jobs:
       # that don't exist on a clean runner -- they'd fail here every single
       # time through no fault of the code, which is worse than not running
       # CI at all (a perpetually-red badge nobody trusts). One more
-      # (test-agent-data-integration.js) reaches CoinGecko over the network.
+      # test-agent-data-integration.js USED to be excluded for reaching
+      # CoinGecko. Rewritten 2026-09-07: four of its five cases never needed
+      # the network (resolveQuery is pure keyword matching, and the unknown-
+      # query path returns before the data layer is touched), so the live
+      # round trip is now one case behind JX_NET and the other 13 run here.
       # Run only the ones that are genuinely self-contained instead. A test
       # qualifies when its inputs are arguments rather than the environment:
       # test-watcher takes an injectable fetcher, test-paper-trading takes
@@ -87,7 +91,7 @@ jobs:
                    test-market-analyst test-market-collect test-trade-advisor \
                    test-market-brief test-supervisor test-stooq-provider \
                    test-eval-agent test-agent test-data-layer test-lib \
-                   test-selfdebug; do
+                   test-selfdebug test-agent-data-integration; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
