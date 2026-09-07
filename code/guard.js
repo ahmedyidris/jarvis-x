@@ -11,11 +11,39 @@ if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 // v2 adds `allowed` and `schema`. Rows before 2026-08-24 have neither:
 // 407 early rows carry {action,detail,allowed}, 737 carry {action,level,pid}
 // with no verdict at all. Readers must branch on `schema`.
+//
+// v3 adds `origin`, and exists because of what selfdebug.js found on
+// 2026-09-07. This log had 2810 rows and 599 of them looked like failures.
+// Almost all were TEST FIXTURES: `boom` (30) with error "inner failure",
+// `slow-fail` (29) with "gemini 429", `odd-fail` (29) with "a bare string",
+// `refused-cmd` (333) from the allowlist tests, `paper-trade-open` (22).
+// Tests call guard() directly and it writes to the real LOG_FILE, so a tool
+// reading this file would confidently report "gemini 429 occurred 29 times,
+// investigate the Gemini integration" about a string that exists only in
+// test-guard.js.
+//
+// So every new row says where it came from. Detected from the entry script
+// rather than an environment variable, because that needs no cooperation
+// from whoever writes the next test file -- a new code/test-*.js is tagged
+// automatically -- and the agent cannot reach it: the agent runs through
+// agent.js or scheduler.js, and setting argv[1] is not an action it has.
+//
+// Rows stay v2 => unattributable. That is the honest reading: nothing can
+// retroactively tell which of the existing 2810 were tests.
+function detectOrigin() {
+  const entry = (process.argv && process.argv[1]) || '';
+  const base = path.basename(entry);
+  if (/^test-/.test(base) || /^jest/.test(base) || base === 'jest-runner.js') return 'test';
+  return 'app';
+}
+
+const ORIGIN = detectOrigin();
+
 function append(entry) {
   try {
     fs.appendFileSync(LOG_FILE, JSON.stringify({
-      timestamp: new Date().toISOString(), schema: 'v2',
-      pid: process.pid, ...entry
+      timestamp: new Date().toISOString(), schema: 'v3',
+      pid: process.pid, origin: ORIGIN, ...entry
     }) + '\n');
   } catch (e) { /* auditing must never break the caller */ }
 }
@@ -74,4 +102,5 @@ function logAction(action, level = 'quick', meta = {}) {
   append({ action, level, allowed: meta.allowed ?? null, ...meta });
 }
 
-module.exports = { guard, isStopped, logAction, STOP_FILE, LOG_FILE };
+module.exports = { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
+                   ORIGIN, detectOrigin };

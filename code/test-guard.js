@@ -22,7 +22,8 @@
 const fs = require('fs');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
-const { guard, isStopped, logAction, STOP_FILE, LOG_FILE } = require('./guard.js');
+const { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
+        ORIGIN, detectOrigin } = require('./guard.js');
 
 /** Newest audit rows written while `fn` ran. The log path is a module
  *  constant, so the honest way to assert on it is to diff the real file. */
@@ -161,7 +162,7 @@ await test('a non-Error rejection still produces a readable log line', async () 
 await test('every row carries the fields a reader needs to interpret it', () => {
   const { rows } = rowsWritten(() => guard('shaped', 'quick', () => null));
   const r = rows[0];
-  assert.strictEqual(r.schema, 'v2', 'readers branch on schema; older rows lack a verdict');
+  assert.strictEqual(r.schema, 'v3', 'readers branch on schema; older rows lack a verdict');
   assert.strictEqual(r.pid, process.pid);
   assert.ok(!Number.isNaN(Date.parse(r.timestamp)), r.timestamp);
   assert.strictEqual(r.level, 'quick');
@@ -202,6 +203,87 @@ await test('an unwritable log does not take the action down with it', () => {
     fs.appendFileSync = original;
   }
   assert.strictEqual(value, 'still ran');
+});
+
+// ── provenance, added 2026-09-07 ──────────────────────────────────────────
+// v3 exists because selfdebug.js could not otherwise tell a real failure
+// from a test fixture. This log had 599 failure rows and almost all were
+// fixtures -- `boom`/"inner failure", `slow-fail`/"gemini 429",
+// `odd-fail`/"a bare string", 333 `refused-cmd` -- because tests call guard()
+// and it appends to the real LOG_FILE. A tool reading it would have reported
+// "gemini 429 occurred 29 times, investigate the Gemini integration".
+await test('every row records where it came from', () => {
+  const { rows } = rowsWritten(() => guard('provenance', 'quick', () => 1));
+  assert.ok(['test', 'app'].includes(rows[0].origin), `bad origin: ${rows[0].origin}`);
+});
+
+await test('and this suite is recorded as a test, not as the app', () => {
+  // The whole point. If this ever reads 'app', selfdebug starts counting the
+  // fixtures in this very file as real incidents.
+  const { rows } = rowsWritten(() => guard('provenance-2', 'quick', () => 1));
+  assert.strictEqual(rows[0].origin, 'test',
+    'a test run must not be indistinguishable from a real one');
+});
+
+await test('origin is derived from the entry script, needing no cooperation', () => {
+  // Not an environment variable: a new code/test-*.js is tagged correctly
+  // without its author knowing this mechanism exists. And the agent cannot
+  // set it -- it runs through agent.js or scheduler.js, and rewriting argv
+  // is not one of its action types.
+  const original = process.argv[1];
+  try {
+    process.argv[1] = '/anywhere/code/test-something-new.js';
+    assert.strictEqual(detectOrigin(), 'test');
+    process.argv[1] = '/anywhere/code/agent.js';
+    assert.strictEqual(detectOrigin(), 'app');
+    process.argv[1] = '/anywhere/code/scheduler.js';
+    assert.strictEqual(detectOrigin(), 'app');
+    process.argv[1] = '/anywhere/jest-runner.js';
+    assert.strictEqual(detectOrigin(), 'test');
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('a missing argv[1] is app, not a crash', () => {
+  const original = process.argv[1];
+  try {
+    delete process.argv[1];
+    assert.strictEqual(detectOrigin(), 'app');
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('the origin is fixed at load, so it cannot change mid-run', () => {
+  // Recomputing per append would let a long-running process be half tagged
+  // if something reassigned argv. ORIGIN is captured once.
+  const before = ORIGIN;
+  const original = process.argv[1];
+  try {
+    process.argv[1] = '/anywhere/code/agent.js';
+    const { rows } = rowsWritten(() => guard('still-a-test', 'quick', () => 1));
+    assert.strictEqual(rows[0].origin, before, 'the row must use the load-time origin');
+    assert.strictEqual(rows[0].origin, 'test');
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('logAction records origin too, not only guard', () => {
+  const { rows } = rowsWritten(() => logAction('la-origin', 'quick', { allowed: true }));
+  assert.strictEqual(rows[0].origin, 'test');
+  assert.strictEqual(rows[0].schema, 'v3');
+});
+
+await test('a killswitch row is attributed like any other', () => {
+  // The row most worth auditing must also be the one you can tell apart from
+  // a test that flipped the switch on purpose -- which this suite does.
+  withKillSwitch(() => {
+    const { rows } = rowsWritten(() => guard('blocked-attributed', 'hard', () => 1));
+    assert.strictEqual(rows[0].outcome, 'killswitch');
+    assert.strictEqual(rows[0].origin, 'test');
+  });
 });
 
 finish();

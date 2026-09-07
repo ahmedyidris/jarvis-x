@@ -98,6 +98,97 @@ only way they ever run. Each needs hardware or network this container lacks,
 so fixing them means the Chromebook. `test-agent-data-integration.js` needs
 only network and is the cheapest place to start.
 
+### P0.6 — `selfdebug.js` built (2026-09-07)
+
+`NOTES.md` deferred it as *"agent reads its own errors and proposes fixes …
+a self-modifying loop plus a model that picks the right action three times in
+four is how a repo ends up editing its own constraints."* Both halves closed
+first: routing 41/41 held-out (P0.2), constraint files mechanically protected
+(P0.4).
+
+**What it is.** `diagnose()` reads `logs/actions.jsonl`, groups failures by
+`(kind, action, normalised error)`, and returns findings with counts, first
+and last occurrence, sample rows, and where to look. `format()` prints them.
+
+**What it is not, and each of these is asserted, not merely intended:**
+
+- **Not a fixer.** No write, no command, no path to either. Verified at
+  runtime with `fs.writeFileSync`/`appendFileSync`/`mkdirSync`/`unlinkSync`
+  replaced by throwing stubs, and from the source — it imports none of
+  `lib.js`, `shell.js`, `exec.js`, `child_process`.
+- **Not a model.** Every judgement is a rule over log rows, so the same log
+  always gives the same findings and the whole thing tests offline. A model
+  would add plausible fixes nothing could verify.
+- **Not silent about what it cannot judge.** It reports unattributable rows
+  every time.
+
+#### The problem that had to be solved first, and it was the real work
+
+`logs/actions.jsonl` held 2810 rows and **599 looked like failures. Almost
+all were test fixtures.** Tests call `guard()` and it appends to the real log:
+
+```
+refused-cmd      333   (test-shell.js allowlist tests)
+watch-check       46   (test-watcher.js)
+boom              30   "inner failure"        (test-guard.js)
+explicit          30   (test-guard.js)
+slow-fail         29   "gemini 429"           (test-guard.js)
+odd-fail          29   "a bare string"        (test-guard.js)
+```
+
+The first useful version of this tool would have reported **"gemini 429
+occurred 29 times, investigate the Gemini integration"** about a string that
+exists only in `test-guard.js`. That is the exact class of confident-wrong
+conclusion this project keeps producing.
+
+So `guard.js` now records `origin: 'test' | 'app'` and stamps rows **v3**.
+Detected from the entry script (`argv[1]` basename matching `^test-`), not an
+environment variable: a new `code/test-*.js` is tagged correctly without its
+author knowing the mechanism exists, and the agent cannot set it — it runs
+through `agent.js` or `scheduler.js`, and rewriting argv is not one of its
+action types. `ORIGIN` is captured at load so it cannot drift mid-run.
+
+The 2810 existing rows stay v2 and are reported as **UNATTRIBUTABLE**.
+Nothing can work out after the fact which were tests, so the tool says
+`599 UNATTRIBUTABLE … cannot tell test from real, so not counted` and adds
+*"That is not the same as 'no failures'"* — which is what it prints today
+against the live log.
+
+#### Two smaller things this turned up
+
+**`scripts/status.sh:116` checked `[ -f code/selfdebug.js ]`.** NOTES.md's own
+warning about that file — *"checks file existence, not correctness; `touch
+code/paper.js` would show 100%"* — applied to this line exactly. Creating the
+module flipped the milestone green before a single assertion existed. It now
+asserts the two properties that make it trustworthy: a test file exists, and
+`selfdebug.js` imports none of `lib.js`/`shell.js`/`exec.js`. Verified both
+ways — adding `require('./lib.js')` makes the milestone fail *and* the suite
+fail.
+
+**The kill switch deliberately does not block it.** Every other module here
+refuses to run while `.jarvis-x-STOP` exists. You halt the system *because*
+something is wrong, and that is exactly when you need to read what went
+wrong; a read-only diagnostic going dark under the switch takes the one tool
+you need with it. Nothing here can act, so there is nothing for the switch to
+stop. Pinned by a test that also asserts `selfdebug.js` never calls
+`isStopped()`, so the decision cannot reverse silently.
+
+**Verified:** `test-selfdebug` 30 (new), `test-guard` 14 → 21, 19 files in CI,
+CI's step run verbatim on real `node v20.18.1` under `bash -e` — exit 0, "all
+suites passed".
+
+13 mutations, all caught: test rows counted as real; unknown-origin counted as
+app; `originOf` trusting any string; normalisation removed; over-normalising
+(collapsing everything); `allowed:null` treated as a failure; the self-filter
+removed; samples uncapped; the "not the same as no failures" banner dropped; a
+writer introduced; `origin` field removed; everything tagged app; `origin`
+recomputed per append.
+
+**What it cannot tell you yet.** Its first genuinely useful report needs
+app-origin failures to accumulate, and there are none — every v3 row so far is
+a test. That is the correct state on day one, not a defect, and it is why the
+report reads `0 failures counted` rather than inventing something.
+
 ### P0.5 — my own CI verification had a hole (2026-09-07, fixed)
 
 All session I reported "CI's `js-suite` step run verbatim on real `node
