@@ -46,6 +46,58 @@ directories. `list` at 50% is the weakest thing measured and the capability
 that loop leans on hardest. Fix `list` first — prompt work, not a rewrite —
 then re-measure and revisit.
 
+### P0.3 — `test-data-layer.js` could not fail (2026-09-07, resolved)
+
+Third instance of the pattern this repo keeps correcting, and the worst of
+the three. It had five tests with real assertions, ended by
+
+```js
+runTests().catch(console.error);
+```
+
+so every failure printed and the process exited 0. Demonstrated by renaming
+`registerProvider` in `data-layer.js` — the registration API gone entirely,
+no test able to run — after which the file still exited 0 and the TypeError
+scrolled past looking like log output. `test-shell.js` and `test-guard.js`
+had *no* assertions; this one had assertions and threw them away.
+
+It was also not in CI, and it reached the network: Test 2 called
+`getDataPoint('market:sp500')`, which goes live whenever
+`ALPHAVANTAGE_API_KEY` is set, and the file loaded `dotenv` itself to make
+sure it was. That is why it had never been added to the list.
+
+Replaced with 28 assertions on `test-helper.js` (non-zero exit on failure)
+and added to CI. Every `MarketBriefProvider` is constructed with
+`{ useMock: true }` except the one test that deletes the variable to check
+the no-key default, so the suite opens no socket either way — verified by
+running the CI step verbatim on `node v20.18.1` with
+`ALPHAVANTAGE_API_KEY=fake-key-should-never-be-used` set: 28/0.
+
+Twelve mutations, all caught, all exiting 1: registration guard removed,
+cache never consulted, a failed fetch cached as a success, `allowStale`
+ignored, `clearCache` pattern ignored, expired entry served anyway, stale
+threshold removed, rate limiter disabled, window never slides, mock labelled
+`alphavantage`, no-key no longer implying mock, unknown key returning a mock
+instead of throwing.
+
+**One divergence found and pinned rather than fixed.** `CacheLayer.staleness`
+is the string `'fresh'|'stale'`; `DataLayer.staleness` is milliseconds past
+the max age, where `0` means fresh. Two halves of one "data layer" with
+opposite senses — a truthy check on the wrong one reads every fresh
+`CacheLayer` entry as stale and every fresh `DataLayer` entry as fine. A test
+now asserts they differ, so the divergence cannot be discovered by a caller
+getting it wrong. Reconciling them is a real change to two modules' contracts
+and is not in this fix's scope.
+
+**Five files still swallow their failures**, tallied in
+`docs/triage/2026-09-repo-triage.md`: `test-accessibility.js`,
+`test-agent-data-integration.js`, `test-full-accessibility.js`,
+`test-voice-accents.js`, `test-voice-full-system.js`. None is in CI, so none
+is lying to CI — but each lies to anyone running it by hand, which is the
+only way they ever run. Each needs hardware or network this container lacks,
+so fixing them means the Chromebook. `test-agent-data-integration.js` needs
+only network and is the cheapest place to start.
+
 ### P0.2 — `list` fix shipped, unmeasured (2026-09-07)
 
 The prompt work P0.1 called for. `code/agent.js` now states the rule rather

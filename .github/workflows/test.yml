@@ -44,13 +44,20 @@ jobs:
       # test-paper-trading was left out when it was added and had been
       # untested by CI since -- a tested module CI never runs is the failure
       # this repo keeps correcting, so it is in the list now with the rest.
+      #
+      # test-data-layer was the same failure again, twice over: it was not in
+      # this list, and it ended in `runTests().catch(console.error)` so it
+      # exited 0 even when the module under test was gone entirely. Both are
+      # fixed as of 2026-09-07 -- it now uses test-helper (non-zero exit on
+      # failure) and passes { useMock: true } everywhere, so it opens no
+      # socket regardless of whether ALPHAVANTAGE_API_KEY is set.
       - name: Run portable test suite (excludes voice/vision tests needing local Ollama/Piper/Kokoro)
         run: |
           for f in test-exec test-guard test-helper test-scheduler test-shell \
                    test-validate test-watcher test-paper-trading \
                    test-market-analyst test-market-collect test-trade-advisor \
                    test-market-brief test-supervisor test-stooq-provider \
-                   test-eval-agent test-agent; do
+                   test-eval-agent test-agent test-data-layer; do
             echo "▶ code/$f.js"
             node "code/$f.js"
           done
