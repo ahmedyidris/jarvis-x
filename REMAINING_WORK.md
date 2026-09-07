@@ -98,6 +98,83 @@ only way they ever run. Each needs hardware or network this container lacks,
 so fixing them means the Chromebook. `test-agent-data-integration.js` needs
 only network and is the cheapest place to start.
 
+### P0.7 — the suite was auditing to the machine's own audit log (2026-09-07, fixed)
+
+`selfdebug.js` shipped and its first live report immediately said something
+false:
+
+```
+[error] boom — 1x
+  error:  inner failure
+  origin: app
+```
+
+`boom` / "inner failure" is a `test-guard.js` fixture. Seven of the eight
+`app`-tagged failures were fixtures. **I caused it**: mutation-testing the new
+provenance field included an "always tag `app`" mutation, and `test-guard.js`
+ran under it against the live log. Append-only, so they cannot be corrected —
+rewriting an audit trail is worse than the blemish.
+
+**Scope, stated precisely because the first draft of these comments got it
+wrong:** `logs/` is gitignored. Every machine keeps its own audit log and none
+is shared, so those seven rows are in the container this was developed in and
+will never reach the Chromebook. The counts throughout P0.6 are that
+container's too. What is *not* local is the cause.
+
+**The cause.** `guard.js`'s `LOG_FILE` was a module constant, so every test
+run appended to the machine's real audit trail — 333 `refused-cmd` from
+`test-shell.js`, 30 `boom`, 29 `slow-fail`, 21 per run from
+`test-paper-trading`, 16 each from `test-watcher` and `test-market-collect`.
+**65 rows per suite run.** That is why 599 of the log's failure rows were
+fixtures and why `selfdebug.js` was unbuildable without provenance.
+
+`.github/workflows/test.yml` already stated the principle this broke: *"A
+test qualifies when its inputs are arguments rather than the environment:
+test-watcher takes an injectable fetcher, test-paper-trading takes prices …
+and the rest take rows and paths."* `guard.js` was the one module taking
+neither.
+
+**Fixed** with `setLogFile()` / `currentLogFile()` in `guard.js`, and the
+redirect applied once in `code/test-helper.js` — which every test file already
+imports, so it needs no cooperation from whoever writes the next one. Same
+reasoning as detecting `origin` from `argv[1]` rather than an env var.
+
+**Deliberately not an environment variable, and not a parameter on
+`guard()`.** The agent emits actions — `list`, `read`, `write`, `shell`,
+`query`, `answer`, `list_models` — so it cannot call a JS function or set an
+env var, which puts this seam out of its reach. A redirectable audit log would
+be a real weakening if the agent could reach it: pointing auditing at
+`/dev/null` erases every trace of what it did. A test asserts `guard.js` reads
+`process.env` nowhere.
+
+**Measured:** a full CI run's delta on the real audit log went **65 rows → 0**.
+
+Four guards, because two of my first attempts at them were wrong:
+
+- the DEFAULT log is still the repo's real one (or production would audit to
+  wherever the last test pointed it)
+- every file in CI's loop imports `test-helper.js` or redirects itself. My
+  first version scanned the whole workflow and flagged `test-kokoro`,
+  `test-vision` and `test-voice` — names it had scraped out of the *comment*
+  explaining why they are excluded. A guard that flags the exclusions it was
+  told about is one nobody keeps.
+- `test-scheduler.js` is exempt (it predates `test-helper.js` and calls no
+  gated action) and a test spawns it to confirm the exemption is true rather
+  than assumed
+- **a file relying only on `test-helper.js` still does not pollute.** This one
+  exists because gutting the redirect left `test-guard.js` fully green — it
+  redirects itself, so its own assertion could not see the breakage while
+  `test-paper-trading` quietly went back to 21 rows a run. The test spawns
+  that file and watches the real log.
+
+**Still open, and not fixed here:** `test-kokoro`, `test-vision`, `test-voice`,
+`test-voice-interaction`, `test-voice-router`, `test-voice-accents`,
+`test-voice-full-system` and `test-agent-data-integration` are excluded from
+CI and do not import `test-helper.js`. They still append to the real audit log
+when run by hand on the Chromebook, which is the only place they can run.
+They are also five of the files tallied in `docs/triage/2026-09-repo-triage.md`
+as unable to fail, so they need one pass, not two.
+
 ### P0.6 — `selfdebug.js` built (2026-09-07)
 
 `NOTES.md` deferred it as *"agent reads its own errors and proposes fixes …
@@ -185,9 +262,10 @@ writer introduced; `origin` field removed; everything tagged app; `origin`
 recomputed per append.
 
 **What it cannot tell you yet.** Its first genuinely useful report needs
-app-origin failures to accumulate, and there are none — every v3 row so far is
-a test. That is the correct state on day one, not a defect, and it is why the
-report reads `0 failures counted` rather than inventing something.
+app-origin failures to accumulate. On day one there were none — every v3 row
+was a test — which is why it read `0 failures counted` rather than inventing
+something. See P0.7 for what happened to that number within the hour, and why
+it is a correction rather than a result.
 
 ### P0.5 — my own CI verification had a hole (2026-09-07, fixed)
 

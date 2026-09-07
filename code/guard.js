@@ -39,9 +39,55 @@ function detectOrigin() {
 
 const ORIGIN = detectOrigin();
 
+// WHERE THE AUDIT LOG GOES, and why this is a function rather than a constant.
+//
+// It was a constant, and .github/workflows/test.yml states the principle it
+// broke: "A test qualifies when its inputs are arguments rather than the
+// environment: test-watcher takes an injectable fetcher, test-paper-trading
+// takes prices ... and the rest take rows and paths." guard.js was the one
+// module that took neither. Every test run appended to the real
+// logs/actions.jsonl, which is how it accumulated 599 fixture failure rows
+// and made selfdebug.js impossible to build until `origin` existed.
+//
+// Worse, and this is what forced the change: mutation-testing guard.js
+// corrupts a log's provenance permanently. On 2026-09-07 the "always tag app"
+// mutation ran test-guard.js against the live file, and seven fixture rows --
+// `boom`/"inner failure", `slow-fail`/"gemini 429", `odd-fail`/"a bare
+// string", three killswitch rows, `explicit` -- ended up tagged origin:'app'
+// in an append-only log, where selfdebug.js reports them as real application
+// failures. They cannot be corrected without rewriting the audit trail, which
+// is worse than the blemish.
+//
+// That happened in the container the change was developed in, not on Ahmed's
+// machine: logs/ is gitignored, so every machine has its own log and none of
+// them is shared. The numbers quoted above are that container's. The PROBLEM
+// they demonstrate is not local -- any machine running the suite accumulates
+// the same fixtures, for the same reason -- which is what this seam fixes.
+//
+// THIS IS NOT AN ENVIRONMENT VARIABLE AND NOT AN ARGUMENT TO guard(). The
+// agent emits actions -- list, read, write, shell, query, answer,
+// list_models -- so it cannot call a JS function or set an env var, which
+// makes this seam unreachable from its side. A redirectable audit log WOULD
+// be a real weakening if the agent could reach it: pointing auditing at
+// /dev/null disables every trace of what it did.
+let logFile = LOG_FILE;
+
+/** Point the audit log somewhere else. Returns the previous path, so callers
+ *  can restore it. Tests only -- see the note above on why this is safe. */
+function setLogFile(p) {
+  const previous = logFile;
+  logFile = p;
+  return previous;
+}
+
+/** The path append() will actually write to. */
+function currentLogFile() {
+  return logFile;
+}
+
 function append(entry) {
   try {
-    fs.appendFileSync(LOG_FILE, JSON.stringify({
+    fs.appendFileSync(logFile, JSON.stringify({
       timestamp: new Date().toISOString(), schema: 'v3',
       pid: process.pid, origin: ORIGIN, ...entry
     }) + '\n');
@@ -103,4 +149,4 @@ function logAction(action, level = 'quick', meta = {}) {
 }
 
 module.exports = { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
-                   ORIGIN, detectOrigin };
+                   ORIGIN, detectOrigin, setLogFile, currentLogFile };

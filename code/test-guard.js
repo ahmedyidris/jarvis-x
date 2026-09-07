@@ -23,27 +23,46 @@ const fs = require('fs');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
 const { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
-        ORIGIN, detectOrigin } = require('./guard.js');
+        ORIGIN, detectOrigin, setLogFile, currentLogFile } = require('./guard.js');
+
+// Every assertion below diffs the audit log, and until 2026-09-07 that was
+// the REAL logs/actions.jsonl. That is how it collected 599 fixture failure
+// rows, and how mutation-testing this very file permanently mislabelled seven
+// of them as origin:'app' -- selfdebug.js still reports those as real
+// application failures. So the suite writes to a temp file now.
+//
+// The diff-the-real-file instinct was right about one thing: a test that
+// mocks the writer proves nothing about whether appending works. This still
+// diffs a real file on a real disk through the real fs.appendFileSync -- just
+// not the one the machine's audit trail lives in. And the first test below
+// asserts the DEFAULT is unchanged, so the seam cannot quietly redirect
+// production.
+const TMP_LOG = path.join(require('os').tmpdir(),
+  `jx-test-guard-${process.pid}-${Date.now()}.jsonl`);
+setLogFile(TMP_LOG);
+process.on('exit', () => { try { fs.unlinkSync(TMP_LOG); } catch { /* fine */ } });
 
 /** Newest audit rows written while `fn` ran. The log path is a module
  *  constant, so the honest way to assert on it is to diff the real file. */
 function rowsWritten(fn) {
-  const before = fs.existsSync(LOG_FILE)
-    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length : 0;
+  const f = currentLogFile();
+  const before = fs.existsSync(f)
+    ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).length : 0;
   let threw = null, value;
   try { value = fn(); } catch (e) { threw = e; }
-  const after = fs.existsSync(LOG_FILE)
-    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean) : [];
+  const after = fs.existsSync(f)
+    ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean) : [];
   return { rows: after.slice(before).map(l => JSON.parse(l)), threw, value };
 }
 
 async function rowsWrittenAsync(fn) {
-  const before = fs.existsSync(LOG_FILE)
-    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length : 0;
+  const f = currentLogFile();
+  const before = fs.existsSync(f)
+    ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).length : 0;
   let threw = null, value;
   try { value = await fn(); } catch (e) { threw = e; }
-  const after = fs.existsSync(LOG_FILE)
-    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean) : [];
+  const after = fs.existsSync(f)
+    ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean) : [];
   return { rows: after.slice(before).map(l => JSON.parse(l)), threw, value };
 }
 
@@ -59,6 +78,115 @@ function withKillSwitch(fn) {
 }
 
 (async () => {
+
+// ── the seam itself ───────────────────────────────────────────────────────
+await test('the DEFAULT audit log is the repo\'s real one', () => {
+  // The seam's whole risk. If the default drifted, production would audit to
+  // wherever the last test pointed it -- and nothing else would notice.
+  const expected = path.join(__dirname, '..', 'logs', 'actions.jsonl');
+  assert.strictEqual(LOG_FILE, expected, 'LOG_FILE must be the repo audit log');
+});
+
+await test('this suite is NOT writing to the real audit log', () => {
+  // The reason the seam exists. Until 2026-09-07 it was, which is how the log
+  // gathered 599 fixture failure rows.
+  assert.notStrictEqual(currentLogFile(), LOG_FILE);
+  assert.ok(currentLogFile().includes('jx-test-guard-'), currentLogFile());
+});
+
+await test('setLogFile returns the previous path so it can be restored', () => {
+  const previous = setLogFile('/tmp/jx-guard-seam-probe.jsonl');
+  assert.strictEqual(currentLogFile(), '/tmp/jx-guard-seam-probe.jsonl');
+  const back = setLogFile(previous);
+  assert.strictEqual(back, '/tmp/jx-guard-seam-probe.jsonl');
+  assert.strictEqual(currentLogFile(), previous, 'restored');
+});
+
+await test('every CI test file gets the redirect, or says why not', () => {
+  // The property that keeps the audit log clean is "needs no cooperation":
+  // importing test-helper.js is enough. This asserts it, because a new
+  // code/test-*.js written without it would quietly start collecting fixtures
+  // in logs/actions.jsonl again -- which is the thing that made selfdebug.js
+  // unbuildable for months.
+  //
+  // Read from the workflow, not a list kept here, so adding a file to CI
+  // without the redirect fails HERE rather than showing up as noise in a
+  // report weeks later.
+  const wf = fs.readFileSync(
+    path.join(__dirname, '..', '.github', 'workflows', 'test.yml'), 'utf8');
+  // From the `for f in ... ; do` list ONLY. Scanning the whole file matched
+  // test-kokoro, test-vision and test-voice out of the COMMENT that explains
+  // why they are excluded -- files that need local Piper/Kokoro/Ollama and
+  // are deliberately not in CI. A guard that flags the exclusions it was
+  // told about is a guard nobody will keep.
+  const loop = wf.match(/for f in ([\s\S]*?);\s*do/);
+  assert.ok(loop, 'could not find the js-suite loop — did the workflow change shape?');
+  const listed = loop[1].split(/[\s\\]+/).map(t => t.trim()).filter(Boolean);
+  assert.ok(listed.length >= 15, `only found ${listed.length} test files in the loop`);
+  for (const n of listed) {
+    assert.ok(fs.existsSync(path.join(__dirname, `${n}.js`)),
+      `CI runs code/${n}.js and it does not exist`);
+  }
+
+  // test-scheduler.js predates test-helper.js and rolls its own counters. It
+  // is exempt because it calls no gated action -- verified by the delta
+  // assertion below, not by assumption.
+  const EXEMPT = new Set(['test-scheduler', 'test-helper']);
+  const missing = [];
+  for (const n of listed) {
+    if (EXEMPT.has(n)) continue;
+    const src = fs.readFileSync(path.join(__dirname, `${n}.js`), 'utf8');
+    const redirected = /require\('\.\/test-helper\.js'\)/.test(src)
+      || /setLogFile\(/.test(src);
+    if (!redirected) missing.push(n);
+  }
+  assert.deepStrictEqual(missing, [],
+    'these audit to the real logs/actions.jsonl — import test-helper.js');
+});
+
+await test('a file relying ONLY on test-helper still does not pollute', () => {
+  // This file redirects the log itself, so its own "not writing to the real
+  // log" assertion passes even if test-helper.js's redirect is broken --
+  // verified by mutation: gutting that redirect left this suite fully green
+  // while test-paper-trading, test-watcher, test-market-collect,
+  // test-market-analyst and test-trade-advisor went back to appending 65 rows
+  // a run to the machine's audit trail.
+  //
+  // So this spawns one of those files and watches the real log. Chosen
+  // because it wrote 21 rows per run before the fix and imports no seam of
+  // its own -- if test-helper.js stops redirecting, this is what notices.
+  const before = fs.existsSync(LOG_FILE)
+    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length : 0;
+  require('child_process').execFileSync(process.execPath,
+    [path.join(__dirname, 'test-paper-trading.js')], { stdio: 'ignore' });
+  const after = fs.existsSync(LOG_FILE)
+    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length : 0;
+  assert.strictEqual(after, before,
+    `test-paper-trading.js appended ${after - before} rows to the REAL audit ` +
+    'log — test-helper.js is no longer redirecting it');
+});
+
+await test('the exempt file really does write nothing to the audit log', () => {
+  // The exemption above is only honest if checked. If test-scheduler.js ever
+  // starts calling a gated action, this fails and the exemption has to go.
+  const before = fs.existsSync(LOG_FILE)
+    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length : 0;
+  require('child_process').execFileSync(process.execPath,
+    [path.join(__dirname, 'test-scheduler.js')], { stdio: 'ignore' });
+  const after = fs.existsSync(LOG_FILE)
+    ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).length : 0;
+  assert.strictEqual(after, before,
+    'test-scheduler.js appended to the real audit log — it is no longer exempt');
+});
+
+await test('the seam is not reachable through an environment variable', () => {
+  // Deliberate. The agent cannot call a function, but an env var is a wider
+  // surface than the threat model wants for a control that can silence
+  // auditing entirely.
+  const src = fs.readFileSync(path.join(__dirname, 'guard.js'), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!/process\.env/.test(code), 'guard.js must not read the environment');
+});
 
 // ── the kill switch ───────────────────────────────────────────────────────
 await test('the kill switch blocks the action', () => {
