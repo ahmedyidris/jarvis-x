@@ -45,6 +45,10 @@ jobs:
       # untested by CI since -- a tested module CI never runs is the failure
       # this repo keeps correcting, so it is in the list now with the rest.
       #
+      # test-selfdebug covers the self-diagnosis reader. Offline by
+      # construction: every case reads a temp log written for it, and the
+      # module has no writer to reach the real one.
+      #
       # test-lib covers lib.js's execute() -- the single dispatch point for
       # every agent action, which had no test at all until 2026-09-07. It is
       # offline: every write goes to a logs/ scratch path, and writes aimed at
@@ -82,7 +86,8 @@ jobs:
                    test-validate test-watcher test-paper-trading \
                    test-market-analyst test-market-collect test-trade-advisor \
                    test-market-brief test-supervisor test-stooq-provider \
-                   test-eval-agent test-agent test-data-layer test-lib; do
+                   test-eval-agent test-agent test-data-layer test-lib \
+                   test-selfdebug; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

@@ -14,7 +14,7 @@ Run `./scripts/status.sh` for live state; this file is the *why*.
 - **Backups:** `cd ~ && tar czf jarvis-x-$(date +%F).tar.gz jarvis-x/` then
   `cp ~/jarvis-x-$(date +%F).tar.gz /mnt/chromeos/MyFiles/Downloads/`
 
-Deliberately **not** built: `paper.js`, `selfdebug.js`. See "Deferred" below.
+Deliberately **not** built: `paper.js`. `selfdebug.js` was built 2026-09-07 once both halves of its gate closed — see "Deferred" below.
 
 ---
 
@@ -143,6 +143,13 @@ hooks load at session start — removing them mid-session doesn't unload them.
     something the agent could simply do — nothing in code stopped a write to
     this file, to `rules.md`, or to `validate.js` itself. Rule 2 above now
     enforces it. That is the prerequisite; the accuracy number alone was not.
+  - **BUILT 2026-09-07.** `code/selfdebug.js`, 30 assertions. It reads
+    `logs/actions.jsonl`, groups failures, and prints where to look. It is
+    **not a fixer**: no write, no command, no model — `diagnose()` returns
+    findings and a human reads them, the same posture as `trade-advisor.js`.
+    The kill switch deliberately does NOT block it: you halt the system
+    because something is wrong, and that is when you want to read what.
+    See REMAINING_WORK.md P0.6.
 - `status.sh` checks `[ -f code/paper.js ]` — file *existence*, not
   correctness. `touch code/paper.js` would show 100%. Don't. 91% honest beats
   100% hollow.

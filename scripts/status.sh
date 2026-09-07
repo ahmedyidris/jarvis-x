@@ -113,7 +113,15 @@ m "persistent memory"      "[ -f code/memory.js ]"
 # that actually distinguishes the rebuilt one -- limits that execute.
 m "paper trading enforced" "[ -f code/test-paper-trading.js ] && grep -q riskPerTrade code/paper-trading.js"
 m "scheduler / daemon"     "[ -f code/scheduler.js ]"
-m "self-debug loop"        "[ -f code/selfdebug.js ]"
+# Was "[ -f code/selfdebug.js ]" -- and NOTES.md's own warning about
+# status.sh ("checks file EXISTENCE, not correctness; touch code/paper.js
+# would show 100%") applied to it exactly. Creating the file on 2026-09-07
+# flipped this green for free, before a single assertion existed. Assert the
+# two properties that make the module trustworthy instead: it has a test, and
+# it cannot change the machine. The second is the whole contract -- it reads
+# the audit log and proposes; importing lib.js would put a working write one
+# call away.
+m "self-debug loop"        "[ -f code/test-selfdebug.js ] && ! grep -qE \"require\\('\\./(lib|shell|exec)\\.js'\\)\" code/selfdebug.js"
 m "multi-step planning"    "[ -f code/planner.js ]"
 echo " market (paper only -- CONSTITUTION.md IV):"
 # Same principle as the paper-trading milestone above: assert the property that
