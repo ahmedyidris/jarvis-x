@@ -69,3 +69,42 @@ supervisorctl -c config/supervisord.conf status   # both ollama + hermes-api RUN
 curl -s localhost:8000/api/killswitch             # should return JSON, not connection-refused
 systemctl is-enabled jarvis-supervisord.service   # enabled
 ```
+
+## Recovering from a wiped container (2026-09-07)
+
+ChromeOS 143 switched Crostini to a **containerless** design, and on Ahmed's
+machine that reset the container: `node`, `git`, `ollama` and `claude` all
+gone, `/` showing 1.5G used of 72G. Nothing was lost — everything is in this
+repo, and `logs/` is gitignored anyway.
+
+Three things broke during the manual rebuild, and `install.sh` now handles all
+three:
+
+| symptom | cause | fixed by |
+|---|---|---|
+| `ERROR: This version requires zstd for extraction` | Ollama's installer extracts a `.tar.zst` | `zstd` added to step 1's apt list |
+| `ollama: command not found` × 5 | step 3 continued after the install failed | step 3 now verifies the binary and exits naming `zstd` |
+| `Auto-update failed: no write permission to npm prefix` | `sudo npm install -g` | step 3b uses a user-owned `~/.npm-global` prefix |
+
+**Full recovery from nothing:**
+
+```bash
+sudo apt-get update -y && sudo apt-get install -y git
+# token from github.com/settings/tokens (classic, `repo` scope) —
+# GitHub no longer accepts a password for HTTPS clone
+git clone https://YOUR_TOKEN@github.com/ahmedyidris/jarvis-x.git ~/jarvis-x
+cd ~/jarvis-x && bash bootstrap/install.sh
+```
+
+Then verify:
+
+```bash
+node code/selfdebug.js            # expect 0 findings on a fresh log
+node code/eval-agent.js --runs 1  # expect 41/41 held-out
+bash scripts/status.sh
+```
+
+Note: `/mnt/chromeos/MyFiles/Downloads` may not be mounted under the
+containerless design, so a `.tar.gz` backup there can be unreachable. The
+GitHub remote is the reliable restore path; `scripts/backup.sh` is the
+belt-and-braces one.
