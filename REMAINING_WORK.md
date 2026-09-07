@@ -98,6 +98,37 @@ only way they ever run. Each needs hardware or network this container lacks,
 so fixing them means the Chromebook. `test-agent-data-integration.js` needs
 only network and is the cheapest place to start.
 
+### P0.5 — my own CI verification had a hole (2026-09-07, fixed)
+
+All session I reported "CI's `js-suite` step run verbatim on real `node
+v20.18.1` — exit 0" as evidence the suite passed. Checked 2026-09-07 by
+dropping a deliberately failing test into the list:
+
+```
+bash -e ci.sh   ->  exit 1   (how GitHub Actions runs it)
+bash    ci.sh   ->  exit 0   (how I ran it locally, all session)
+```
+
+The loop was `for f in ...; do node "code/$f.js"; done`, so under plain `bash`
+the script's status is the LAST command's and a mid-loop failure vanishes.
+**CI itself was never falsely green** — Actions runs `run:` steps as `bash -e`
+— but the exit code I kept citing from my local runs was doing no work. What
+actually caught failures was a separate `grep "Failed: [1-9]"`. The
+conclusions were right; one of the stated reasons for them was not.
+
+Two fixes, both in the workflow rather than in my habits:
+
+1. The loop now collects failures and exits explicitly, so the script is
+   honest under plain `bash` too and does not depend on a default that
+   belongs to GitHub rather than to this file.
+2. It runs **every** file before failing, and names all of them. Under `-e`
+   the run aborted at the first failure, so a push with three broken files
+   reported one and left two to be found on the next push.
+
+Verified with two canaries in the list: all 20 files ran, `FAILED:
+test-zzz-canary1 test-zzz-canary2`, exit 1 under both `bash -e` and plain
+`bash`; clean run exits 0 under both with "all suites passed".
+
 ### P0.4 — durable rule 2 was documentation, not a control (2026-09-07, fixed)
 
 `NOTES.md` durable rule 2 has always said `guard.js`, `validate.js`,
