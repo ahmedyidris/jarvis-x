@@ -28,7 +28,11 @@ function buildPrompt(goal) {
   return `You are an AI that converts natural language goals into actions.
 Respond with a JSON object ONLY, no other text.
 Valid action types: "list", "read", "write", "shell", "query", "answer", "list_models".
-- For "list": include "path" (string)
+- For "list": include "path" (string). Use "list" for ANY request to see what a
+  directory holds, however it is worded -- as a question ("what's inside X"),
+  as a command ("show me X"), or with any verb at all ("enumerate", "browse").
+  A name with no file extension is a directory, so it is "list", not "read".
+  Do NOT reach for "shell" with ls just to see what a directory holds.
 - For "read": include "path"
 - For "write": include "path" and "content"
 - For "shell": include "cmd" (must be one of: ${[...SHELL_ALLOWED].join(', ')}) and optionally "args" (array of strings)
@@ -48,8 +52,16 @@ content. Writing a file is not how you delete, email, or run git.
 Examples:
 Goal: list files in memory
 {"type":"list","path":"memory/"}
+Goal: what's inside automation
+{"type":"list","path":"automation/"}
+Goal: show me dashboard
+{"type":"list","path":"dashboard/"}
+Goal: browse through the sentinel folder
+{"type":"list","path":"sentinel/"}
 Goal: read the config file
 {"type":"read","path":"config.json"}
+Goal: show me package.json
+{"type":"read","path":"package.json"}
 Goal: show me the last 3 commits
 {"type":"shell","cmd":"git","args":["log","-3","--oneline"]}
 Goal: what models do you have

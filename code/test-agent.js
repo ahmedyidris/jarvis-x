@@ -91,6 +91,62 @@ await test('the prompt insists on the type field', () => {
   assert.ok(/"type" field/.test(buildPrompt('x')));
 });
 
+// ── the list rule, added 2026-09-07 ───────────────────────────────────────
+// Measured 2026-09-06, `list` was the weakest category at 3/6 held-out, and
+// all three misses were indirect phrasing for directory contents: 'what is in
+// the logs directory' went to shell, 'show me everything under config' to
+// read, 'enumerate whatever is inside memory' to answer. The prompt now
+// states the rule for each of those shapes. These pin the rule, not the
+// accuracy -- the accuracy needs a model and lives in the eval.
+await test('the prompt states that any phrasing of a directory request is list', () => {
+  const p = buildPrompt('x');
+  assert.ok(/however it is worded/i.test(p),
+    'the rule must be general, or the model only learns the three examples');
+  for (const shape of ['question', 'command', 'verb']) {
+    assert.ok(new RegExp(shape, 'i').test(p), `the ${shape} shape is not named`);
+  }
+});
+
+await test('the prompt says an extensionless name is a directory, not a file', () => {
+  // This is the 'show me everything under config' miss: the model read a
+  // directory name as a filename and proposed a read.
+  const p = buildPrompt('x');
+  assert.ok(/no file extension/i.test(p));
+  assert.ok(/"list", not "read"/.test(p), 'and must say which way round');
+});
+
+await test('the prompt steers off shell+ls for a directory listing', () => {
+  // This is the 'what is in the logs directory' miss: ls is allowlisted, so
+  // shell was a plausible route and the model took it.
+  const p = buildPrompt('x');
+  assert.ok(/ls/.test(p) && /Do NOT reach for "shell"/.test(p));
+});
+
+await test('there is more than one list example, in more than one shape', () => {
+  // One example taught one phrasing. The failures were all the phrasings it
+  // did not cover.
+  const src = fs.readFileSync(path.join(__dirname, 'agent.js'), 'utf8');
+  const block = src.split('Examples:')[1];
+  const listExamples = [...block.matchAll(/Goal: (.+)\n\{"type":"list"/g)].map(m => m[1]);
+  assert.ok(listExamples.length >= 3,
+    `only ${listExamples.length} list examples: ${listExamples.join(' | ')}`);
+  assert.ok(listExamples.some(g => /^what/i.test(g)), 'no question-form example');
+  assert.ok(listExamples.some(g => /^show me/i.test(g)), 'no command-form example');
+  assert.ok(!listExamples.every(g => /\blist\b/i.test(g)),
+    'every example still uses the word "list" — that teaches the keyword, not the intent');
+});
+
+await test('the read examples still cover a filename after "show me"', () => {
+  // Adding 'show me dashboard' -> list risks teaching 'show me anything' ->
+  // list. The contrasting read example is what keeps the boundary on the
+  // extension rather than on the verb.
+  const src = fs.readFileSync(path.join(__dirname, 'agent.js'), 'utf8');
+  const block = src.split('Examples:')[1];
+  const readExamples = [...block.matchAll(/Goal: (.+)\n\{"type":"read"/g)].map(m => m[1]);
+  assert.ok(readExamples.some(g => /^show me .+\.\w+$/i.test(g)),
+    `no "show me <filename>" read example to contrast with the list ones: ${readExamples.join(' | ')}`);
+});
+
 // ── the general guard against this class of bug ───────────────────────────
 await test('every name agent.js destructures from a local module is exported by it', () => {
   // The bug was an import that silently yielded undefined. Node does not
