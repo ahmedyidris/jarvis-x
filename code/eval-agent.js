@@ -34,6 +34,10 @@ const GATE = 0.85;
 // flip moves the number 10 points; calling that "85% met" would be theatre.
 const MIN_HELDOUT = 25;
 
+// Read from local.js rather than restated, so the caveat below cannot drift
+// away from the value actually sent to Ollama.
+const { DEFAULT_TEMPERATURE: TEMPERATURE } = require('./local.js');
+
 /** One pass over every case. `propose` is injected so the scoring logic here
  *  is testable without a model -- see code/test-eval-agent.js. */
 async function runOnce(propose, cases = CASES, { onResult = null } = {}) {
@@ -86,9 +90,20 @@ function summarize(results) {
   const gap = (mirror.accuracy !== null && heldOut.accuracy !== null)
     ? mirror.accuracy - heldOut.accuracy : null;
 
+  // ...but the gap can only DETECT recitation while held-out has room to be
+  // worse than mirror. At held-out 100% the gap is <= 0 by arithmetic, so a
+  // 0.0 gap there is the absence of evidence, not evidence of generalization.
+  //
+  // This is not hypothetical. PR #12's own description called the gap "the
+  // measurement that matters", and the 2026-09-07 run came back 41/41
+  // held-out with a 0.0 gap -- exactly the shape that would be misread as
+  // proof. The flag exists so the next reader is told, by the tool, rather
+  // than having to notice the arithmetic.
+  const gapUninformative = heldOut.accuracy === 1 && gap !== null;
+
   return {
     overall: slice(results, () => true),
-    heldOut, mirror, tuned, gap,
+    heldOut, mirror, tuned, gap, gapUninformative,
     strict: slice(results, r => !r.lenient),
     lenient: slice(results, r => r.lenient),
     byCategory,
@@ -134,8 +149,13 @@ function format(summary, agg) {
     L.push(`tuned      ${summary.tuned.passed}/${summary.tuned.total}  ${p(summary.tuned.accuracy)}   (the prompt was changed for these -- NOT in the gate)`);
   }
   if (summary.gap !== null) {
-    L.push(`gap        ${(summary.gap * 100).toFixed(1)} points` +
-           (summary.gap > 0.15 ? '  <- WIDE: the model is reciting the prompt, not routing' : ''));
+    const note = summary.gap > 0.15
+      ? '  <- WIDE: the model is reciting the prompt, not routing'
+      : (summary.gapUninformative
+          ? '  <- UNINFORMATIVE: held-out is at 100%, so the gap cannot be positive. ' +
+            'This is not evidence of generalization; the instrument has no room to read.'
+          : '');
+    L.push(`gap        ${(summary.gap * 100).toFixed(1)} points${note}`);
   }
   L.push('');
   L.push('by category:');
@@ -152,6 +172,15 @@ function format(summary, agg) {
     L.push('');
     L.push(`across ${agg.runs} runs: held-out mean ${p(agg.heldOutMean)}, ` +
            `range ${p(agg.heldOutMin)}-${p(agg.heldOutMax)}, sd ${(agg.heldOutStdDev * 100).toFixed(1)} points`);
+    // A zero spread reads like stability. At temperature 0 it is not: the
+    // decode is near-deterministic, so repeated runs check that the HARNESS
+    // is deterministic and say nothing about sampling variance. Say so, since
+    // P0.1 already recorded "variance is near zero on this evidence" off two
+    // identical runs and that inference was unsupported.
+    if (agg.heldOutStdDev === 0 && TEMPERATURE === 0) {
+      L.push(`  (spread is 0 at temperature ${TEMPERATURE} -- a deterministic decode, so this ` +
+             `confirms the harness is reproducible, NOT that the model is stable under sampling)`);
+    }
     if (agg.unstable.length) {
       L.push(`${agg.unstable.length} case(s) changed answer between runs:`);
       for (const u of agg.unstable) L.push(`  ${u.passed}/${u.of}  ${u.goal}`);

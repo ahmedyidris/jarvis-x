@@ -378,6 +378,80 @@ await test('the persisted results are the newest run, not the first', async () =
   assert.strictEqual(w.summary.length, 2, 'but every run keeps its summary');
 });
 
+// ── what a number at the ceiling does NOT prove ───────────────────────────
+// Measured 2026-09-07: 41/41 held-out, 8/8 mirror, gap 0.0, three identical
+// runs. That is the exact shape P0 originally flagged as suspicious about the
+// old 15/15, so the harness now states the limits of its own output instead
+// of leaving them to be worked out.
+await test('a 0.0 gap at a held-out ceiling is flagged as uninformative', () => {
+  // The gap can only detect recitation while held-out has room to be worse
+  // than mirror. At held-out 100% it is <= 0 by arithmetic.
+  const rs = [
+    ...Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+      ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: true })),
+    { goal: 'm', origin: 'mirror', category: 'list', ok: true },
+  ];
+  const s = E.summarize(rs);
+  assert.strictEqual(s.gap, 0);
+  assert.strictEqual(s.gapUninformative, true);
+  const out = E.format(s, null);
+  assert.ok(/UNINFORMATIVE/.test(out), `the caveat must be printed:\n${out}`);
+  assert.ok(/not evidence of generalization/i.test(out),
+    'and must say what it is not, not merely that it is limited');
+});
+
+await test('a gap below the ceiling is NOT flagged uninformative', () => {
+  // The flag must not fire on every small gap, or it stops meaning anything.
+  const rs = [
+    ...Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+      ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: i > 0 })),
+    { goal: 'm', origin: 'mirror', category: 'list', ok: true },
+  ];
+  const s = E.summarize(rs);
+  assert.ok(s.gap > 0, 'this fixture must have a real gap');
+  assert.strictEqual(s.gapUninformative, false);
+  assert.ok(!/UNINFORMATIVE/.test(E.format(s, null)));
+});
+
+await test('with no mirror cases there is no gap and no flag', () => {
+  const rs = Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+    ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: true }));
+  const s = E.summarize(rs);
+  assert.strictEqual(s.gap, null);
+  assert.strictEqual(s.gapUninformative, false, 'no gap cannot be an uninformative gap');
+});
+
+await test('a zero spread across runs is not reported as model stability', () => {
+  // local.js pins temperature 0, so identical runs confirm the harness is
+  // reproducible and say nothing about sampling. P0.1 recorded "variance is
+  // near zero on this evidence" off two identical runs; that inference was
+  // unsupported and this is what stops it being drawn again.
+  assert.strictEqual(require('./local.js').DEFAULT_TEMPERATURE, 0,
+    'the caveat is conditional on this actually being 0');
+  const rows = Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+    ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: true }));
+  const s = E.summarize(rows);
+  s._results = rows;
+  const agg = E.aggregate([s, s, s]);
+  assert.strictEqual(agg.heldOutStdDev, 0);
+  const out = E.format(s, agg);
+  assert.ok(/deterministic decode/.test(out), `the caveat must be printed:\n${out}`);
+  assert.ok(/NOT that the model is stable/.test(out));
+});
+
+await test('the temperature in the caveat is read from local.js, not restated', () => {
+  // If it were hardcoded here or in eval-agent.js, changing local.js to a
+  // sampling temperature would leave the harness claiming a deterministic
+  // decode it no longer has.
+  const src = fs.readFileSync(path.join(__dirname, 'eval-agent.js'), 'utf8');
+  assert.ok(/DEFAULT_TEMPERATURE.*require\('\.\/local\.js'\)/.test(src),
+    'eval-agent.js must import the value');
+  assert.ok(!/temperature === 0\s*&&\s*true/.test(src));
+  const localSrc = fs.readFileSync(path.join(__dirname, 'local.js'), 'utf8');
+  assert.ok(/opts\.temperature \?\? DEFAULT_TEMPERATURE/.test(localSrc),
+    'and local.js must SEND the exported constant, or the two can disagree');
+});
+
 // ── the shipped case set ──────────────────────────────────────────────────
 await test('the shipped set is large enough for its own gate to mean anything', () => {
   const heldOut = CASES.filter(c => c.origin === 'held-out').length;

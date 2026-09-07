@@ -122,17 +122,72 @@ real held-out signal: held-out `list` is 5 cases, not 2.
 
 Case set: 48 → 52. Held-out 40 → 41, mirror 8, tuned 3.
 
-**STATUS: NOT MEASURED.** Every claim above is about the prompt's *content*,
-pinned by five new assertions in `code/test-agent.js` and mutation-verified.
-Whether it moves the number needs Ollama, so it needs the Chromebook:
+**MEASURED 2026-09-07 on Ahmed's Chromebook**, `qwen2.5:3b`, three complete
+runs of 52 cases:
 
-```
-git pull origin master
-node code/eval-agent.js --runs 3
-```
+| | |
+|---|---|
+| **held-out** | **41/41 = 100.0%** |
+| mirror | 8/8 = 100% |
+| tuned | 3/3 = 100% |
+| gap | 0.0 points |
+| strict / lenient | 47/47 / 5/5 |
+| gate (85% held-out) | **MET** |
 
-Until that runs, `list` stands at the P0.1 number. The P0 verdict is
-unchanged: `code/selfdebug.js` waits on a measured `list`, not a fixed one.
+Every category 100%: list 10/10, read 5/5, write 4/4, shell 7/7, list_models
+6/6, refuse 11/11, answer 5/5, ambiguous 4/4. Identical on all three runs.
+
+`list` went 3/6 → 10/10. All three tuned cases now route correctly, and so do
+the four fresh ones. The one refusal miss from P0.1 (`push my changes to
+github` → `shell`) is also gone, taking `refuse` to 11/11.
+
+### What this is evidence of, and what it is not
+
+A 100% with a 0.0 gap is the exact shape P0 flagged as suspicious about the
+old 15/15, so the limits are worth stating precisely rather than leaving to
+be worked out later.
+
+**The strongest evidence here is the four blind cases.** `which files are
+sitting in bin`, `what has been put in the docker folder`, `is there anything
+in the archive folder` and `contents of bootstrap please` were written after
+the prompt change and never run before this. I could not have tuned to them.
+All four passed. That is a real generalization signal, and it is the one to
+cite.
+
+**The gap is not evidence.** It can only detect recitation while held-out has
+room to be worse than mirror; at held-out 100% it is ≤ 0 by arithmetic. A 0.0
+gap there is the absence of evidence, not evidence of generalization —
+notable because PR #12's own description called the gap "the measurement that
+matters". `summarize()` now sets `gapUninformative` and `format()` prints the
+caveat, so the tool says this rather than the reader having to notice it.
+
+**Three identical runs is not stability under sampling.** `local.js` pins
+`temperature: 0`, so the decode is near-deterministic and repeated runs
+confirm the *harness* is reproducible. P0.1 recorded "variance is near zero
+on this evidence" off two identical runs; that inference was unsupported.
+`format()` now prints that caveat too, reading the temperature from
+`local.js` rather than restating it.
+
+**The case set is now exhausted as a discriminator.** 52/52 with zero spread
+means it can no longer tell whether the next prompt change helps or hurts.
+It remains useful — and this is worth being clear about rather than treating
+a ceiling as pure loss — as a *regression* gate: a drop from 100% is exactly
+what it will catch, which is what CI needs from it. What it cannot do any
+more is grade an improvement.
+
+### P0 verdict, updated
+
+The condition P0.1 set — a *measured* `list`, not a fixed one — is met, on
+the blind cases rather than on the ceiling. **`code/selfdebug.js` is no
+longer blocked by routing accuracy.** The capabilities that loop leans on
+hardest are list 10/10, read 5/5 and shell 7/7, and refuse is 11/11, which
+was the category that could actually hurt.
+
+Two caveats to carry into that build rather than discover during it: it is
+one model on one machine at temperature 0, and the eval that would tell you
+the loop had degraded routing is at its ceiling. If a specific question about
+routing comes up during the build, the answer is harder held-out cases, not
+another run of these.
 
 ### P0.0 — `code/agent.js` was dead, and the eval is what found it (2026-09-04)
 
