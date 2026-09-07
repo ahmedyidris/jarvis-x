@@ -108,3 +108,38 @@ Note: `/mnt/chromeos/MyFiles/Downloads` may not be mounted under the
 containerless design, so a `.tar.gz` backup there can be unreachable. The
 GitHub remote is the reliable restore path; `scripts/backup.sh` is the
 belt-and-braces one.
+
+## Disk space, and what may live on Google Drive
+
+```bash
+bash scripts/reclaim-space.sh              # report only, deletes nothing
+bash scripts/reclaim-space.sh --clean      # reclaim
+bash scripts/reclaim-space.sh --clean --offload   # ...and move archives to Drive
+```
+
+**Check the report before cleaning.** On 2026-09-07 the container had 70G free
+of 72G (3% used) while the machine was reported short on space — the pressure
+was on the ChromeOS side. Deleting inside the container would have freed
+nothing. ChromeOS storage: *Settings → About ChromeOS → Storage management*.
+The Linux disk is separately capped under *Settings → Advanced → Developers →
+Linux development environment → Disk size*.
+
+### What must NOT go on Drive
+
+| | why |
+|---|---|
+| the git working tree | Drive is a FUSE mount; git does thousands of small locked file operations per command. Slow, and the locking is not what git assumes — a known way to corrupt a repo |
+| the Ollama models (~8.6G) | Ollama memory-maps model files during inference. Over FUSE every answer takes minutes |
+
+Both are also the wrong target: they're the two things that rebuild for free
+(`ollama pull`, and `bootstrap/install.sh` step 4 from the backup manifest).
+
+**Backup archives are the right thing to offload** — `scripts/backup.sh`
+already keeps them small by excluding `venv-ai` (3.8G) and the models (8.6G).
+The offload copies, verifies with `cmp`, and only then deletes the local
+original. Never a move: a truncated copy over FUSE with the original already
+gone turns a backup strategy into a data-loss strategy.
+
+Drive isn't shared with Linux by default under containerless Crostini — *Files
+app → right-click Google Drive → Share with Linux*. Same reason a `.tar.gz` in
+`~/Downloads` was unreachable after the reset.
