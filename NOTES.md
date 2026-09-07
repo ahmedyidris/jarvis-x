@@ -23,6 +23,14 @@ Deliberately **not** built: `paper.js`, `selfdebug.js`. See "Deferred" below.
 1. Everything touching filesystem / network / money goes through `guard()`.
 2. `guard.js`, `validate.js`, `Guidelines.md`, `memory/rules.md` are OFF-LIMITS
    to self-modification and to Claude Code (deny rules in `~/.claude/settings.json`).
+   **Enforced in code as of 2026-09-07** — `code/validate.js`'s `OFF_LIMITS`,
+   gated in both `validate()` and `lib.js`'s `execute()`. It had to be: the
+   deny rules constrain Claude Code, and the agent reaches the filesystem as
+   a node process, so until then `execute({type:'write',
+   path:'memory/rules.md'})` simply worked. The list also covers `exec.js`
+   (path jail), `shell.js` (command allowlist) and `CONSTITUTION.md`, since
+   protecting `validate.js` while leaving `exec.js` writable is incoherent.
+   Reads are still allowed on purpose. See REMAINING_WORK.md P0.4.
 3. No trading, simulated or real. Ruled out 2026-09-04; the paper-trading
    module was deleted rather than left dormant.
 4. **Unattended means read-only.** `scheduler.js` may only execute
@@ -128,6 +136,13 @@ hooks load at session start — removing them mid-session doesn't unload them.
   build while accuracy is 77%. A self-modifying loop plus a model that picks the
   right action three times in four is how a repo ends up editing its own
   constraints. Revisit when the accuracy number is boring.
+  - **Accuracy condition met 2026-09-07:** 41/41 held-out, 100%, four blind
+    cases passing. See REMAINING_WORK.md P0.2.
+  - **The second half of this note was the real gate, and an accuracy number
+    never retired it.** "Editing its own constraints" was, until 2026-09-07,
+    something the agent could simply do — nothing in code stopped a write to
+    this file, to `rules.md`, or to `validate.js` itself. Rule 2 above now
+    enforces it. That is the prerequisite; the accuracy number alone was not.
 - `status.sh` checks `[ -f code/paper.js ]` — file *existence*, not
   correctness. `touch code/paper.js` would show 100%. Don't. 91% honest beats
   100% hollow.
