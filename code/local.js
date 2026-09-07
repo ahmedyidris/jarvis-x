@@ -2,6 +2,14 @@
 
 const MODEL = 'qwen2.5:3b';
 
+// Exported so the eval can say what its own repeated runs mean. At 0 the
+// decode is near-deterministic, which makes N runs a check that the HARNESS
+// is deterministic -- not a sampling error bar. Reported rather than assumed,
+// because it was assumed once: REMAINING_WORK.md P0.1 read "variance is near
+// zero on this evidence" off two identical runs, which was true and told us
+// nothing about sampling.
+const DEFAULT_TEMPERATURE = 0;
+
 async function ask(prompt, opts = {}) {
   const res = await fetch('http://127.0.0.1:11434/api/generate', {
     method: 'POST',
@@ -13,7 +21,7 @@ async function ask(prompt, opts = {}) {
     body: JSON.stringify({
       model: MODEL, prompt, stream: false,
       format: opts.json ? 'json' : undefined,
-      options: { temperature: opts.temperature ?? 0 }
+      options: { temperature: opts.temperature ?? DEFAULT_TEMPERATURE }
     })
   });
   if (!res.ok) throw new Error(`Ollama returned ${res.status}`);
@@ -34,4 +42,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { ask, MODEL };
+module.exports = { ask, MODEL, DEFAULT_TEMPERATURE };
