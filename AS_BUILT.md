@@ -103,7 +103,9 @@ need revisiting on this basis.
 | Component | Evidence |
 |---|---|
 | Path jail (`code/exec.js`) | `test-exec.js` 2/2 after fix |
-| Action validation (`code/validate.js`) | `test-validate.js` **23/23** after fix |
+| Action validation (`code/validate.js`) | `test-validate.js` **36/36** |
+| **Self-modification control** (`OFF_LIMITS`) | `test-validate.js` + `test-lib.js`, 2026-09-07. `NOTES.md` durable rule 2 claimed 7 constraint files were off-limits; verified, only the Claude Code deny rules were real, and `execute({type:'write', path:'memory/rules.md'})` overwrote the authoritative rules file. Now gated in `validate()` AND `execute()` — one list, two gates. Path spellings and both symlink routes refused. Reads still allowed on purpose. See REMAINING_WORK.md P0.4 |
+| Action dispatch (`lib.js` `execute()`) | `test-lib.js` **12/12**, new 2026-09-07 — the single dispatch point for every agent action had **no test at all** before this. Covers the off-limits gate, the path jail, and the kill switch on read/list/write |
 | Model gateway — breaker, budget, store, telemetry, tier policy | `packages/model-gateway` **47/47** across 8 `*.test.js` files |
 | Data layer + provider registry | `test-data-layer.js` **28/28**, in CI as of 2026-09-07. The previous "5/5" in this row was never a measurement: that file ended in `runTests().catch(console.error)` and exited 0 even with `data-layer.js`'s registration API renamed away. Twelve mutations now fail it. See REMAINING_WORK.md P0.3 |
 | Query resolution + response building + graceful degradation (Bitcoin / S&P 500 / Oil → data keys) | ⚠️ **NUMBER UNRELIABLE.** `test-agent-data-integration.js` **5/5** on Ahmed's machine — but this file also ends in `.catch(console.error)` and exits 0 regardless, so the 5/5 is printed, not verified. It needs only network (no voice hardware), so it is the cheapest of the five to fix properly |

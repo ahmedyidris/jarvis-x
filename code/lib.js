@@ -4,6 +4,9 @@ const readline = require('readline');
 const { BASE, safePath } = require('./exec.js');
 const { isStopped } = require('./guard.js');
 const { run: runShell } = require('./shell.js');
+// Required lazily inside the write case, not here: validate.js requires
+// exec.js, exec.js is required above, and a top-level cycle here would hand
+// back a half-initialised module.
 
 function reEscape(str) {
   return str.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
@@ -46,6 +49,21 @@ async function execute(action) {
       const dir = path.dirname(lexical);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       const full = safePath(action.path);
+      // Enforced HERE as well as in validate.js, for the reason shell.js
+      // gives about the kill switch: leaving a control to validate() makes it
+      // depend on every future caller routing through validate() first.
+      // execute() does not -- it has its own jail and never calls validate --
+      // so before this line `execute({type:'write', path:'memory/rules.md'})`
+      // overwrote the authoritative rules file. Demonstrated 2026-09-07; the
+      // file came back reading "PWNED" and was restored from a copy.
+      //
+      // The list lives in validate.js so there is one list, not two that can
+      // drift. This is the second gate on it, not a second copy of it.
+      const { isOffLimits } = require('./validate.js');
+      if (isOffLimits(action.path)) {
+        throw new Error(
+          `REFUSED: ${action.path} is off-limits to self-modification (NOTES.md durable rule 2)`);
+      }
       fs.writeFileSync(full, action.content, 'utf8');
       return `Written to ${action.path}`;
     }

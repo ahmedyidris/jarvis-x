@@ -45,6 +45,12 @@ jobs:
       # untested by CI since -- a tested module CI never runs is the failure
       # this repo keeps correcting, so it is in the list now with the rest.
       #
+      # test-lib covers lib.js's execute() -- the single dispatch point for
+      # every agent action, which had no test at all until 2026-09-07. It is
+      # offline: every write goes to a logs/ scratch path, and writes aimed at
+      # the off-limits files pass those files' own bytes so a broken gate
+      # cannot damage them (it did, once -- see REMAINING_WORK.md P0.4).
+      #
       # test-data-layer was the same failure again, twice over: it was not in
       # this list, and it ended in `runTests().catch(console.error)` so it
       # exited 0 even when the module under test was gone entirely. Both are
@@ -57,7 +63,7 @@ jobs:
                    test-validate test-watcher test-paper-trading \
                    test-market-analyst test-market-collect test-trade-advisor \
                    test-market-brief test-supervisor test-stooq-provider \
-                   test-eval-agent test-agent test-data-layer; do
+                   test-eval-agent test-agent test-data-layer test-lib; do
             echo "▶ code/$f.js"
             node "code/$f.js"
           done
