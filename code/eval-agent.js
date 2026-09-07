@@ -74,6 +74,11 @@ function slice(results, predicate) {
 function summarize(results) {
   const heldOut = slice(results, r => r.origin === 'held-out');
   const mirror = slice(results, r => r.origin === 'mirror');
+  // Cases the prompt was changed in response to. Reported, never in the gate:
+  // a case whose failure told me what to teach cannot then testify that the
+  // teaching generalized. Slicing by origin means this stays out of heldOut
+  // automatically, which is the point of the third label.
+  const tuned = slice(results, r => r.origin === 'tuned');
   const byCategory = {};
   for (const cat of CATEGORIES) byCategory[cat] = slice(results, r => r.category === cat);
 
@@ -83,7 +88,7 @@ function summarize(results) {
 
   return {
     overall: slice(results, () => true),
-    heldOut, mirror, gap,
+    heldOut, mirror, tuned, gap,
     strict: slice(results, r => !r.lenient),
     lenient: slice(results, r => r.lenient),
     byCategory,
@@ -125,6 +130,9 @@ function format(summary, agg) {
   L.push('');
   L.push(`held-out   ${summary.heldOut.passed}/${summary.heldOut.total}  ${p(summary.heldOut.accuracy)}   <- the number that counts`);
   L.push(`mirror     ${summary.mirror.passed}/${summary.mirror.total}  ${p(summary.mirror.accuracy)}   (close to agent.js's few-shot examples)`);
+  if (summary.tuned.total) {
+    L.push(`tuned      ${summary.tuned.passed}/${summary.tuned.total}  ${p(summary.tuned.accuracy)}   (the prompt was changed for these -- NOT in the gate)`);
+  }
   if (summary.gap !== null) {
     L.push(`gap        ${(summary.gap * 100).toFixed(1)} points` +
            (summary.gap > 0.15 ? '  <- WIDE: the model is reciting the prompt, not routing' : ''));

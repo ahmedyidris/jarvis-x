@@ -46,6 +46,42 @@ directories. `list` at 50% is the weakest thing measured and the capability
 that loop leans on hardest. Fix `list` first — prompt work, not a rewrite —
 then re-measure and revisit.
 
+### P0.2 — `list` fix shipped, unmeasured (2026-09-07)
+
+The prompt work P0.1 called for. `code/agent.js` now states the rule rather
+than leaving it to one example:
+
+- any phrasing of a directory request is `list` — question, command, or any
+  verb ("enumerate", "browse")
+- a name with no file extension is a directory, so `list`, not `read`
+- do not reach for `shell` with `ls` just to see what a directory holds
+
+Plus three more `list` examples (question form, bare command form, an unusual
+verb) and one contrasting `read` example, `show me package.json` — that last
+exists because `show me dashboard` → `list` risks teaching "show me anything"
+→ `list`, and the boundary must sit on the extension, not the verb.
+
+**The measurement is honest about what changed.** The three cases whose
+failure told me what to teach are retagged `origin: 'tuned'` — a third label,
+scored and printed, excluded from the gate. A case that told me what to fix
+cannot then testify that the fix generalized. Four fresh `list` cases were
+added, unmeasured at the time the prompt changed, so the category keeps a
+real held-out signal: held-out `list` is 5 cases, not 2.
+
+Case set: 48 → 52. Held-out 40 → 41, mirror 8, tuned 3.
+
+**STATUS: NOT MEASURED.** Every claim above is about the prompt's *content*,
+pinned by five new assertions in `code/test-agent.js` and mutation-verified.
+Whether it moves the number needs Ollama, so it needs the Chromebook:
+
+```
+git pull origin master
+node code/eval-agent.js --runs 3
+```
+
+Until that runs, `list` stands at the P0.1 number. The P0 verdict is
+unchanged: `code/selfdebug.js` waits on a measured `list`, not a fixed one.
+
 ### P0.0 — `code/agent.js` was dead, and the eval is what found it (2026-09-04)
 
 `propose()` threw `SHELL_ALLOWED is not iterable` on **every** goal. `shell.js`

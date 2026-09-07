@@ -14,7 +14,7 @@ const os = require('os');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
 const E = require('./eval-agent.js');
-const { CASES, CATEGORIES } = require('./eval-cases.js');
+const { CASES, CATEGORIES, ORIGINS } = require('./eval-cases.js');
 
 // A fake agent. `answers` maps goal -> type; anything unmapped returns the
 // fallback, so a test can make exactly the cases it cares about pass.
@@ -389,7 +389,7 @@ await test('no duplicated goals, and every case is well formed', () => {
   const goals = CASES.map(c => c.goal);
   assert.strictEqual(new Set(goals).size, goals.length, 'a duplicated goal double-counts');
   for (const c of CASES) {
-    assert.ok(['mirror', 'held-out'].includes(c.origin), `${c.goal}: bad origin`);
+    assert.ok(ORIGINS.includes(c.origin), `${c.goal}: bad origin ${c.origin}`);
     assert.ok(Array.isArray(c.expect) && c.expect.length, `${c.goal}: no expectation`);
     assert.ok(c.category, `${c.goal}: no category`);
   }
@@ -450,6 +450,96 @@ await test('the mirror cases really are mirrors, or they are mislabelled', () =>
   assert.deepStrictEqual(weak, [],
     'a case tagged mirror that resembles no few-shot example inflates the ' +
     'held-out set by exclusion — retag it');
+});
+
+
+// ── the third origin ──────────────────────────────────────────────────────
+await test('a tuned case is scored but kept out of the gate', () => {
+  // The whole reason 'tuned' exists. On 2026-09-07 three list cases failed,
+  // agent.js's prompt was changed specifically to address those three shapes,
+  // and leaving them tagged held-out would have let the change measure itself.
+  const rs = [
+    ...Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+      ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: i > 4 })),
+    { goal: 't1', origin: 'tuned', category: 'list', ok: true },
+    { goal: 't2', origin: 'tuned', category: 'list', ok: true },
+    { goal: 'm1', origin: 'mirror', category: 'list', ok: true },
+  ];
+  const s = E.summarize(rs);
+  assert.strictEqual(s.tuned.total, 2, 'tuned cases must be reported');
+  assert.strictEqual(s.tuned.accuracy, 1);
+  assert.strictEqual(s.heldOut.total, E.MIN_HELDOUT,
+    'and must not be counted as held-out — that is what would flatter the gate');
+  // 20/25 = 80%, below the 85% gate. If the two passing tuned cases leaked in
+  // it would be 22/27 = 81.5%, still below, so assert on the count as well as
+  // the verdict.
+  assert.strictEqual(s.gateMet, false);
+  assert.strictEqual(s.overall.total, E.MIN_HELDOUT + 3, 'but they are still run');
+});
+
+await test('a tuned case does not enter the gap either', () => {
+  // The gap is mirror minus held-out. A tuned case in either side would move
+  // a number whose only job is to detect memorization.
+  const base = Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+    ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: true }));
+  const withMirror = [...base, { goal: 'm', origin: 'mirror', category: 'list', ok: true }];
+  const a = E.summarize(withMirror);
+  const b = E.summarize([...withMirror,
+    { goal: 't', origin: 'tuned', category: 'list', ok: false }]);
+  assert.strictEqual(a.gap, b.gap, 'adding a failing tuned case must not move the gap');
+  assert.strictEqual(b.tuned.accuracy, 0, 'though the failure must still be visible');
+});
+
+await test('the tuned line is printed, and says it is out of the gate', () => {
+  const rs = [
+    ...Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+      ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: true })),
+    { goal: 't', origin: 'tuned', category: 'list', ok: false },
+  ];
+  const out = E.format(E.summarize(rs), null);
+  assert.ok(/tuned\s+0\/1/.test(out), `no tuned line in:\n${out}`);
+  assert.ok(/NOT in the gate/.test(out),
+    'a reader must not have to know what the label means');
+});
+
+await test('no tuned line is printed when there are none', () => {
+  const rs = Array.from({ length: E.MIN_HELDOUT }, (_, i) =>
+    ({ goal: `h${i}`, origin: 'held-out', category: 'list', ok: true }));
+  assert.ok(!/tuned/.test(E.format(E.summarize(rs), null)),
+    'an empty category must not print a 0/0 line');
+});
+
+await test('a tuned case is still not a verbatim copy of an example', () => {
+  // 'tuned' is not a licence to paste the case into the prompt. The shapes
+  // are taught; the wording stays the model's problem. Same 0.5 threshold the
+  // held-out cases are held to, so a future "fix" that copies the failing
+  // goal into the few-shot block fails here.
+  const src = fs.readFileSync(path.join(__dirname, 'agent.js'), 'utf8');
+  const fewshot = [...src.matchAll(/Goal: (.+)/g)].map(m => m[1].trim()).filter(g => !g.startsWith('${'));
+  const words = (s) => new Set(s.toLowerCase().match(/[a-z]+/g) || []);
+  const offenders = [];
+  for (const c of CASES.filter(c => c.origin === 'tuned')) {
+    for (const f of fewshot) {
+      const A = words(c.goal), B = words(f);
+      const jac = [...A].filter(x => B.has(x)).length / (new Set([...A, ...B]).size || 1);
+      if (jac >= 0.5) offenders.push(`${c.goal} ~ ${f} (${jac.toFixed(2)})`);
+    }
+  }
+  assert.deepStrictEqual(offenders, [],
+    'teaching the shape is the fix; pasting the goal into the prompt is not');
+});
+
+await test('the list category keeps held-out cases after the retag', () => {
+  // The retag removed three of the five held-out list cases. Without fresh
+  // ones the category would be measured by two cases and a mirror, which is
+  // not a measurement. This is the guard against the retag being used to make
+  // an inconvenient category disappear.
+  const list = CASES.filter(c => c.category === 'list');
+  const heldOut = list.filter(c => c.origin === 'held-out');
+  assert.ok(heldOut.length >= 5,
+    `only ${heldOut.length} held-out list cases — a retagged category needs replacements`);
+  assert.ok(list.filter(c => c.origin === 'tuned').length >= 1,
+    'and the tuned ones must still be in the set, not deleted');
 });
 
 finish();

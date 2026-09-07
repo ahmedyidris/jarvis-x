@@ -16,8 +16,21 @@
 //                 that fails these is broken in a way worth seeing.
 //   'held-out' -- deliberately distant. Different vocabulary, different
 //                 sentence shape, or a case the examples never gesture at.
+//   'tuned'    -- WAS held-out, and its failure is why the prompt changed.
+//                 Neither of the other labels fits once that happens. The
+//                 difference from a mirror is PROVENANCE, not distance: a
+//                 mirror was written to resemble an example, while here an
+//                 example was written in response to the case. Measured
+//                 2026-09-07 these sit at 0.13-0.33 Jaccard against the
+//                 examples -- 'show me everything under config' vs the shown
+//                 'show me dashboard' is 0.33, above the 0.25 mirror floor,
+//                 so distance alone would not separate them. What makes them
+//                 unusable in the gate is that I chose which failure shapes
+//                 to teach by reading their results, so they can no longer
+//                 testify that the teaching generalized. Scored and
+//                 reported, excluded from the gate.
 //
-// The GAP between those two accuracies is the measurement that matters. A
+// The GAP between the first two accuracies is the measurement that matters. A
 // model at 100% on mirrors and 60% on held-out has memorized the prompt, and
 // only the held-out number should be compared against the gate.
 //
@@ -33,11 +46,27 @@
 const CASES = [
   // ── list ────────────────────────────────────────────────────────────────
   { goal: 'list the files in the code directory',      expect: ['list'], category: 'list', origin: 'mirror' },
-  { goal: 'what is in the logs directory',             expect: ['list'], category: 'list', origin: 'held-out' },
-  { goal: 'show me everything under config',           expect: ['list'], category: 'list', origin: 'held-out' },
   { goal: 'what files live in knowledge',              expect: ['list'], category: 'list', origin: 'held-out' },
   { goal: "I want to see the contents of the scripts folder", expect: ['list'], category: 'list', origin: 'held-out' },
-  { goal: 'enumerate whatever is inside memory',       expect: ['list'], category: 'list', origin: 'held-out' },
+  // The three the 2026-09-07 prompt change was written against. Measured
+  // 2026-09-06 they were the whole of the list category's failure: 'what is
+  // in the logs directory' went to shell (the model reached for ls), 'show me
+  // everything under config' to read (an extensionless name read as a file),
+  // 'enumerate whatever is inside memory' to answer. agent.js now states the
+  // rule for all three shapes. Retagged because I chose what to teach by
+  // reading these results -- they no longer measure generalization, and
+  // leaving them in the gate basis would have made the next number flatter.
+  { goal: 'what is in the logs directory',             expect: ['list'], category: 'list', origin: 'tuned' },
+  { goal: 'show me everything under config',           expect: ['list'], category: 'list', origin: 'tuned' },
+  { goal: 'enumerate whatever is inside memory',       expect: ['list'], category: 'list', origin: 'tuned' },
+  // Fresh, and unmeasured at the time the prompt changed, so the list
+  // category keeps a held-out signal. Different directories from the ones the
+  // examples name, on purpose. 'what has been put in the docker folder' is
+  // here for the 'put' collision with the write category.
+  { goal: 'which files are sitting in bin',            expect: ['list'], category: 'list', origin: 'held-out' },
+  { goal: 'what has been put in the docker folder',    expect: ['list'], category: 'list', origin: 'held-out' },
+  { goal: 'is there anything in the archive folder',   expect: ['list'], category: 'list', origin: 'held-out' },
+  { goal: 'contents of bootstrap please',              expect: ['list'], category: 'list', origin: 'held-out' },
 
   // ── read ────────────────────────────────────────────────────────────────
   { goal: 'read the package.json file',                expect: ['read'], category: 'read', origin: 'mirror' },
@@ -108,7 +137,7 @@ const CASES = [
   { goal: 'what did I ask you to do yesterday',        expect: ['read', 'shell', 'answer'], category: 'ambiguous', origin: 'held-out' },
 ];
 
-const ORIGINS = ['mirror', 'held-out'];
+const ORIGINS = ['mirror', 'held-out', 'tuned'];
 const CATEGORIES = [...new Set(CASES.map(c => c.category))];
 
 module.exports = { CASES, ORIGINS, CATEGORIES };
