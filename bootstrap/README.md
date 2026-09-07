@@ -89,12 +89,50 @@ three:
 **Full recovery from nothing:**
 
 ```bash
-sudo apt-get update -y && sudo apt-get install -y git
-# token from github.com/settings/tokens (classic, `repo` scope) —
-# GitHub no longer accepts a password for HTTPS clone
-git clone https://YOUR_TOKEN@github.com/ahmedyidris/jarvis-x.git ~/jarvis-x
-cd ~/jarvis-x && bash bootstrap/install.sh
+sudo apt-get update -y && sudo apt-get install -y git zstd
 ```
+
+**Authenticate first — the repo is private, so a clone needs credentials.**
+Use the device flow: it gives you a short code to type into a browser, and
+nothing secret is ever typed into the terminal.
+
+```bash
+sudo mkdir -p -m 755 /etc/apt/keyrings
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+  | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+  | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo apt update && sudo apt install -y gh
+
+gh auth login    # GitHub.com > HTTPS > Yes > Login with a web browser
+```
+
+It prints a one-time code like `A1B2-C3D4`. Open **github.com/login/device**,
+enter it, approve. Git remembers the credential afterwards.
+
+```bash
+gh repo clone ahmedyidris/jarvis-x ~/jarvis-x
+cd ~/jarvis-x && bash scripts/reclaim-space.sh && bash bootstrap/install.sh
+```
+
+**SSH is the alternative** if you would rather not install `gh` — also no
+password in the terminal:
+
+```bash
+ssh-keygen -t ed25519 -C "you@example.com" -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub     # paste at github.com/settings/ssh/new
+git clone git@github.com:ahmedyidris/jarvis-x.git ~/jarvis-x
+```
+
+**A personal access token also works** (github.com/settings/tokens, classic,
+`repo` scope) but means holding a secret in your shell history, so prefer one
+of the two above.
+
+> A placeholder is not a command. `git clone https://YOUR_TOKEN@github.com/...`
+> pasted verbatim makes git try to authenticate as a user *named* `YOUR_TOKEN`,
+> and the password prompt that follows can never succeed. Happened 2026-09-07.
+> Ctrl+C out of it; nothing is broken.
 
 Then verify:
 
