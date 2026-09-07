@@ -36,7 +36,7 @@ const MIN_HELDOUT = 25;
 
 /** One pass over every case. `propose` is injected so the scoring logic here
  *  is testable without a model -- see code/test-eval-agent.js. */
-async function runOnce(propose, cases = CASES) {
+async function runOnce(propose, cases = CASES, { onResult = null } = {}) {
   const results = [];
   for (const c of cases) {
     let got = null, err = null;
@@ -45,11 +45,19 @@ async function runOnce(propose, cases = CASES) {
       got = r.action ? r.action.type : (r.proposed ? r.proposed.type : null);
       if (r.error) err = r.reason || r.error;
     } catch (e) { err = e.message; }
-    results.push({
+    const row = {
       goal: c.goal, expect: c.expect, category: c.category, origin: c.origin,
       lenient: c.expect.length > 1,
       got, err, ok: got !== null && c.expect.includes(got),
-    });
+    };
+    results.push(row);
+    // Reported as it happens, not after the loop. The CLI used to collect all
+    // 48 rows and print the PASS/FAIL block afterwards, which put propose()'s
+    // own "REJECTED by validator: ..." lines ABOVE the block, detached from
+    // the cases they belonged to. That misled me into attributing a rejection
+    // to the first case, which had passed. Interleaved output keeps a model's
+    // console noise next to the row it explains.
+    if (onResult) onResult(row);
   }
   return results;
 }
@@ -277,10 +285,10 @@ if (require.main === module) {
 
     for (let i = 0; i < runs; i++) {
       if (runs > 1) console.log(`\n--- run ${i + 1} of ${runs} ---`);
-      const results = await runOnce(propose);
-      for (const r of results) {
-        console.log(`${r.ok ? 'PASS' : 'FAIL'}  [${r.origin}] ${r.goal}  -> ${r.got || r.err}`);
-      }
+      const results = await runOnce(propose, CASES, {
+        onResult: (r) => console.log(
+          `${r.ok ? 'PASS' : 'FAIL'}  [${r.origin}] ${r.goal}  -> ${r.got || r.err}`),
+      });
       const s = summarize(results);
       s._results = results;
       summaries.push(s);
