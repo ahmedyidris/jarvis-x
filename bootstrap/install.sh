@@ -23,7 +23,14 @@ sudo apt-get update -y
 sudo apt-get install -y \
   python3 python3-venv python3-pip \
   ffmpeg build-essential curl git jq \
-  supervisor
+  supervisor \
+  zstd
+# zstd is not optional: since 2026-09 Ollama's installer extracts a .tar.zst
+# and aborts with "This version requires zstd for extraction" without it.
+# Step 3 then leaves no `ollama` binary, every `ollama pull` below prints
+# "command not found", and the box comes up looking installed with no models.
+# Observed on Ahmed's Chromebook 2026-09-07 after Crostini's containerless
+# switch reset the container.
 
 echo "==> [2/9] Node.js 20.x"
 if ! command -v node >/dev/null 2>&1 || [[ "$(node --version)" != v20* ]]; then
@@ -33,7 +40,17 @@ fi
 
 echo "==> [3/9] Ollama + models"
 if ! command -v ollama >/dev/null 2>&1; then
-  curl -fsSL https://ollama.com/install.sh | sh
+  curl -fsSL https://ollama.com/install.sh | sh || true
+fi
+# Check rather than assume. The installer can print ERROR and still leave the
+# pipeline's exit status at 0 (it is `curl | sh`), so without this the script
+# sails on and every pull below fails with "command not found" -- which reads
+# like four separate model problems instead of one missing binary.
+if ! command -v ollama >/dev/null 2>&1; then
+  echo "FATAL: ollama did not install." >&2
+  echo "  Most likely cause: missing zstd. Run 'sudo apt-get install -y zstd'" >&2
+  echo "  and re-run this script -- it is idempotent." >&2
+  exit 1
 fi
 # supervisord (below) owns the ollama process on this box, not ollama's own
 # systemd unit — stop/disable it if the installer enabled one.
@@ -42,6 +59,29 @@ export OLLAMA_MODELS=/usr/share/ollama/.ollama/models
 for m in qwen2.5:3b qwen2.5:7b moondream nomic-embed-text; do
   ollama pull "$m" || echo "  (skipped $m — pull failed, retry manually later)"
 done
+
+echo "==> [3b/9] Claude Code CLI (user-owned npm prefix)"
+# Installed to a prefix this user owns, NOT with `sudo npm install -g`.
+# sudo works, but then the CLI cannot update itself and every session opens
+# with "Auto-update failed: no write permission to npm prefix" -- seen on
+# Ahmed's box 2026-09-07. A user-owned prefix fixes the install and the
+# updates together.
+NPM_PREFIX="$HOME/.npm-global"
+mkdir -p "$NPM_PREFIX"
+npm config set prefix "$NPM_PREFIX"
+case ":$PATH:" in
+  *":$NPM_PREFIX/bin:"*) ;;
+  *)
+    export PATH="$NPM_PREFIX/bin:$PATH"
+    # Idempotent: only append if the line is not already there.
+    grep -qsF "$NPM_PREFIX/bin" "$HOME/.bashrc" \
+      || echo "export PATH=\"$NPM_PREFIX/bin:\$PATH\"" >> "$HOME/.bashrc"
+    ;;
+esac
+npm install -g @anthropic-ai/claude-code
+command -v claude >/dev/null 2>&1 \
+  && echo "  claude: $(claude --version 2>&1 | head -1)" \
+  || echo "  (claude not on PATH yet — open a new shell, or: source ~/.bashrc)"
 
 echo "==> [4/9] Python venv (venv-ai)"
 if [ ! -d "$HOME/venv-ai" ]; then
