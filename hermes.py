@@ -36,7 +36,17 @@ class HermesBackendError(Exception):
     from a normal (if terse) answer. Callers that only check for a truthy
     string can't tell those apart otherwise (REMAINING_WORK.md P6): a caller
     checking just the HTTP status code, or just `if response`, saw the same
-    shape for "backend is down" as for "model answered oddly"."""
+    shape for "backend is down" as for "model answered oddly".
+
+    Carries .message and .status_code (default 503, matching app.py's own
+    explicit `except HermesBackendError` -> HTTPException(503, ...) at the
+    /api/ask route) so a bare, uncaught raise still reaches app.py's global
+    exception_handler with a valid response shape instead of AttributeError."""
+
+    def __init__(self, message, status_code=503):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
 
 # Setup
 DB_PATH = Path.home() / ".hermes" / "state.db"
