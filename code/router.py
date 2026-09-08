@@ -6,8 +6,6 @@ Tier: local (fast) vs. quality (natural).
 """
 
 import logging
-from typing import Tuple, Optional
-from pathlib import Path
 
 logger = logging.getLogger('Router')
 
@@ -59,8 +57,8 @@ class Router:
     def __init__(self):
         self.valid_tiers = list(TIERS.keys())
     
-    def resolve(self, tier: str = "local", voice_override: Optional[str] = None, 
-                model_override: Optional[str] = None) -> Tuple[str, str]:
+    def resolve(self, tier: str = "local", voice_override: str | None = None, 
+                model_override: str | None = None) -> tuple[str, str]:
         """
         Resolve (model, voice) from tier + overrides.
         
@@ -86,7 +84,7 @@ class Router:
         logger.info(f"Router: tier={tier}, model={model}, voice={voice}")
         return model, voice
     
-    def get_fallback_voice(self, voice_id: str) -> Optional[str]:
+    def get_fallback_voice(self, voice_id: str) -> str | None:
         """Get fallback voice if primary fails (e.g., Kokoro→Piper)."""
         return FALLBACK_CHAINS.get(voice_id)
     

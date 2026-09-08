@@ -4,26 +4,28 @@ HERMES CORE (Week 2) + ROUTER (Week 3)
 Updated CLI with --tier, --voice, --speak flags
 """
 
-import os
-import sqlite3
-import json
-import subprocess
-import re as _re
-
-def _strip_think(text: str) -> str:
-    """Remove qwen3-style <think>...</think> reasoning blocks."""
-    text = _re.sub(r'<think>.*?</think>', '', text, flags=_re.DOTALL)
-    text = _re.sub(r'^Thinking\.\.\..*?\.\.\.done thinking\.', '', text, flags=_re.DOTALL)
-    return text.strip()
-import sys
 import argparse
+import json
 import logging
+import os
+import re as _re
+import sqlite3
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 # Import router
 sys.path.insert(0, str(Path(__file__).parent / "code"))
 from router import Router
+
+
+def _strip_think(text: str) -> str:
+    """Remove qwen3-style <think>...</think> reasoning blocks."""
+    text = _re.sub(r'<think>.*?</think>', '', text, flags=_re.DOTALL)
+    text = _re.sub(r'^Thinking\.\.\..*?\.\.\.done thinking\.', '', text, flags=_re.DOTALL)
+    return text.strip()
+
 
 logging.basicConfig(level=logging.INFO, format='[%(name)s] %(message)s')
 logger = logging.getLogger('Hermes')
@@ -196,11 +198,11 @@ class HermesCore:
             # Never fabricate a market section. Saying the data is unavailable
             # is information; a missing section invites the model to fill the
             # gap from its weights, which is the failure this exists to stop.
-            return ("MARKET DATA: unavailable right now (%s). Say so; do not "
-                    "estimate a price or a range from memory." % type(e).__name__)
+            return (f"MARKET DATA: unavailable right now ({type(e).__name__}). Say so; do not "
+                    "estimate a price or a range from memory.")
         if r.returncode != 0:
-            return ("MARKET DATA: the market brief exited %d. Say the data is "
-                    "unavailable; do not estimate." % r.returncode)
+            return (f"MARKET DATA: the market brief exited {r.returncode}. Say the data is "
+                    "unavailable; do not estimate.")
         return r.stdout.strip()
 
     def build_context(self, question, turns=3):

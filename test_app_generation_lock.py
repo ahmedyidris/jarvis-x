@@ -6,8 +6,8 @@ queue for up to two minutes.
 
 Run with: ~/venv-ai/bin/python3 -m pytest test_app_generation_lock.py -v
 """
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 import app as app_module
 

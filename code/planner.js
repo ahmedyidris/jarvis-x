@@ -1,6 +1,3 @@
-const lib = require('./lib.js');
-const router = require('./router.js');
-
 const planMultiStep = async (goal) => {
   console.log(`Planning: ${goal}`);
   const steps = [

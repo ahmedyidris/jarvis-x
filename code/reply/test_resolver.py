@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock
-from code.reply.resolver import resolve_next_tool_call, RESOLVER_TIMEOUT_SEC
+from code.reply.resolver import RESOLVER_TIMEOUT_SEC, resolve_next_tool_call
 from code.reply.tools.weather import WeatherTool
+from unittest.mock import MagicMock
+
 import hermes as hermes_module
 
 TOOLS = [WeatherTool()]

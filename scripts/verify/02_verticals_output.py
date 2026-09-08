@@ -4,8 +4,11 @@ Run with: ~/venv-ai/bin/python3 scripts/verify/02_verticals_output.py [vertical 
 With no args, runs all 4 (can take up to ~1.5h sequentially -- pass specific
 vertical names to check one at a time instead).
 """
-import json, sys, time
+import json
+import sys
+import time
 from pathlib import Path
+
 import requests
 
 BASE = "http://localhost:8000"

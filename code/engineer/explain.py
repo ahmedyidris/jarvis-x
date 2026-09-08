@@ -16,9 +16,9 @@ DECISION_RECORD_hermes-backbone.md 3, option D: this is one of the call
 sites that decision covers, and it should move or stay on evidence rather
 than on a reason that expired.
 """
-import requests
-
 from code.router import Router
+
+import requests
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 

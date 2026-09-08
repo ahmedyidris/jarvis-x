@@ -25,7 +25,7 @@ if (fileContent.includes("async ()") && !fileContent.includes("describe(") && !f
     try {
         execSync(`node "${absoluteTestPath}"`, { stdio: "inherit" });
         process.exit(0);
-    } catch (error) {
+    } catch (_error) {
         process.exit(1);
     }
 } else {
@@ -34,7 +34,7 @@ if (fileContent.includes("async ()") && !fileContent.includes("describe(") && !f
         const escapedRegex = cleanFileName.replace(/\./g, "\\.");
         execSync(`npx jest --no-cache --rootDir="${baseDir}" --testRegex="${escapedRegex}$"`, { stdio: "inherit" });
         process.exit(0);
-    } catch (error) {
+    } catch (_error) {
         process.exit(1);
     }
 }

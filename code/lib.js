@@ -13,7 +13,7 @@ function reEscape(str) {
 }
 
 function parseJSONLoose(raw) {
-  try { return JSON.parse(raw); } catch (e) { return null; }
+  try { return JSON.parse(raw); } catch (_e) { return null; }
 }
 
 // ACTUAL EXECUTION ENGINE

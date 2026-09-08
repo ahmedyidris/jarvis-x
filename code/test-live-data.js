@@ -21,7 +21,7 @@ async function runTests() {
   let snap;
   try {
     snap = JSON.parse(stdout);
-  } catch (err) {
+  } catch (_err) {
     assert(false, `stdout was not JSON (logs leaking to stdout?): ${stdout.slice(0, 120)}`);
   }
   console.log('✓ PASS');

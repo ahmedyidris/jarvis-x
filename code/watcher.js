@@ -74,7 +74,7 @@ function diffLines(before, after) {
 function readJSON(file, fallback) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) {
+  } catch (_e) {
     return fallback;
   }
 }

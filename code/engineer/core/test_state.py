@@ -1,6 +1,6 @@
-import pytest
-
 from code.engineer.core import state
+
+import pytest
 
 
 @pytest.fixture

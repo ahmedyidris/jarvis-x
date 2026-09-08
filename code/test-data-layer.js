@@ -331,7 +331,6 @@ await test('a mock reaching DataLayer keeps its label all the way through', asyn
 // ── this file's own honesty ───────────────────────────────────────────────
 await test('this suite reaches no network of its own', () => {
   const fs = require('fs');
-  const path = require('path');
   const src = fs.readFileSync(__filename, 'utf8');
   // The old file loaded dotenv precisely so the live path would be taken.
   assert.ok(!/require\(['"]dotenv['"]\)/.test(src),

@@ -2,7 +2,6 @@
 // to be genuinely offline and its empty state has to stay empty. A brief that
 // invented a section when there was no data would put fiction into the model's
 // context, which is the exact failure hermes.py's own comments document.
-const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');

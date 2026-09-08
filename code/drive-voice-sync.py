@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-import gdown, os, sys
-from pathlib import Path
+import sys
 
 folder_id = "YOUR_FOLDER_ID_HERE"
 

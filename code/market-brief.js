@@ -9,7 +9,7 @@
 // Without --collect nothing touches the network. The "current" price is then
 // the newest one this repo recorded, and the output says so rather than
 // implying a live quote.
-const { load, report, format: formatReport, series } = require('./market-analyst.js');
+const { load, report, format: formatReport } = require('./market-analyst.js');
 const { advise, format: formatAdvice } = require('./trade-advisor.js');
 const { PaperBook } = require('./paper-trading.js');
 

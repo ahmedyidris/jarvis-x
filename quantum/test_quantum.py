@@ -21,9 +21,13 @@ except ImportError:  # pragma: no cover
     sys.exit(0)
 
 sys.path.insert(0, __file__.rsplit("/", 2)[0])
-from quantum import circuits, features                      # noqa: E402
-from quantum.baseline import (SoftmaxRegression, keyword_route,  # noqa: E402
-                              load_dataset, split)
+from quantum import circuits, features  # noqa: E402
+from quantum.baseline import (  # noqa: E402
+    SoftmaxRegression,
+    keyword_route,
+    load_dataset,
+    split,
+)
 
 FAILURES = []
 

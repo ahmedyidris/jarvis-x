@@ -106,7 +106,6 @@ class TTSEngine:
         return self._kokoro
 
     def _synthesize_kokoro(self, text, voice_name):
-        import numpy as np
         import soundfile as sf
 
         kokoro = self._load_kokoro()

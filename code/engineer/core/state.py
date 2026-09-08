@@ -6,7 +6,7 @@ need to compare against a previous run (e.g. "has this grown since last
 scan?") have something to read.
 """
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 HISTORY_DIR = Path.home() / ".jarvis-x" / "engineer" / "history"
@@ -21,7 +21,7 @@ def append_snapshot(domain: str, evidence: dict) -> None:
     UTC time. Creates the history directory on first use."""
     HISTORY_DIR.mkdir(parents=True, exist_ok=True)
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "evidence": evidence,
     }
     with _history_path(domain).open("a") as f:

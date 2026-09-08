@@ -57,7 +57,7 @@ const wordsMatch = (heard, expectedWords) => {
   try {
     await synthesize('bad voice test', 'klingon', '/tmp/test-kokoro-bad.wav');
     check('unknown accent is rejected', false);
-  } catch (e) {
+  } catch (_e) {
     check('unknown accent is rejected', true);
   }
 

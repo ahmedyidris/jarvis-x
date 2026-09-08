@@ -141,7 +141,7 @@ function validateAction(action) {
           const parent = path.dirname(fullPath);
           try {
             fs.statSync(parent);
-          } catch (parentErr) {
+          } catch (_parentErr) {
             return { valid: false, reason: 'parent directory does not exist' };
           }
           // parent exists, we can write new file

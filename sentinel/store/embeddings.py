@@ -5,6 +5,7 @@ disk-constrained Chromebook alongside jarvis-x, so we avoid pulling in
 sentence-transformers/torch just to embed short incident text.
 """
 import os
+
 import httpx
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")

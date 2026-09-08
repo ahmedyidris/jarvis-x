@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 const { ask: askLocal, MODEL: LOCAL_MODEL } = require('./local.js');
 const { run: route } = require('./router.js');
 const { validate } = require('./validate.js');
-const { observe, forPrompt } = require('./memory.js');
-const { reEscape, parseJSONLoose, execute, confirm } = require('./lib.js');
-const { readFile } = require('./exec.js');
+const { execute, confirm } = require('./lib.js');
 const { ALLOWED: SHELL_ALLOWED } = require('./shell.js');
 
 const BACKEND = process.env.JX_BACKEND || 'local';
@@ -92,7 +89,7 @@ function logProposal(rec) {
       schema: 'type-v2',
       ...rec
     }) + '\n', 'utf8');
-  } catch (e) { /* logging must never break the agent */ }
+  } catch (_e) { /* logging must never break the agent */ }
 }
 
 async function propose(goal, opts = {}) {
@@ -106,7 +103,7 @@ async function propose(goal, opts = {}) {
     try {
       const parsed = JSON.parse(raw);
       match = [JSON.stringify(parsed)];
-    } catch (e) {
+    } catch (_e) {
       console.error('No JSON found in response:', raw);
       return { error: 'No valid JSON', raw };
     }
@@ -115,7 +112,7 @@ async function propose(goal, opts = {}) {
   let action;
   try {
     action = JSON.parse(match[0]);
-  } catch (e) {
+  } catch (_e) {
     console.error('Failed to parse JSON:', match[0]);
     return { error: 'Invalid JSON', raw: match[0] };
   }

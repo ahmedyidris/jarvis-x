@@ -204,7 +204,7 @@ class PaperBook {
     try {
       fs.mkdirSync(path.dirname(this.journalPath), { recursive: true });
       fs.appendFileSync(this.journalPath, JSON.stringify(entry) + '\n');
-    } catch (e) {
+    } catch (_e) {
       logAction('journal-write-failed', this.journalPath, { allowed: false, outcome: 'error' });
     }
   }

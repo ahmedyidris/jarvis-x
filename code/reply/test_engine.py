@@ -1,5 +1,6 @@
+from code.reply import engine
 from unittest.mock import MagicMock, patch
-from code.reply import engine, planner
+
 import hermes as hermes_module
 
 

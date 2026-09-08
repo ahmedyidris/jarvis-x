@@ -100,8 +100,6 @@ def measure_video_gen_wallclock_and_memory():
     point-in-time RSS reading taken while generation is actually in
     flight, which is what the returned dict's memory_note says."""
     owner = getpass.getuser()
-    letters_dir = MAIN_CHECKOUT / "automation" / "phase-b" / "stages" / "01_source_content" / "output" / "letters"
-    before = {f.name for f in letters_dir.glob("*.json")} if letters_dir.is_dir() else set()
     r = requests.post(f"{BASE}/api/dashboard/generate/letters", timeout=10)
     if r.status_code != 200:
         return (

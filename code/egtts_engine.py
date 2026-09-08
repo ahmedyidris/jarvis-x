@@ -55,9 +55,9 @@ def _patch_torchaudio():
     which needs system FFmpeg shared libraries that aren't installed here.
     Redirect to soundfile instead (already a dependency, no ffmpeg needed).
     """
+    import soundfile as sf
     import torch
     import torchaudio
-    import soundfile as sf
 
     def _load_via_soundfile(path, *args, **kwargs):
         data, sr = sf.read(path, dtype="float32", always_2d=True)

@@ -6,7 +6,8 @@
 const i18next = require('./i18n-config');
 const A11Y = require('./accessibility-utils');
 const CaptionLayer = require('./caption-layer');
-const ScreenReaderTest = require('./screen-reader-test');
+// Side-effect import: attaches window.ScreenReaderTest for console-driven audits.
+require('./screen-reader-test');
 
 class AccessibilityIntegration {
   static async init() {

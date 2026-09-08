@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 const readline = require('readline');
 const { propose } = require('./agent.js');
-const fs = require('fs');
-const path = require('path');
 
 // Minimal REPL with describe and voice
 console.log('Jarvis X REPL – Type "describe <path>" to test vision.');

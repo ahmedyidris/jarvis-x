@@ -5,7 +5,6 @@
  */
 
 const DataLayerIntegration = require('./data-layer-integration');
-const AccessibilityIntegration = require('./accessibility-integration');
 const MarketBriefProvider = require('./providers/market-brief-provider');
 const CryptoProvider = require('./providers/crypto-provider');
 const EnergyProvider = require('./providers/energy-provider');
@@ -84,9 +83,6 @@ class AgentDataIntegration {
     }
 
     // Format response with staleness
-    const now = new Date();
-    const fetchedAt = new Date(result.fetchedAt);
-    const ageSeconds = Math.round((now - fetchedAt) / 1000);
     const staleness = result.staleness > 0 ? ` (${Math.round(result.staleness / 1000)}s stale)` : ' (fresh)';
 
     let responseText = '';

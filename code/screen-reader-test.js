@@ -26,7 +26,7 @@ class ScreenReaderTest {
     });
     
     console.log(`\n[Headings: ${headings.length}]`);
-    headings.forEach((h, i) => {
+    headings.forEach((h, _i) => {
       console.log(`  ${h.tagName}: ${h.textContent}`);
     });
 

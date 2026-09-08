@@ -10,8 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))  # jarvis-x/ repo root
 
-from code.engineer import diagnose
-from code.engineer import diagnose_file_intel
+from code.engineer import diagnose, diagnose_file_intel
 from code.engineer import explain as explain_module
 from code.engineer.core import state
 from code.engineer.evidence import file_intel as file_intel_evidence

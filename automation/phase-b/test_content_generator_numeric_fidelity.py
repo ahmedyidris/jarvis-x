@@ -34,10 +34,8 @@ enforce_numeric_fidelity(), whose LLM call is an injected argument.
 """
 import json
 
-import pytest
-
 import content_generator as cg
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # _normalize_number -- where the false positives came from

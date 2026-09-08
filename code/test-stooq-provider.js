@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
 const StooqProvider = require('./providers/stooq-provider.js');
-const { parseQuote, SYMBOLS } = StooqProvider;
+const { parseQuote } = StooqProvider;
 
 const HEAD = 'Symbol,Date,Time,Open,High,Low,Close';
 const csv = (row) => `${HEAD}\n${row}\n`;

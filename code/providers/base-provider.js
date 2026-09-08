@@ -5,7 +5,7 @@ class BaseProvider {
     this.requestLog = [];
   }
 
-  async fetch(key) {
+  async fetch(_key) {
     throw new Error(`${this.name}.fetch() not implemented`);
   }
 
@@ -20,7 +20,7 @@ class BaseProvider {
     this.requestLog.push(now);
   }
 
-  logRequest(key, status, result) {
+  logRequest(key, status, _result) {
     console.error(`[${this.name}] ${status}: ${key}`);
   }
 }

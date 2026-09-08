@@ -1,5 +1,7 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from fastapi.testclient import TestClient
+
 import app as app_module
 import hermes as hermes_module
 
@@ -9,7 +11,7 @@ client = TestClient(app_module.app)
 def _fake_curl(response_text):
     result = MagicMock()
     result.returncode = 0
-    result.stdout = '{"response": "%s"}' % response_text
+    result.stdout = f'{{"response": "{response_text}"}}'
     result.stderr = ""
     return result
 

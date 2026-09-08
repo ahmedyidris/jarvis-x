@@ -3,7 +3,7 @@
 import io
 import logging
 import os
-import wave
+
 from faster_whisper import WhisperModel
 
 logger = logging.getLogger('STTEngine')

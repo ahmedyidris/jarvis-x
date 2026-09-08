@@ -33,7 +33,7 @@ if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 function detectOrigin() {
   const entry = (process.argv && process.argv[1]) || '';
   const base = path.basename(entry);
-  if (/^test-/.test(base) || /^jest/.test(base) || base === 'jest-runner.js') return 'test';
+  if (base.startsWith('test-') || base.startsWith('jest') || base === 'jest-runner.js') return 'test';
   return 'app';
 }
 
@@ -91,7 +91,7 @@ function append(entry) {
       timestamp: new Date().toISOString(), schema: 'v3',
       pid: process.pid, origin: ORIGIN, ...entry
     }) + '\n');
-  } catch (e) { /* auditing must never break the caller */ }
+  } catch (_e) { /* auditing must never break the caller */ }
 }
 
 function guard(action, level = 'quick', fn) {

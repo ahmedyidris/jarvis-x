@@ -3,8 +3,6 @@
  * Adds: SSML markup, captions, screen reader hooks, AR synthesis
  */
 
-const { spawn } = require('child_process');
-
 class AccessibleTTS {
   constructor() {
     this.hermesPath = process.env.HERMES_PATH || 'python3 code/hermes.py';
@@ -51,7 +49,7 @@ class AccessibleTTS {
    * Convert plain text to SSML for prosody control
    */
   textToSSML(text, options) {
-    const { lang, rate, pitch } = options;
+    const { rate, pitch } = options;
     const prosody = `rate="${rate * 100}%" pitch="${pitch * 100}%"`;
     
     let ssml = `<speak><prosody ${prosody}>`;
@@ -89,7 +87,7 @@ class AccessibleTTS {
     // Strip SSML for Hermes (it doesn't understand SSML yet)
     const plainText = ssml.replace(/<[^>]+>/g, '').trim();
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       // Use existing Hermes TTS
       // For now: just log it (Hermes integration in agent loop will handle actual TTS)
       console.log(`[TTS] ${lang.toUpperCase()}: ${plainText}`);

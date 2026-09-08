@@ -1,19 +1,39 @@
 #!/usr/bin/env python3
 """HERMES WEB API — Week 4"""
-from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Depends, WebSocket, WebSocketDisconnect
+import asyncio
+import json
+import logging
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.request as _urlreq
+from datetime import datetime
+from pathlib import Path
+from subprocess import run as subprocess_run
+
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import os, re, sys, logging, json, subprocess, asyncio, shutil, time
-from pathlib import Path
-from datetime import datetime
 
 # Import local modules
 sys.path.insert(0, str(Path(__file__).parent))
-from code.router import Router
-from code.tts_engine import get_engine
 from code.reply import engine as reply_engine
+from code.router import Router
 from code.stt_engine import get_engine as get_stt_engine
+from code.tts_engine import get_engine
+
 import hermes as hermes_module
 
 logging.basicConfig(level=logging.INFO)
@@ -82,8 +102,6 @@ async def list_voices():
 
 
 # === ARABIC VOICE ROUTING (chatterbox-eg worker on :8001) ===
-import urllib.request as _urlreq
-
 TTS_WORKER_URL = "http://127.0.0.1:8001/synthesize"
 
 def _is_arabic(text: str) -> bool:
@@ -840,9 +858,6 @@ if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
 
 # === AGENT EXECUTOR ===
-from subprocess import run as subprocess_run
-import subprocess
-
 class ExecuteRequest(BaseModel):
     cmd: str
     args: list = []
@@ -888,7 +903,7 @@ async def execute_command(req: ExecuteRequest, _token=Depends(require_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.exception_handler(HermesBackendError)
+@app.exception_handler(hermes_module.HermesBackendError)
 async def hermes_backend_exception_handler(request, exc):
     from fastapi.responses import JSONResponse
     return JSONResponse(

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Professional TTS Engine — Piper, Kokoro, MMS-TTS"""
-import subprocess, json, tempfile, os, sys, shutil
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 # A bare "piper" resolves via PATH, and on this machine /usr/bin/piper is an
@@ -60,9 +64,9 @@ class TTSEngine:
     
     def _synthesize_kokoro(self, text, voice_id):
         try:
-            from kokoro import KPipeline
             import numpy as np
             import soundfile as sf
+            from kokoro import KPipeline
 
             # Two bugs fixed here (found + verified live 2026-08-13 while
             # building the Phase B Week 2 pipeline; this path had never

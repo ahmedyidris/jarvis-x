@@ -17,7 +17,7 @@ import time
 import numpy as np
 
 from . import circuits, features
-from .baseline import (SoftmaxRegression, keyword_route, load_dataset, split)
+from .baseline import SoftmaxRegression, keyword_route, load_dataset, split
 
 
 def measure_scaling(max_qubits=20):

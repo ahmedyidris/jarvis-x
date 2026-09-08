@@ -1,13 +1,12 @@
-import subprocess
-import sqlite3
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import hermes as hermes_module
 
 
 def _fake_curl_result(response_text="ok"):
     result = MagicMock()
     result.returncode = 0
-    result.stdout = '{"response": "%s"}' % response_text
+    result.stdout = f'{{"response": "{response_text}"}}'
     result.stderr = ""
     return result
 

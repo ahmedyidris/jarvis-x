@@ -37,7 +37,6 @@
 // report as UNATTRIBUTABLE rather than being guessed at), and test-helper.js
 // points the audit log at a temp file so the suite stops adding to it at all.
 const fs = require('fs');
-const path = require('path');
 
 // Deliberately NOT imported: lib.js (execute), shell.js (run), exec.js
 // (writeFile). This module holds no reference to anything that can change

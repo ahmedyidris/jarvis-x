@@ -13,6 +13,7 @@ WinAnsi encoding and render missing glyphs as solid black boxes. Superscripts
 use <super> tags; arrows and >= are spelled out.
 """
 
+import os
 import re
 
 from reportlab.lib import colors
@@ -20,11 +21,16 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import (BaseDocTemplate, Frame, KeepTogether,
-                                PageBreak, PageTemplate, Paragraph, Spacer,
-                                Table, TableStyle)
-
-import os
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Frame,
+    PageBreak,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                    "JARVIS_X_MASTER_PLAN_v3.pdf")

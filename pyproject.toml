@@ -1,0 +1,17 @@
+[tool.ruff]
+target-version = "py311"
+extend-exclude = [
+    "node_modules",
+    "web",
+    ".venv",
+    "venv-ai",
+    "models",
+]
+
+[tool.ruff.lint]
+# ruff's stock defaults (E4, E7, E9, F) plus a few low-noise, high-value
+# categories: I (import sorting), UP (pyupgrade), EXE (script shebang/exec
+# bit consistency). Left off anything opinionated enough to need per-project
+# tuning (docstrings, complexity, etc.) — this is a lint pass, not a style
+# rewrite.
+select = ["E4", "E7", "E9", "F", "I", "UP", "EXE"]

@@ -1,6 +1,7 @@
-import pytest
+from code.engineer import diagnose
+from code.engineer import explain as explain_module
 
-from code.engineer import diagnose, explain as explain_module
+import pytest
 
 
 def _finding():

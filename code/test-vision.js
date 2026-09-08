@@ -25,6 +25,7 @@ const FIXTURE = path.join(__dirname, 'test-fixtures', 'sample-red-square.png');
   }
 
   check('response is non-empty text', typeof text === 'string' && text.length > 0);
+  // eslint-disable-next-line no-control-regex -- intentionally matching the ANSI escape byte itself
   check('response contains no raw ANSI escape codes', text !== null && !/\x1b\[/.test(text));
 
   results.forEach(r => console.log(r));

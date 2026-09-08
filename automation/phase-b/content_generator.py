@@ -363,7 +363,7 @@ def _load_gemini_api_key() -> str:
     if not GEMINI_ENV_PATH.exists():
         raise RuntimeError(f"no .env at {GEMINI_ENV_PATH}")
     line = next(
-        (l for l in GEMINI_ENV_PATH.read_text().splitlines() if l.startswith("GEMINI_API_KEY=")),
+        (ln for ln in GEMINI_ENV_PATH.read_text().splitlines() if ln.startswith("GEMINI_API_KEY=")),
         None,
     )
     if line is None:

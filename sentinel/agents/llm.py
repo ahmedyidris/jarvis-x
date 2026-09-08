@@ -1,6 +1,7 @@
 """Single shared LLM handle for all agents — local Ollama first, matching
 jarvis-x's `code/models.js` philosophy of local-first / API-as-fallback."""
 import os
+
 from langchain_ollama import ChatOllama
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")

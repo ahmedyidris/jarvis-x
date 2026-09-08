@@ -15,11 +15,9 @@ trusted in production, per DECISION_RECORD_p4-gemini-judge.md.
 """
 import json
 
+import content_generator as cg
 import pytest
 import requests
-
-import content_generator as cg
-
 
 # ---------------------------------------------------------------------------
 # _call_gemini_judge -- the raw HTTP/parsing boundary

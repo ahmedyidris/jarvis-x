@@ -10,7 +10,8 @@ trade was placed.
 """
 import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import hermes as hermes_module
 
 RULES = Path(__file__).parent / "memory" / "rules.md"
@@ -24,7 +25,7 @@ def _core(tmp_path, monkeypatch):
 def _ollama_result(text="ok"):
     r = MagicMock()
     r.returncode = 0
-    r.stdout = '{"response": "%s"}' % text
+    r.stdout = f'{{"response": "{text}"}}'
     r.stderr = ""
     return r
 
@@ -148,7 +149,7 @@ def test_the_real_brief_runs_and_never_claims_to_have_traded():
 # that matters, so they are pinned rather than the whole file.
 
 def test_the_always_sent_bullets_do_not_deny_that_paper_trading_exists():
-    bullets = [l for l in RULES.read_text().splitlines() if l.strip().startswith("-")][:3]
+    bullets = [ln for ln in RULES.read_text().splitlines() if ln.strip().startswith("-")][:3]
     text = " ".join(bullets).lower()
     for stale in ["nothing in this system places trades", "no trading bot",
                   "no real-money trading exists"]:

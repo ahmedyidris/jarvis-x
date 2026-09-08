@@ -2,9 +2,9 @@
 planner -> resolve/execute -> digest -> final synthesis. A drop-in
 replacement for a direct hermes.ask(question, model, system=system_msg)
 call -- same return type, same HermesBackendError failure mode."""
-from code.reply import tool_router, planner, resolver, digest
-from code.reply.tools.weather import WeatherTool
+from code.reply import digest, planner, resolver, tool_router
 from code.reply.tools.system_stats import SystemStatsTool
+from code.reply.tools.weather import WeatherTool
 
 FAST_PATH_MAX_WORDS = 8
 

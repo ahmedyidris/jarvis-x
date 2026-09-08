@@ -1,6 +1,6 @@
-import requests
-
 from code.reply.tools.base import Tool
+
+import requests
 
 SYSTEM_STATS_URL = "http://127.0.0.1:8002/api/system"
 

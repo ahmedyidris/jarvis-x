@@ -148,7 +148,7 @@ await test('the supervisor writes nothing and executes nothing', () => {
   // never builds a path to it, which is the only way it could edit one.
   assert.ok(!/path\.join\([^)]*schedules/.test(src),
     'it must never construct a path to schedules.json');
-  assert.ok(!/require\(['\"]\.\/(scheduler|paper-trading|exec)/.test(src),
+  assert.ok(!/require\(['"]\.\/(scheduler|paper-trading|exec)/.test(src),
     'it must not import anything that acts');
 });
 

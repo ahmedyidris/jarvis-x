@@ -42,7 +42,7 @@ print(json.dumps({"text": text, "language": info.language,
     py.on('close', (code) => {
       if (code !== 0) { reject(`transcribe failed`); return; }
       try { resolve(JSON.parse(output.trim())); }
-      catch (e) { reject(`transcribe: could not parse output: ${output}`); }
+      catch (_e) { reject(`transcribe: could not parse output: ${output}`); }
     });
   });
 }
@@ -89,7 +89,7 @@ function loadLanguageRoutes() {
   try {
     const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'voice.json'), 'utf8'));
     return cfg.language_routes || { en: 'en-us' };
-  } catch (e) {
+  } catch (_e) {
     return { en: 'en-us' };
   }
 }

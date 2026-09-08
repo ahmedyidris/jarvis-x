@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock
 from code.reply.planner import plan_query
 from code.reply.tools.weather import WeatherTool
+from unittest.mock import MagicMock
+
 import hermes as hermes_module
 
 TOOLS = [WeatherTool()]

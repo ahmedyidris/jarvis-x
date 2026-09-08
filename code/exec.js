@@ -14,7 +14,7 @@ function safePath(relativePath) {
     // Resolve the full path INCLUDING the leaf, so a symlink placed directly
     // in the jail (not just a symlinked ancestor directory) gets caught too.
     realFull = fs.realpathSync(fullPath);
-  } catch (e) {
+  } catch (_e) {
     // Target doesn't exist yet (e.g. a new file about to be written) --
     // nothing on disk to symlink-escape through at the leaf, so resolve as
     // far as the path actually exists.

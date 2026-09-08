@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock
+from code.reply.digest import DIGEST_TIMEOUT_SEC, tool_result_digest
 from datetime import datetime
-from code.reply.digest import tool_result_digest, DIGEST_TIMEOUT_SEC
+from unittest.mock import MagicMock
+
 import hermes as hermes_module
 
 

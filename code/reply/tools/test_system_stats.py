@@ -1,6 +1,7 @@
-import requests
-from unittest.mock import patch, MagicMock
 from code.reply.tools.system_stats import SystemStatsTool
+from unittest.mock import MagicMock, patch
+
+import requests
 
 
 def test_system_stats_success():

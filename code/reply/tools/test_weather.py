@@ -1,6 +1,7 @@
-import requests
-from unittest.mock import patch, MagicMock
 from code.reply.tools.weather import WeatherTool
+from unittest.mock import MagicMock, patch
+
+import requests
 
 
 def test_weather_success():

@@ -239,7 +239,7 @@ await test('no test here writes distinct content to a protected path', () => {
   const offenders = [];
   let protectedWrites = 0;
   for (const block of blocks) {
-    const name = (block.match(/^\s*'([^']+)'/) || [, '?'])[1];
+    const name = (block.match(/^\s*'([^']+)'/) || [undefined, '?'])[1];
     for (const m of block.matchAll(writeCall)) {
       const pathArg = m[1].trim(), contentArg = m[2].trim();
       // Polarity matters: a path this check does not RECOGNISE is treated as

@@ -1,8 +1,10 @@
 """Segment long recording into 5-10 sec speech clips for Tortoise training"""
-import librosa
-import soundfile as sf
 import os
+
+import librosa
 import numpy as np
+import soundfile as sf
+
 
 def segment_recording(input_file, output_dir, clip_duration=7.0):
     if not os.path.exists(input_file):

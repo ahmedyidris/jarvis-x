@@ -52,7 +52,6 @@ import requests
 # Reuse Week 1's Ollama-calling helpers unmodified rather than duplicating
 # them — content_generator.py itself is left untouched.
 from content_generator import (
-    MODEL,
     OLLAMA_URL,
     _atomic_write_json,
     _call_ollama,

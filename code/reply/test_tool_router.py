@@ -1,6 +1,6 @@
 from code.reply.tool_router import route
-from code.reply.tools.weather import WeatherTool
 from code.reply.tools.system_stats import SystemStatsTool
+from code.reply.tools.weather import WeatherTool
 
 TOOLS = [WeatherTool(), SystemStatsTool()]
 

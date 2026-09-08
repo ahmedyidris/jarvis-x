@@ -1,6 +1,5 @@
 from code.engineer.evidence import file_intel
 
-
 # --- dir_size_bytes ---------------------------------------------------
 
 def test_dir_size_bytes_sums_files(tmp_path):

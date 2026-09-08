@@ -12,7 +12,7 @@ class KeyboardNav {
   setupDefaultHotkeys() {
     this.register('?', () => this.showHelp());
     this.register('Escape', () => this.close());
-    this.register('Enter', (e) => this.submit());
+    this.register('Enter', (_e) => this.submit());
     this.register('Tab', (e) => this.focusNext(e));
     this.register('Shift+Tab', (e) => this.focusPrev(e));
   }
@@ -65,7 +65,7 @@ Escape — Close dialog
     console.log('[KeyboardNav] Submitting...');
   }
 
-  focusNext(e) {
+  focusNext(_e) {
     const focusable = Array.from(document.querySelectorAll('button, [href], input, [tabindex]'));
     const current = document.activeElement;
     const idx = focusable.indexOf(current);
@@ -74,7 +74,7 @@ Escape — Close dialog
     }
   }
 
-  focusPrev(e) {
+  focusPrev(_e) {
     const focusable = Array.from(document.querySelectorAll('button, [href], input, [tabindex]'));
     const current = document.activeElement;
     const idx = focusable.indexOf(current);
