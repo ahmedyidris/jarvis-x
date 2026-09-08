@@ -52,13 +52,66 @@ if ! command -v ollama >/dev/null 2>&1; then
   echo "  and re-run this script -- it is idempotent." >&2
   exit 1
 fi
+
+# A BINARY IS NOT A RUNNING SERVER, and the first version of this check
+# conflated them. On 2026-09-08 the installer said "Enabling and starting
+# ollama service", the binary existed, the check above passed -- and all four
+# pulls failed with:
+#
+#   Error: could not connect to ollama server, run 'ollama serve' to start it
+#
+# reported as four skipped models rather than one daemon that had not come up.
+# Crostini's systemd starts the unit asynchronously (and under the
+# containerless design it sometimes does not take at all), so wait for the API
+# to actually answer, and start it ourselves if it does not.
+wait_for_ollama() {
+  local tries=${1:-30}
+  while [ "$tries" -gt 0 ]; do
+    curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && return 0
+    sleep 1; tries=$((tries - 1))
+  done
+  return 1
+}
+
+if ! wait_for_ollama 20; then
+  echo "  ollama API not up yet; starting the service"
+  sudo systemctl start ollama 2>/dev/null || true
+  if ! wait_for_ollama 20; then
+    echo "  systemd did not bring it up; starting 'ollama serve' in the background"
+    mkdir -p "$HOME/.jarvis-x"
+    nohup ollama serve > "$HOME/.jarvis-x/ollama-serve.log" 2>&1 &
+    wait_for_ollama 30 || true
+  fi
+fi
+
+if ! curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+  echo "FATAL: the ollama server is not answering on 127.0.0.1:11434." >&2
+  echo "  Pulling models now would fail four times over and report it as four" >&2
+  echo "  model problems, so this stops here instead. Try:" >&2
+  echo "    ollama serve            # in another terminal, watch what it says" >&2
+  echo "    sudo systemctl status ollama" >&2
+  echo "    cat ~/.jarvis-x/ollama-serve.log" >&2
+  echo "  Then re-run this script -- it is idempotent." >&2
+  exit 1
+fi
+echo "  ollama API is answering"
 # supervisord (below) owns the ollama process on this box, not ollama's own
 # systemd unit — stop/disable it if the installer enabled one.
 sudo systemctl disable --now ollama 2>/dev/null || true
 export OLLAMA_MODELS=/usr/share/ollama/.ollama/models
+PULL_FAILED=""
 for m in qwen2.5:3b qwen2.5:7b moondream nomic-embed-text; do
-  ollama pull "$m" || echo "  (skipped $m — pull failed, retry manually later)"
+  ollama pull "$m" || PULL_FAILED="$PULL_FAILED $m"
 done
+if [ -n "$PULL_FAILED" ]; then
+  # Named together at the end rather than one shrug per model. The routing eval
+  # needs qwen2.5:3b specifically, so say which are missing and what it costs.
+  echo "  MODELS NOT PULLED:$PULL_FAILED"
+  echo "  Re-run this script, or: ollama pull <model>"
+  case "$PULL_FAILED" in
+    *qwen2.5:3b*) echo "  NOTE: qwen2.5:3b is the one code/eval-agent.js needs." ;;
+  esac
+fi
 
 echo "==> [3b/9] Claude Code CLI (user-owned npm prefix)"
 # Installed to a prefix this user owns, NOT with `sudo npm install -g`.
@@ -97,6 +150,12 @@ fi
 # requirements-venv-ai.txt). Their real deps are all satisfied by the
 # install above already.
 "$HOME/venv-ai/bin/pip" install --no-deps kokoro-onnx==0.3.9 kokoro-tts==2.3.1
+
+# bootstrap/requirements-egtts.txt (coqui XTTS, Egyptian Arabic) is NOT
+# installed here. It needs Python < 3.12 and Debian 13 ships 3.13; installed
+# from the main requirements file it failed the wheel build and took the whole
+# venv with it on 2026-09-08. Nothing imports it at module load, so skipping it
+# costs one voice. See that file for how to add it if you want it.
 
 echo "==> [5/9] Node deps (root + web/) + frontend build"
 npm install --prefix "$REPO_DIR"

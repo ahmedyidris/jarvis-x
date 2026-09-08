@@ -230,7 +230,23 @@ torchcodec==0.15.0+cpu
 tqdm==4.70.0
 trainer==0.0.36
 transformers==4.42.4
-TTS @ git+https://github.com/coqui-ai/TTS@dbf1a08a0d4e47fdad6172e433eeb34bc6b13b4e
+# COQUI TTS IS NOT INSTALLED HERE ANY MORE -- see bootstrap/requirements-egtts.txt.
+#
+# It declares `python >= 3.9 and < 3.12`, and Debian 13 (trixie) ships Python
+# 3.13. On 2026-09-08 that failed the wheel build and took the WHOLE venv down
+# with it, so a Chromebook rebuild got no faster-whisper, no spaCy, no torch --
+# none of which care about coqui:
+#
+#   RuntimeError: TTS requires python >= 3.9 and < 3.12
+#                 but your Python version is 3.13.5
+#   ERROR: Failed to build 'TTS' when getting requirements to build wheel
+#
+# It is only needed by code/egtts_engine.py (Egyptian Arabic, voice-cloned),
+# whose import of it sits INSIDE _load(), and code/tts_engine.py reaches that
+# lazily too -- so nothing imports coqui at module load and everything else
+# works without it. A mandatory pin for a runtime-optional, already-deferred
+# voice was the wrong shape.
+# TTS @ git+https://github.com/coqui-ai/TTS@dbf1a08a0d4e47fdad6172e433eeb34bc6b13b4e
 typeguard==4.6.0
 typer==0.27.1
 typing-inspection==0.4.4
