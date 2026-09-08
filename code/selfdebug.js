@@ -67,6 +67,25 @@ function originOf(row) {
   return 'unknown';
 }
 
+/** WHICH entry point wrote the row: 'scheduler', 'agent', 'market-collect', ...
+ *  or 'unknown'.
+ *
+ *  originOf already answers "was this a test?", and that was enough to stop
+ *  this module reporting its own fixtures as incidents. It is not enough to
+ *  act on a real one: eight entry points write to this log, and until v4 they
+ *  all merged into one undifferentiated 'app'. A scheduler failing every night
+ *  and an interactive session failing once produced the same finding.
+ *
+ *  A v3 row has no actor and is NOT a v4 row with the field missing -- there
+ *  is no way to work out after the fact which script wrote it, so it reads
+ *  unknown rather than being attributed to a plausible guess. Naming the wrong
+ *  script sends someone to read the wrong file. */
+function actorOf(row) {
+  const a = row.actor;
+  if (typeof a === 'string' && a.trim()) return a;
+  return 'unknown';
+}
+
 function isFailure(row) {
   return row.outcome === 'error' || row.allowed === false;
 }
@@ -142,6 +161,7 @@ function diagnose({
   const cutoff = new Date(now.getTime() - windowHours * 3600 * 1000);
 
   const groups = new Map();
+  const actorTotals = new Map();
   let counted = 0, skippedTest = 0, unattributable = 0, outsideWindow = 0;
 
   for (const row of rows) {
@@ -166,12 +186,18 @@ function diagnose({
         signature: sig, kind: classify(row), action: row.action ?? null,
         error: row.error ? normalizeError(row.error) : null,
         count: 0, firstSeen: row.timestamp, lastSeen: row.timestamp,
-        origins: new Set(), samples: [],
+        origins: new Set(), actors: new Map(), samples: [],
       });
     }
     const g = groups.get(sig);
     g.count++;
     g.origins.add(origin);
+    // Counted, not just collected. "scheduler 47x, agent 1x" and
+    // "scheduler 1x, agent 47x" are different incidents; a Set says the same
+    // thing about both.
+    const actor = actorOf(row);
+    g.actors.set(actor, (g.actors.get(actor) ?? 0) + 1);
+    actorTotals.set(actor, (actorTotals.get(actor) ?? 0) + 1);
     if (Date.parse(row.timestamp) < Date.parse(g.firstSeen)) g.firstSeen = row.timestamp;
     if (Date.parse(row.timestamp) > Date.parse(g.lastSeen)) g.lastSeen = row.timestamp;
     if (g.samples.length < 3) g.samples.push(row);
@@ -182,12 +208,18 @@ function diagnose({
     .map(g => ({
       ...g,
       origins: [...g.origins].sort(),
+      actors: [...g.actors.entries()]
+        .map(([actor, count]) => ({ actor, count }))
+        .sort((a, b) => b.count - a.count || a.actor.localeCompare(b.actor)),
       suggestion: SUGGESTIONS[g.kind] ?? SUGGESTIONS.other,
     }))
     .sort((a, b) => b.count - a.count || a.signature.localeCompare(b.signature));
 
   return {
     findings, counted, skippedTest, unattributable, unparseable, outsideWindow,
+    actorTotals: [...actorTotals.entries()]
+      .map(([actor, count]) => ({ actor, count }))
+      .sort((a, b) => b.count - a.count || a.actor.localeCompare(b.actor)),
     totalRows: rows.length,
     window: { hours: windowHours, since: cutoff.toISOString(), now: now.toISOString() },
     includeTests,
@@ -226,11 +258,22 @@ function format(report) {
     return L.join('\n');
   }
 
+  if (report.actorTotals.length) {
+    L.push('failures by entry point:');
+    for (const { actor, count } of report.actorTotals) {
+      const note = actor === 'unknown'
+        ? '  (schema < v4 — the row predates per-actor attribution)' : '';
+      L.push(`  ${String(count).padStart(4)}x  ${actor}${note}`);
+    }
+    L.push('');
+  }
+
   for (const f of report.findings) {
     L.push(`[${f.kind}] ${f.action ?? '(no action)'} — ${f.count}x`);
     if (f.error) L.push(`  error:  ${f.error}`);
     L.push(`  window: ${f.firstSeen} .. ${f.lastSeen}`);
     L.push(`  origin: ${f.origins.join(', ')}`);
+    L.push(`  actor:  ${f.actors.map(a => `${a.actor} ${a.count}x`).join(', ')}`);
     L.push(`  look:   ${f.suggestion}`);
     if (f.samples.length) {
       L.push(`  sample: ${JSON.stringify(f.samples[0]).slice(0, 160)}`);
@@ -262,6 +305,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  diagnose, format, load, classify, signature, normalizeError, originOf,
+  diagnose, format, load, classify, signature, normalizeError, originOf, actorOf,
   isFailure, SUGGESTIONS, DEFAULT_WINDOW_HOURS,
 };

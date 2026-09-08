@@ -29,7 +29,10 @@ if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 // agent.js or scheduler.js, and setting argv[1] is not an action it has.
 //
 // Rows stay v2 => unattributable. That is the honest reading: nothing can
-// retroactively tell which of the existing 2810 were tests.
+// retroactively tell which of the existing 2810 were tests. v3 rows likewise
+// carry no `actor`, and a v3 row is not a v4 row with the actor missing --
+// readers must branch on `schema`, which is why it is bumped rather than the
+// field quietly appearing.
 function detectOrigin() {
   const entry = (process.argv && process.argv[1]) || '';
   const base = path.basename(entry);
@@ -38,6 +41,36 @@ function detectOrigin() {
 }
 
 const ORIGIN = detectOrigin();
+
+// WHICH ENTRY POINT PRODUCED THIS ROW. v4 adds `actor`.
+//
+// v3's `origin` answers "was this a test?" and that was enough to stop
+// selfdebug.js reporting test fixtures as incidents. It is not enough to act
+// on a real one. Eight entry points write here -- agent.js, scheduler.js,
+// gemini.js, market-collect.js, paper-trading.js, selfdebug.js, memory.js,
+// lib.js -- and today they merge into one undifferentiated "app". A scheduler
+// failing every night while the interactive agent is fine looks identical to
+// the reverse, and both look identical to a human running a script by hand.
+//
+// Detected the same way as origin, from argv[1], for the same reason: it needs
+// no cooperation from the caller, so a new entry point is attributed correctly
+// without its author knowing this exists, and the agent cannot set it -- it
+// emits actions, and rewriting argv is not one of them.
+//
+// NOT the model. "Claude vs Hermes" is a fair question and this does not answer
+// it: guard() is called from modules that do not know which tier served a
+// request, so recording that means threading it through every call site. This
+// records WHERE the action came from, which is the half that needs no new
+// plumbing. See REMAINING_WORK.md P0.9.
+function detectActor() {
+  const entry = (process.argv && process.argv[1]) || '';
+  const base = path.basename(entry).replace(/\.(js|py|mjs|cjs)$/, '');
+  if (!base) return 'unknown';
+  // A test's actor is the test file; origin already says it was a test.
+  return base;
+}
+
+const ACTOR = detectActor();
 
 // WHERE THE AUDIT LOG GOES, and why this is a function rather than a constant.
 //
@@ -88,8 +121,8 @@ function currentLogFile() {
 function append(entry) {
   try {
     fs.appendFileSync(logFile, JSON.stringify({
-      timestamp: new Date().toISOString(), schema: 'v3',
-      pid: process.pid, origin: ORIGIN, ...entry
+      timestamp: new Date().toISOString(), schema: 'v4',
+      pid: process.pid, origin: ORIGIN, actor: ACTOR, ...entry
     }) + '\n');
   } catch (e) { /* auditing must never break the caller */ }
 }
@@ -149,4 +182,5 @@ function logAction(action, level = 'quick', meta = {}) {
 }
 
 module.exports = { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
-                   ORIGIN, detectOrigin, setLogFile, currentLogFile };
+                   ORIGIN, detectOrigin, ACTOR, detectActor,
+                   setLogFile, currentLogFile };

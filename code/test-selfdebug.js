@@ -40,6 +40,13 @@ const testErr = (action, error, mins = 10) =>
 const ok = (action, mins = 10) =>
   ({ timestamp: ago(mins), schema: 'v3', origin: 'app', action, allowed: true, outcome: 'ok' });
 
+// v4 added `actor`: WHICH of the eight entry points wrote the row. The
+// fixtures above stay v3 on purpose -- every finding they produce should read
+// actor 'unknown', because a v3 row genuinely cannot be attributed.
+const v4Err = (actor, action, error, mins = 10) =>
+  ({ timestamp: ago(mins), schema: 'v4', origin: 'app', actor,
+     action, allowed: false, outcome: 'error', error });
+
 (async () => {
 
 // ── it changes nothing ────────────────────────────────────────────────────
@@ -353,6 +360,112 @@ await test('load reports what it could not parse rather than hiding it', () => {
   const { rows, unparseable } = S.load({ logFile });
   assert.strictEqual(rows.length, 1);
   assert.strictEqual(unparseable, 2);
+});
+
+// -- v4: which entry point ---------------------------------------------------
+await test('a finding names the entry points that produced it', () => {
+  const logFile = writeLog([
+    v4Err('scheduler', 'collect', 'ETIMEDOUT'),
+    v4Err('scheduler', 'collect', 'ETIMEDOUT'),
+    v4Err('agent', 'collect', 'ETIMEDOUT'),
+  ]);
+  const f = S.diagnose({ logFile, now: NOW }).findings[0];
+  assert.strictEqual(f.count, 3, 'the same failure is still ONE finding');
+  assert.deepStrictEqual(f.actors,
+    [{ actor: 'scheduler', count: 2 }, { actor: 'agent', count: 1 }]);
+});
+
+await test('actors are counted, not merely collected', () => {
+  // A Set would say the same thing about "scheduler 9x, agent 1x" and
+  // "scheduler 1x, agent 9x" -- a nightly job failing every run and a human
+  // hitting it once. Those are not the same incident.
+  const rowsA = [...Array(9)].map(() => v4Err('scheduler', 'c', 'E'))
+    .concat([v4Err('agent', 'c', 'E')]);
+  const rowsB = [...Array(9)].map(() => v4Err('agent', 'c', 'E'))
+    .concat([v4Err('scheduler', 'c', 'E')]);
+  const a = S.diagnose({ logFile: writeLog(rowsA), now: NOW }).findings[0];
+  const b = S.diagnose({ logFile: writeLog(rowsB), now: NOW }).findings[0];
+  assert.strictEqual(a.actors[0].actor, 'scheduler');
+  assert.strictEqual(b.actors[0].actor, 'agent');
+  assert.notDeepStrictEqual(a.actors, b.actors);
+});
+
+await test('actor does not split a finding, because the fix is still one fix', () => {
+  // The same error from two entry points is one bug in the code they share.
+  // Splitting it would report it twice and halve both counts.
+  const logFile = writeLog([
+    v4Err('scheduler', 'collect', 'ETIMEDOUT'),
+    v4Err('agent', 'collect', 'ETIMEDOUT'),
+  ]);
+  assert.strictEqual(S.diagnose({ logFile, now: NOW }).findings.length, 1);
+});
+
+await test('a pre-v4 row reads unknown, it is not guessed from origin', () => {
+  // origin 'app' narrows it to seven possible scripts. Naming any one of them
+  // sends whoever reads this to the wrong file.
+  const logFile = writeLog([appErr('legacy', 'boom')]);
+  const f = S.diagnose({ logFile, now: NOW }).findings[0];
+  assert.deepStrictEqual(f.actors, [{ actor: 'unknown', count: 1 }]);
+});
+
+await test('actorOf takes only a real string, never a shape that happens to be truthy', () => {
+  assert.strictEqual(S.actorOf({ actor: 'scheduler' }), 'scheduler');
+  assert.strictEqual(S.actorOf({}), 'unknown');
+  assert.strictEqual(S.actorOf({ actor: '' }), 'unknown');
+  assert.strictEqual(S.actorOf({ actor: '   ' }), 'unknown');
+  assert.strictEqual(S.actorOf({ actor: 42 }), 'unknown');
+  assert.strictEqual(S.actorOf({ actor: ['scheduler'] }), 'unknown');
+  assert.strictEqual(S.actorOf({ actor: null }), 'unknown');
+});
+
+await test('the report totals failures per entry point across every finding', () => {
+  // The question this exists to answer: which entry point is in trouble? That
+  // is not visible from any single finding.
+  const logFile = writeLog([
+    v4Err('scheduler', 'collect', 'ETIMEDOUT'),
+    v4Err('scheduler', 'write', 'ENOSPC'),
+    v4Err('scheduler', 'write', 'ENOSPC'),
+    v4Err('agent', 'collect', 'ETIMEDOUT'),
+  ]);
+  const report = S.diagnose({ logFile, now: NOW });
+  assert.deepStrictEqual(report.actorTotals,
+    [{ actor: 'scheduler', count: 3 }, { actor: 'agent', count: 1 }]);
+});
+
+await test('a skipped row is not counted against any actor', () => {
+  // Test-origin rows and rows outside the window never reach a finding, so
+  // they must not inflate the per-actor totals either.
+  const logFile = writeLog([
+    v4Err('scheduler', 'collect', 'ETIMEDOUT'),
+    { ...v4Err('test-guard', 'fixture', 'boom'), origin: 'test' },
+    v4Err('scheduler', 'old', 'stale', 60 * 24 * 30),
+    ok('fine'),
+  ]);
+  const report = S.diagnose({ logFile, now: NOW });
+  assert.deepStrictEqual(report.actorTotals, [{ actor: 'scheduler', count: 1 }]);
+});
+
+await test('the printed report names entry points, both in summary and per finding', () => {
+  // scheduler's 3 are spread over TWO findings, so the summary line can only
+  // be right if it totals across them rather than echoing one finding.
+  const logFile = writeLog([
+    v4Err('scheduler', 'collect', 'ETIMEDOUT'),
+    v4Err('scheduler', 'collect', 'ETIMEDOUT'),
+    v4Err('scheduler', 'write', 'ENOSPC'),
+    v4Err('agent', 'collect', 'ETIMEDOUT'),
+  ]);
+  const out = S.format(S.diagnose({ logFile, now: NOW }));
+  assert.ok(/failures by entry point:/.test(out), out);
+  assert.ok(/\n\s+3x\s+scheduler\n/.test(out), 'the summary must total across findings');
+  assert.ok(/actor:\s+scheduler 2x, agent 1x/.test(out), out);
+});
+
+await test('the printed report says WHY an unknown actor is unknown', () => {
+  // Otherwise "unknown" reads as a bug in selfdebug rather than as the age of
+  // the row.
+  const out = S.format(S.diagnose({ logFile: writeLog([appErr('legacy', 'boom')]), now: NOW }));
+  assert.ok(/unknown/.test(out), out);
+  assert.ok(/schema < v4/.test(out), 'it must say the row predates the field');
 });
 
 finish();
