@@ -98,6 +98,57 @@ only way they ever run. Each needs hardware or network this container lacks,
 so fixing them means the Chromebook. `test-agent-data-integration.js` needs
 only network and is the cheapest place to start.
 
+### P0.9 — the audit log could say "a test did this", not WHICH script (2026-09-08, fixed)
+
+P0.7 added `origin: 'test' | 'app'` to every audit row, and that was enough to
+stop `selfdebug.js` reporting its own fixtures as production incidents. It was
+not enough to act on a real one.
+
+Eight entry points write to `logs/actions.jsonl` — `agent.js`, `scheduler.js`,
+`gemini.js`, `market-collect.js`, `paper-trading.js`, `memory.js`, `lib.js`,
+`selfdebug.js` — and all eight collapsed into one undifferentiated `app`. So a
+scheduler failing every night and an interactive session failing once produced
+the same finding, with the same count, pointing at the same nothing. The report
+said *what* broke and never *whose*.
+
+**`schema` v3 → v4, adding `actor`.** Derived from `argv[1]` with the
+extension stripped, the same way `origin` is, and for the same two reasons: it
+needs no cooperation from the caller, so a new entry point is attributed
+correctly without its author knowing the mechanism exists; and the agent cannot
+set it — it emits actions, and rewriting `argv` is not one of them.
+
+Three deliberate choices, each pinned by a test:
+
+- **A v3 row reads `unknown`, never a guess.** `origin: 'app'` narrows it to
+  seven candidate scripts. Naming any one of them sends whoever reads the
+  report to the wrong file, which is worse than naming none. A v3 row is not a
+  v4 row with a field missing, which is why the schema is bumped rather than
+  the field quietly appearing — readers branch on `schema`.
+- **Actors are counted per finding, not collected.** A `Set` says the same
+  thing about `scheduler 9x, agent 1x` and `scheduler 1x, agent 9x`. Those are
+  a broken nightly job and a one-off.
+- **Actor does not split a finding.** The same error from two entry points is
+  one bug in the code they share; splitting it would report it twice and halve
+  both counts. It is reported as a breakdown inside the finding, plus a
+  `failures by entry point` total across all findings — the one line that
+  answers "which entry point is in trouble", which no single finding can.
+
+**What this does NOT record: the model.** "Was that Claude or Hermes?" is a
+fair question and `actor` does not answer it. `guard()` is called from modules
+that do not know which tier served a request, so recording that means threading
+it through every call site. This records *where* the action came from, which is
+the half that needs no new plumbing.
+
+`test-guard.js` 28 → 37 assertions, `test-selfdebug.js` 30 → 39. Sixteen
+mutations run against the new code — actor hardcoded, extension left unstripped
+or greedily stripped, the `unknown` guard removed, `actor` dropped from the
+append, `schema` left at v3, actor recomputed per row instead of fixed at load,
+`actorOf` type check removed, actor guessed from origin, actors collected
+instead of counted, the cross-finding total removed, both sorts inverted, and
+each report line deleted in turn. All sixteen caught. Full suite green, and the
+suite still writes **0** rows to the real `logs/actions.jsonl` (P0.7 holds
+under v4 — re-verified, 3237 → 3237).
+
 ### P0.8 — `test-agent-data-integration.js` (2026-09-07, fixed)
 
 Three faults at once, and they compounded:

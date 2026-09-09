@@ -23,7 +23,8 @@ const fs = require('fs');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
 const { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
-        ORIGIN, detectOrigin, setLogFile, currentLogFile } = require('./guard.js');
+        ORIGIN, detectOrigin, ACTOR, detectActor,
+        setLogFile, currentLogFile } = require('./guard.js');
 
 // Every assertion below diffs the audit log, and until 2026-09-07 that was
 // the REAL logs/actions.jsonl. That is how it collected 599 fixture failure
@@ -290,7 +291,7 @@ await test('a non-Error rejection still produces a readable log line', async () 
 await test('every row carries the fields a reader needs to interpret it', () => {
   const { rows } = rowsWritten(() => guard('shaped', 'quick', () => null));
   const r = rows[0];
-  assert.strictEqual(r.schema, 'v3', 'readers branch on schema; older rows lack a verdict');
+  assert.strictEqual(r.schema, 'v4', 'readers branch on schema; older rows lack a verdict');
   assert.strictEqual(r.pid, process.pid);
   assert.ok(!Number.isNaN(Date.parse(r.timestamp)), r.timestamp);
   assert.strictEqual(r.level, 'quick');
@@ -401,7 +402,7 @@ await test('the origin is fixed at load, so it cannot change mid-run', () => {
 await test('logAction records origin too, not only guard', () => {
   const { rows } = rowsWritten(() => logAction('la-origin', 'quick', { allowed: true }));
   assert.strictEqual(rows[0].origin, 'test');
-  assert.strictEqual(rows[0].schema, 'v3');
+  assert.strictEqual(rows[0].schema, 'v4');
 });
 
 await test('a killswitch row is attributed like any other', () => {
@@ -412,6 +413,128 @@ await test('a killswitch row is attributed like any other', () => {
     assert.strictEqual(rows[0].outcome, 'killswitch');
     assert.strictEqual(rows[0].origin, 'test');
   });
+});
+
+// -- v4: WHICH entry point, not just whether it was a test --------------------
+await test('every row names the entry point that produced it', () => {
+  // v3 could say "a test did this". It could not say WHICH of the eight
+  // writers did, so a scheduler failing nightly and an interactive agent
+  // failing once looked like the same incident with a bigger count.
+  const { rows } = rowsWritten(() => guard('actored', 'quick', () => 1));
+  assert.strictEqual(rows[0].actor, 'test-guard',
+    'the actor is this file, because this file is what node was pointed at');
+  assert.strictEqual(rows[0].actor, ACTOR, 'the row must use the load-time actor');
+});
+
+await test('actor and origin answer different questions', () => {
+  // Two different test files share origin 'test' and differ in actor; two
+  // different app entry points share origin 'app' and differ in actor.
+  // Neither field is derivable from the other, which is why both are stored.
+  const original = process.argv[1];
+  try {
+    process.argv[1] = '/x/code/test-paper-trading.js';
+    assert.strictEqual(detectOrigin(), 'test');
+    assert.strictEqual(detectActor(), 'test-paper-trading');
+    process.argv[1] = '/x/code/test-guard.js';
+    assert.strictEqual(detectOrigin(), 'test');
+    assert.strictEqual(detectActor(), 'test-guard');
+    process.argv[1] = '/x/code/scheduler.js';
+    assert.strictEqual(detectOrigin(), 'app');
+    assert.strictEqual(detectActor(), 'scheduler');
+    process.argv[1] = '/x/code/agent.js';
+    assert.strictEqual(detectOrigin(), 'app');
+    assert.strictEqual(detectActor(), 'agent');
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('the actor is the script name with the extension stripped', () => {
+  // hermes.py and a hypothetical hermes.js are the same entry point wearing
+  // two runtimes; grouping a report by 'hermes.py' and 'hermes' separately
+  // would split one story in half.
+  const original = process.argv[1];
+  try {
+    const cases = [
+      ['/x/hermes.py', 'hermes'],
+      ['/x/code/selfdebug.js', 'selfdebug'],
+      ['/x/code/tool.mjs', 'tool'],
+      ['/x/code/tool.cjs', 'tool'],
+      ['/x/code/market-collect.js', 'market-collect'],
+      ['scheduler.js', 'scheduler'],
+    ];
+    for (const [argv, expected] of cases) {
+      process.argv[1] = argv;
+      assert.strictEqual(detectActor(), expected, `${argv} -> ${expected}`);
+    }
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('an extension this repo does not use is left alone, not half-eaten', () => {
+  // The strip is an explicit list. A .sh or .ts entry point keeps its suffix
+  // rather than being silently renamed into a collision with a .js sibling.
+  const original = process.argv[1];
+  try {
+    process.argv[1] = '/x/scripts/status.sh';
+    assert.strictEqual(detectActor(), 'status.sh');
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('an unattributable entry point reads as unknown, never as a guess', () => {
+  // origin defaults to 'app' because "not a test" is the safe reading there.
+  // actor has no safe default: naming the wrong script is worse than naming
+  // none, so it says so.
+  const original = process.argv[1];
+  try {
+    delete process.argv[1];
+    assert.strictEqual(detectActor(), 'unknown');
+    process.argv[1] = '';
+    assert.strictEqual(detectActor(), 'unknown');
+    process.argv[1] = '/x/code/.js';
+    assert.strictEqual(detectActor(), 'unknown', 'a name that is only an extension is no name');
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('the actor is fixed at load, so it cannot change mid-run', () => {
+  const before = ACTOR;
+  const original = process.argv[1];
+  try {
+    process.argv[1] = '/anywhere/code/scheduler.js';
+    const { rows } = rowsWritten(() => guard('still-test-guard', 'quick', () => 1));
+    assert.strictEqual(rows[0].actor, before);
+    assert.strictEqual(rows[0].actor, 'test-guard');
+  } finally {
+    process.argv[1] = original;
+  }
+});
+
+await test('logAction records actor too, not only guard', () => {
+  const { rows } = rowsWritten(() => logAction('la-actor', 'quick', { allowed: true }));
+  assert.strictEqual(rows[0].actor, 'test-guard');
+});
+
+await test('a killswitch row names its actor', () => {
+  // "something tried to act while stopped" is only actionable if you know
+  // which something.
+  withKillSwitch(() => {
+    const { rows } = rowsWritten(() => guard('blocked-actor', 'hard', () => 1));
+    assert.strictEqual(rows[0].outcome, 'killswitch');
+    assert.strictEqual(rows[0].actor, 'test-guard');
+  });
+});
+
+await test('an error row names its actor, because that is the row worth reading', () => {
+  const { rows } = rowsWritten(
+    () => guard('actor-boom', 'quick', () => { throw new Error('x'); }));
+  assert.strictEqual(rows[0].outcome, 'error');
+  assert.strictEqual(rows[0].actor, 'test-guard');
+  assert.strictEqual(rows[0].schema, 'v4');
 });
 
 finish();

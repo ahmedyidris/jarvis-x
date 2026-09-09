@@ -1,0 +1,24 @@
+# Egyptian Arabic TTS (coqui XTTS) -- OPTIONAL, and it needs Python < 3.12.
+#
+# Split out of requirements-venv-ai.txt on 2026-09-08. Coqui declares
+# `python >= 3.9 and < 3.12`; Debian 13 ships 3.13, so pip fails the wheel
+# build and, from inside the main requirements file, took the entire venv down
+# with it -- faster-whisper, spaCy and torch all lost to a dependency none of
+# them use.
+#
+# NOTHING IMPORTS THIS AT MODULE LOAD. code/egtts_engine.py imports coqui
+# inside _load(), and code/tts_engine.py imports egtts_engine inside
+# _synthesize_egtts(). Skipping this file costs you exactly one voice
+# (`ar_eg_egtts`); Piper and Kokoro are unaffected.
+#
+# On a Python 3.13 box you need a 3.11 interpreter to install it at all:
+#
+#   # a separate venv, since the main one is 3.13
+#   python3.11 -m venv ~/venv-egtts
+#   ~/venv-egtts/bin/pip install -r bootstrap/requirements-egtts.txt
+#
+# Debian 13 has no python3.11 package, so that interpreter has to come from
+# somewhere else (pyenv, or a source build). Given NOTES.md already records
+# Egyptian Arabic TTS as slow on CPU and deferred, that is a real cost to weigh
+# rather than a step to follow by default.
+TTS @ git+https://github.com/coqui-ai/TTS@dbf1a08a0d4e47fdad6172e433eeb34bc6b13b4e

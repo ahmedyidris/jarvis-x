@@ -181,3 +181,16 @@ gone turns a backup strategy into a data-loss strategy.
 Drive isn't shared with Linux by default under containerless Crostini — *Files
 app → right-click Google Drive → Share with Linux*. Same reason a `.tar.gz` in
 `~/Downloads` was unreachable after the reset.
+
+## Known failures on a fresh Debian 13 container (fixed 2026-09-08)
+
+Found by actually running `install.sh` on a rebuilt Chromebook. All three are
+fixed; recorded because the fix is only obvious once you have seen the output.
+
+| symptom | cause |
+|---|---|
+| `Error: could not connect to ollama server` × 4 | The installer starts the systemd unit asynchronously, and under containerless Crostini it sometimes does not take. The binary existed, so the old check passed — but a binary is not a running server. Step 3 now waits for the API, starts the unit, falls back to `ollama serve`, and stops with the remedy rather than "skipping" four models. |
+| `RuntimeError: TTS requires python >= 3.9 and < 3.12` | Coqui TTS was pinned in the main requirements. Debian 13 ships Python 3.13, so the wheel build failed and took the whole venv down — no faster-whisper, no spaCy, no torch, none of which use coqui. Moved to `requirements-egtts.txt`; it is imported lazily and costs one voice. |
+| `syntax error in expression (error token is "0 * 1024 ")` | `reclaim-space.sh`'s `size_kb` used `[ -e x ] && du \| awk \|\| echo 0` under `set -o pipefail`. `du` on root-only `apt/archives/partial` exits non-zero even though awk printed the total, so **both** branches fired and the function returned two lines. |
+
+The last one is worth remembering generally: **under `pipefail`, `cmd | filter || fallback` runs the fallback whenever any stage of the pipe fails, even when the filter produced correct output.**

@@ -40,9 +40,42 @@ for a in "$@"; do
 done
 
 hr() { printf '%s\n' "────────────────────────────────────────────────────────"; }
-kb2h() { numfmt --to=iec --suffix=B "$(( ${1:-0} * 1024 ))" 2>/dev/null || echo "${1:-0}K"; }
+
+# size_kb MUST NOT be written as `[ -e "$1" ] && du ... | awk ... || echo 0`.
+# `set -o pipefail` is on above, so when du hits a directory it cannot read --
+# /var/cache/apt/archives/partial is root-only, and this runs as a user -- the
+# PIPELINE exits non-zero even though awk printed the total fine. The `|| echo 0`
+# then fires as well, and the function returns TWO lines:
+#
+#   740
+#   0
+#
+# which arrives in kb2h's arithmetic as `$(( 740\n0 * 1024 ))`:
+#
+#   scripts/reclaim-space.sh: line 43: 740
+#   0 * 1024 : syntax error in expression (error token is "0 * 1024 ")
+#
+# Observed on Ahmed's Chromebook 2026-09-08. Exactly one value out, always.
+size_kb() {
+  [ -e "$1" ] || { echo 0; return 0; }
+  local n
+  n=$(du -sk "$1" 2>/dev/null | awk 'NR==1{print $1}')
+  case "$n" in
+    ''|*[!0-9]*) n=0 ;;      # unreadable, or du printed something unexpected
+  esac
+  echo "$n"
+}
+
+# Defensive for the same reason: never let a non-numeric reach the arithmetic.
+kb2h() {
+  local k="${1:-0}"
+  case "$k" in
+    ''|*[!0-9]*) k=0 ;;
+  esac
+  numfmt --to=iec --suffix=B "$(( k * 1024 ))" 2>/dev/null || echo "${k}K"
+}
+
 avail_kb() { df -Pk / | awk 'NR==2{print $4}'; }
-size_kb() { [ -e "$1" ] && du -sk "$1" 2>/dev/null | awk '{print $1}' || echo 0; }
 
 BEFORE=$(avail_kb)
 
