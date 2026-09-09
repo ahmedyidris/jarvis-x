@@ -2,6 +2,15 @@
 
 *Written 2026-09-09. Base of comparison: `master` at the merge of PR #22.*
 
+> **Goals and priority are now set by `docs/PLAN_5.md` (2026-09-09).** This file
+> is superseded for anything about *scope*. It stays current as the *evidence*
+> pass — which blueprint claims were true and which were not.
+>
+> Ahmed's ruling on the two PDFs, verbatim: *"I just uploaded those two files
+> for self learning and memory but not to amend project goals."* They are
+> reference material. The blueprint's §3 cut list does **not** override the
+> mission in PLAN_5 §1.
+
 Two documents arrived on 2026-09-09:
 
 - `docs/incoming/JARVIS_X_MASTER_BLUEPRINT_v4.pdf` — a reconciliation of every
@@ -57,6 +66,32 @@ CI JS assertions total: 396 across 20 files
 | Vision, the three voice paths, Kokoro and the live-data test are unmeasured | Those five files are excluded from CI by name in `.github/workflows/test.yml`; they need hardware this container lacks. Still the highest-value single task, and it needs the Chromebook. |
 | `status.sh` measures inventory, not function | 19 of its 47 checks are bare `[ -f ]` / `[ -d ]` existence tests. The blueprint says 17 of 24; the ratio moved, the point stands. |
 | Nothing detects a test that stopped asserting | `grep -rln 'zero assertion\|assertion count\|Passed: 0' scripts/ .github/` → no matches. |
+
+### Correction to this file, 2026-09-09
+
+Running the sweep by hand — the thing this file said nothing does — found a
+**fifth** instance of the failure mode, which this file had missed:
+
+```
+code/test-helper.js                           NO ASSERTION COUNT
+```
+
+`test-helper.js` is in CI's list of 20. It emits **0 bytes**, contains **0
+`assert.` calls**, and exits **0 unconditionally**. It is the shared test
+harness — a library, not a test — so CI runs a library file and counts it as a
+passing suite. Nothing is actually untested (`test-data-layer.js` covers it with
+28 assertions); the defect is that CI's coverage count is inflated by one suite
+that can never fail.
+
+14 of 32 `code/test-*.js` files cannot report an assertion count. Two of those
+14 are in CI. The other one, `test-scheduler.js`, is a **false alarm**: it has 8
+real checks and exits 1 when mutated, it just prints `8/8 passed` instead of
+`Passed: N`.
+
+That distinction is itself a finding. A sweep that only understands one output
+format would clear `test-scheduler` as broken and `test-helper` as fine — both
+wrong. Whatever gets built for PLAN_5 §7 item 1 has to key on *exit code plus a
+parsed count*, not on one hardcoded string.
 
 That last row is the important one, and §4.2 is right about why: a broken
 build turns CI red, but **a stale-but-passing check signals nothing**. This
@@ -118,10 +153,29 @@ it knowing what is actually there.
 `127.0.0.1` and uses git as the sync layer. `memory/rules.md` says the same.
 Unchanged.
 
-## What has NOT been decided here
+## What Ahmed decided, 2026-09-09
 
-This file changes no behaviour and adopts no scope. It records what is true.
+Asked the four Round 1 questions, he answered past all of them with a mission
+statement instead. Recorded as given:
 
-The rulings the blueprint asks for are still yours to make, and
-`.claude/commands/merge-blueprint.md` walks through them one at a time on the
-Chromebook rather than deciding any of them here.
+- **The two PDFs are reference, not scope.** *"for self learning and memory but
+  not to amend project goals."*
+- **Trading: do not drop.** *"neither to drop trading completely, I just want
+  the most efficient stable safe real profit system"* — ranked **secondary** to
+  Jarvis itself. The words "real profit" collide with `memory/rules.md`'s
+  "no real-money trading and no broker connection, ever". **Nothing in
+  `memory/rules.md` was touched.** Open ruling: PLAN_5 §6.1.
+- **Content creation: do not drop, enhance.** *"come back to me on content
+  creation rules… text overcame me for its generated."* Open ruling: PLAN_5 §6.2.
+- **Primary mission is Jarvis itself** — self-autonomous, self-repairing,
+  self-maintaining, learning; solving his problems and organising his life,
+  ADHD support included.
+- **Platform order:** ChromeOS → Linux → iOS → Android → Windows → macOS →
+  online. The Chromebook is home base and command centre.
+- **Two Claude Codes must connect, not conflict.** Mechanism: `HANDOFF.md`.
+- **Do not block open-source code or other LLMs from the terminal.** Verified
+  already true — nothing needed changing. See PLAN_5 §8.
+
+Still his to rule on, untouched: the real-money question (§6.1) and the content
+rules (§6.2). Round 2 of `/merge-blueprint` — the TTS engine conflict, the five
+hardware suites, and `jj status` — still needs the Chromebook.
