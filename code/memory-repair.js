@@ -149,6 +149,25 @@ function repair({ decision, candidate, store, approvedBy = 'jarvis',
       return { outcome: 'applied', factId: f.id,
                why: `superseded ${decision.targetId}` };
     }
+    // The two actions the SWEEP (layer 6) emits. They live here rather than in
+    // the sweep for the reason this module exists: one writer, or the kill
+    // switch and the audit row each have two doors to cover instead of one.
+    case 'flag': {
+      // Age weakens belief; it does not falsify. A sweep that RETIRED a fact
+      // for being old would destroy information on a timer, which is exactly
+      // what the two-threshold rule forbids -- and it would do it to the
+      // facts nobody has mentioned lately, not the wrong ones.
+      const f = guard('memory-repair-flag', decision.targetId,
+        () => store.flagForVerification(decision.targetId), claim);
+      return { outcome: 'applied', factId: f.id, why: 'marked needs_verification; still retrieved' };
+    }
+    case 'end': {
+      // Not a judgement -- arithmetic. The fact's own valid_to has passed, so
+      // closing it states what the interval already said.
+      const f = guard('memory-repair-end', decision.targetId,
+        () => store.end(decision.targetId, { at: decision.at }), claim);
+      return { outcome: 'applied', factId: f.id, why: `closed at ${decision.at || 'now'}` };
+    }
     default:
       // 'park' and 'coexist' should have been routed above or resolved into a
       // 'born' by layer 4. Reaching here means the two layers disagree about

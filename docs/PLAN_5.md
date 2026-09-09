@@ -410,7 +410,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    one count; everything else increments a printed `claimsUnchecked`. Currently
    5 checked, 5 unchecked.
 
-10. **Bitemporal memory** (§3 item 4) — **layers 1–2, 4 and 5 of 7 built,
+10. **Bitemporal memory** (§3 item 4) — **layers 1–2 and 4–6 of 7 built,
     2026-09-09; deliberately not wired in.** `code/memory-bitemporal.js`,
     `code/test-memory-bitemporal.js` (28 assertions, 14/14 mutations caught),
     in CI. The template's §8 build order is bottom-up and says each layer must
@@ -459,8 +459,23 @@ as much as possible so the metered tier is spent only where it earns its keep.
     to — so every application re-validates against the store as it is now and
     refuses rather than guessing.
 
-    Layers 6–7 (the detect/propose sweep over stale facts, and a review surface
-    for the inbox) are **not built**, and
+    **Layer 6 (the sweep) is built**: `code/memory-sweep.js` +
+    `code/test-memory-sweep.js` (20 assertions, 12/12 mutations caught). It is
+    the answer to the case the whole architecture exists for — a fact that
+    *was* true, that nobody has mentioned, and that therefore no event will
+    ever fire about. Detection is pure lookups: no model calls, no sockets, so
+    it is affordable to run continuously.
+
+    **It never retires on age**, and several tests exist only to keep that
+    true. Age weakens belief; it does not falsify. A sweep that retired old
+    facts would destroy information on a timer, and would do it precisely to
+    the facts nobody mentioned lately rather than to the wrong ones. Its only
+    two proposals are `flag` (needs_verification, **still retrieved**) and
+    `end` (a fact whose own `valid_to` has already passed — arithmetic, not
+    judgement). Both route through layer 5, so the kill switch and the v5 audit
+    row cover the timer-driven path with no second door to keep locked.
+
+    Layer 7 (a review surface for the parked inbox) is **not built**, and
     `code/memory.js` keeps its one consumer, `code/scheduler.js`, untouched —
     swapping that over needs layers 4–5, which decide what a new fact does to
     an old one. "Not wired in" is pinned by a test rather than left as a

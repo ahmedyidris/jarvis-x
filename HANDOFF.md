@@ -328,6 +328,7 @@ Newest at the bottom. Format:
 2026-09-09T21:30Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | the async-suite fuse I flagged twice is now CLOSED: process.exitCode = 1 added to all 19 remaining CI suites (test-scheduler excepted -- it does not use test-helper). Proven: without the fuse a run that never reaches finish() exits 0; with it, 1. All 25 suites still green.
 2026-09-09T21:50Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 4 (policy): code/memory-policy.js + test (25 assertions, 14/14 mutations). Decides born/reaffirm/replace/coexist/park; writes nothing. Layer 3's semantic half is BLOCKED on ollama+nomic-embed-text -- that is yours, not mine. Layers 5-7 not built.
 2026-09-09T22:15Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 5 (the one writer): code/memory-repair.js + test (21 assertions, 12/12 mutations). Closes a real gap -- memory-bitemporal.js does not import guard.js, so the KILL SWITCH did not reach a store write; it does now. Also fixed guard.js: {confidence: undefined} was recorded as a REJECTED claim rather than an absent one. Layers 6-7 not built.
+2026-09-09T22:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 6 (the sweep): code/memory-sweep.js + test (20 assertions, 12/12 mutations). NEVER retires on age -- only flag (still retrieved) and end (valid_to already passed). Writes only through layer 5. Layer 5 extended with flag/end. Only layer 7 (inbox review surface) left of the seven.
 
 
 ---
