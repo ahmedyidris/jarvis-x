@@ -41,6 +41,12 @@ for f in code/*.js; do
 done
 for t in code/test-*.js; do
   [ -e "$t" ] || continue
+  # test-helper.js is the shared harness (audit-log redirect + test()/finish()
+  # exports) every other code/test-*.js imports -- a library, not a suite. It
+  # has 0 assertions and exits 0 unconditionally, so this glob reported it as
+  # a passing test forever. test-data-layer.js already covers its logic (28
+  # assertions). See docs/RECONCILE_v4.md / docs/PLAN_5.md sec7 item 1.
+  [ "$(basename "$t")" = "test-helper.js" ] && continue
   node "$t" >/dev/null 2>&1 && ok "test passes: $t" || no "TEST FAILED: $t"
 done
 chk "git objects intact" "git fsck --no-progress"

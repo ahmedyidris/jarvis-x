@@ -583,5 +583,20 @@ capacity planning should assume that baseline, not an idle machine.
   measurement (§8.3) cleared the evidence bar the record asked for; D itself (~a day of
   schema/migration work per the record's own estimate) was not started, pending Ahmed's
   scope call.
-- See `MASTER_PLAN_v4.md` (new, this session) for the consolidated current-state +
+- See `MASTER_PLAN_v5.md` (and `docs/PLAN_5.md`) for the consolidated current-state +
   forward-roadmap view this section feeds into.
+
+### 8.8 Clipper vertical, hardware suite, and Google Drive assets reconciled (2026-09-09)
+
+- **Clipper Vertical (`code/verticals/clipper/`)**:
+  - Full highlight-clipping pipeline implemented across 4 modular stages: `ingest.py` (ffprobe, audio extraction), `transcribe.py` (faster-whisper), `score.py` (windowed scoring via Hermes without polluting conversational memory), and `render.py` (centre-crop aspect scaling to 9:16/16:9/1:1/4:5 and SRT burn-in via ffmpeg).
+  - Background execution queue wired into `app.py`: `POST /api/verticals/clipper` and `GET /api/verticals/clipper/{job_id}` running in `ThreadPoolExecutor` with thread renicing (`os.nice(15)`) to protect interactive web-chat latency.
+  - **Critical bug fix in `app.py`**: The catch-all SPA fallback route (`@app.get("/{full_path:path}")`) was previously positioned above the clipper endpoints, intercepting GET requests to `/api/verticals/clipper/{job_id}` and returning a 404 "Not found". Moved `spa_fallback` to the bottom of the file after all API routes.
+  - Added unit test suite `test_clipper.py` (6/6 passed) covering filter generation, SRT formatting/rebasing, LLM parsing, kill-switch gating (`ClipperStoppedError`), and FastAPI endpoint validation.
+- **Test Suite Health**:
+  - `status.sh` reports **133 checks passed**, with all 26/26 JavaScript test files green.
+  - Root Python unit tests: **18/18 passing** (`test_clipper.py`, `test_app_generation_lock.py`, `test_hermes_ask_timeout_and_log.py`, `test_api_ask_reply_engine_integration.py`).
+- **Google Drive Assets Reconciled (`/mnt/shared/GoogleDrive/MyDrive/Jarvis Files/`)**:
+  - `JARVIS_X_MASTER_BLUEPRINT_v4.pdf` and `Self-Repairing_Memory_Architecture_Template.pdf` ingested and reconciled into `MASTER_PLAN_v5.md` and `docs/PLAN_5.md`.
+  - Found Egyptian Arabic TTS model assets at `/mnt/shared/GoogleDrive/MyDrive/Jarvis Files/voicetut-tts` (`model.safetensors` 2.4 GB, `reference_speakers`, `tokenizer.json`, `config.json`), resolving the missing weights needed by `tts_worker.py`.
+
