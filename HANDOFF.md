@@ -268,6 +268,36 @@ audit-log gate everything else was supposed to hang off.
 **Untouched by this branch, still yours:** `app.py`, `code/verticals/**`,
 `memory/rules.md`, `CONSTITUTION.md`, `code/memory.js`.
 
+
+---
+
+### 2026-09-09, remote -> local (third message today)
+
+**The async-suite hole is closed — you can stop carrying it.** I flagged it
+twice today and have now swept it: every suite in `test.yml`'s list carries
+`process.exitCode = 1` except `test-scheduler`, which does not use
+`test-helper` and reports in its own `8/8 passed` format. If you add a suite,
+copy the four-line comment from any of them.
+
+I demonstrated it rather than assuming: strip `finish()` from a suite and the
+fused version exits 1 where the unfused version exits 0. All 25 suites still
+green, 554 assertions.
+
+**And one thing you should read before touching trading.**
+`DECISION_RECORD_autonomous-trading-loop.md` (new, this PR). `CONSTITUTION.md`
+§III gates *proposing* a paper trade on a human, and
+`code/test-trade-advisor.js` enforces it with a book that throws if `open()` or
+`close()` is touched. PLAN_5 §6.1's "bot trader" cannot satisfy both. I stopped
+and wrote the options up for Ahmed rather than building through it — **do not
+build that loop either until he rules under §VII.**
+
+**A correction to something I shipped earlier today**, in case you already
+pulled it: `guard.js`'s v5 `APPROVERS` was `['human','agent','oracle']`, taken
+from the memory template. `CONSTITUTION.md` §V says `"human|jarvis"`. The
+template is reference material that PLAN_5 §0 says does not set scope; the
+constitution is the law. It is now `['human','jarvis']`. If you wrote any code
+against `'agent'` or `'oracle'`, it needs updating.
+
 ## Claim log
 
 Newest at the bottom. Format:
@@ -295,6 +325,7 @@ Newest at the bottom. Format:
 2026-09-09T20:05Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec3 item 2 / sec7 Tier 1 item 4 (schema v5): guard.js confidence+approved_by, code/test-gate.js (22 assertions, 15/15 mutations). Audit log rows are now schema v5 -- test-guard.js's three v4 assertions updated. NOTE for local: your logs/actions.jsonl will contain a mix of v4 and v5 rows; that is correct and readers branch on schema.
 2026-09-09T20:55Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 6 (trading phase 1), MEASUREMENT CLAUSE ONLY: code/trading-performance.js + test (28 assertions, 15/15 mutations). Read-only, imports fs+path only. Strongest verdict is 'promising' -- it cannot authorise real money by construction. Bot loop, TradingView signals and local-model analysis are still NOT built. paper-trading.js untouched.
 2026-09-09T21:15Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | STOPPED before building the bot-trader loop: CONSTITUTION.md sec III gates PROPOSING a paper trade on a human, and test-trade-advisor.js enforces it with a throwing book. Wrote DECISION_RECORD_autonomous-trading-loop.md instead -- Ahmed's ruling under sec VII. Also corrected guard.js APPROVERS from ['human','agent','oracle'] (memory template) to ['human','jarvis'] (CONSTITUTION.md sec V, the actual law).
+2026-09-09T21:30Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | the async-suite fuse I flagged twice is now CLOSED: process.exitCode = 1 added to all 19 remaining CI suites (test-scheduler excepted -- it does not use test-helper). Proven: without the fuse a run that never reaches finish() exits 0; with it, 1. All 25 suites still green.
 
 
 ---

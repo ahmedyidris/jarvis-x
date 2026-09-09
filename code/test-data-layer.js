@@ -23,6 +23,13 @@
 //
 // The old file is in git history; this replaces it, and adds it to CI.
 const { test, finish, assert } = require('./test-helper.js');
+// FUSE. A hung await drains the event loop and exits 0 having printed no
+// tally -- a vacuous pass that reads as green, and the exact shape sweep.js
+// exists to catch. finish() calls process.exit() explicitly, so this default
+// only survives when finish() was never reached. Found by mutation-testing
+// code/status.js; see code/test-status.js for the full account.
+process.exitCode = 1;
+
 const DataLayer = require('./data-layer.js');
 const CacheLayer = require('./cache-layer.js');
 const BaseProvider = require('./providers/base-provider.js');

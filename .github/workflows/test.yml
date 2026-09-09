@@ -88,9 +88,13 @@ jobs:
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
       # socket or reads the real ~/.jarvis-x/.env. It carries a
-      # `process.exitCode = 1` fuse for a reason worth copying into the other
-      # async suites here -- a hung await drains the event loop and exits 0,
-      # printing no tally, which is a vacuous pass that reads as green.
+      # `process.exitCode = 1` fuse -- a hung await drains the event loop and
+      # exits 0, printing no tally, which is a vacuous pass that reads as
+      # green. As of 2026-09-09 EVERY suite in this list carries that fuse
+      # except test-scheduler, which does not use test-helper and reports in
+      # its own `8/8 passed` format. Demonstrated rather than assumed: with
+      # the fuse, a run that never reaches finish() exits 1; without it, the
+      # same run exits 0.
       - name: Run portable test suite (excludes voice/vision tests needing local Ollama/Piper/Kokoro)
         run: |
           failed=""
