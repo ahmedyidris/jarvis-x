@@ -440,3 +440,148 @@ Requires `npm install` at the repo root first — `i18next` is now a declared de
 *Sessions 5–8 of the runbook are not covered here. Session 5 (`MASTER_PLAN_v3.md`) needs the
 §6.1 hardware answer and the §6.2 ruling first; writing it against the container profile
 would reproduce the exact problem this document exists to end.*
+
+---
+
+## 8. Session 2026-09-08/09 — a wiped-container rebuild, a live run, and doc corrections
+
+Between this section and §7, real work landed that this document didn't track: the
+2026-08-31 Hermes-backbone/P4 decisions, the 2026-09-04 through 2026-09-07 sessions
+(`REMAINING_WORK.md`, `docs/SESSION_2026-09-07.md`), and a 2026-09-08 lint pass. This entry
+does not retroactively narrate those — it starts from what this session found and did,
+on what turned out to be a **freshly rebuilt Crostini container** (matches the repo's own
+`bootstrap survives a wiped Crostini container` fix from 2026-09-07 — this machine needed
+exactly that).
+
+### 8.1 Starting state: mid-bootstrap, not broken
+
+`scripts/status.sh` on arrival: only `moondream` pulled in Ollama (`qwen2.5:3b`,
+`qwen2.5:7b`, `nomic-embed-text` all missing), no `~/.jarvis-x/.env`, no backup tarball
+ever taken on this machine, `web/dist/` never built, `logs/supervisord/` never created.
+Several test files that looked broken (`test-kokoro.js`, `test-voice*.js`) were not —
+`~/venv-ai/bin` simply wasn't on `$PATH` in the review shell; with it added, voice tests
+went 8/8. Lesson worth keeping: a "mid-bootstrap" box produces failures that look like
+regressions if you don't check environment completeness first.
+
+### 8.2 Fixed this session
+
+- Pulled `qwen2.5:3b`, `qwen2.5:7b`, `nomic-embed-text` (matches `bootstrap/install.sh`
+  step 3's list exactly).
+- Took a fresh backup (`~/jarvis-x-backup-20260908_084841.tar.gz`, checksummed).
+- Created `logs/supervisord/` — supervisord validates each program's log-file directory
+  at its **own** startup, before any child's `mkdir -p` runs; this is the exact failure
+  mode `config/supervisord.conf`'s own comments already document for the `ollama_DISABLED`
+  stanza, just not yet hit for `hermes-api`/`tts-worker` on a fresh box.
+- Built `web/dist/` (`npm run build --prefix web`) — bootstrap step 5 had never run here;
+  `app.py` mounts `web/dist/assets` at import time and refuses to start without it.
+- Restored `pip` into `venv-ai` via `ensurepip` (was present as `pip3`/`pip3.11`, not
+  `pip`), installed `libportaudio2` (system package `sounddevice` needs), re-ran the full
+  `bootstrap/requirements-venv-ai.txt` install (everything else was already satisfied —
+  this venv had, in fact, been built correctly; only these two gaps existed).
+- **Result: `hermes-api` is `RUNNING`, dashboard root returns HTTP 200, a real
+  `POST /api/ask` round-trip against `qwen2.5:3b` (local tier) works end to end.**
+  `tts-worker` is `FATAL` — needs the `chatterbox` pip package (undocumented in
+  `bootstrap/requirements-venv-ai.txt`) and a `voices/` directory (~5GB+ checkpoint +
+  Ahmed's own reference audio) that doesn't exist on this box and isn't restored by
+  `bootstrap/install.sh`. Left down rather than guessed at — real disk/bandwidth cost,
+  and personal reference audio, on a box where disk space is a recurring binding
+  constraint. Doesn't block anything else: Piper/Kokoro voices (English, Jordanian/Gulf
+  Arabic) are unaffected.
+- Installed all 12 official-marketplace Claude Code plugins `bootstrap/install.sh` step 7
+  specifies (only `ecc@ecc` was present before this session).
+- Restored all 17 project skills from `skills-lock.json` into `.agents/skills/` +
+  symlinked into `.claude/skills/` (neither existed on this box before this session).
+- Applied `bootstrap/merge-claude-settings.sh` (global guardrails/overrides/plugins).
+- Installed `@google/gemini-cli` (0.59.0) and `llmfit` (1.1.14, into `venv-ai`) — see
+  §8.4. Neither existed anywhere on this machine or in this repo's toolchain before.
+
+### 8.3 Two documentation corrections that were wrong, not just stale
+
+- **`DECISION_RECORD_hermes-backbone.md` §7 (new)**: ran the step-E measurement the
+  record's own recommendation called for — `explain.py`'s direct `requests.post()` vs.
+  routing through `HermesCore.ask(context=False, log=False)`, 3 timed trials each,
+  `qwen2.5:3b`. Result: no measurable cost (subprocess-spawn overhead is ~3 orders of
+  magnitude below this hardware's 25-60s-per-call LLM latency). Option D (unifying
+  `~/.hermes/state.db`/`logs/*.jsonl` and the two tier-vocabulary tables) remains
+  Ahmed's scope call, not something this measurement decides on its own.
+- **`REMAINING_WORK.md`'s P4 section was reporting stale information as current**: it
+  said the Gemini semantic-fidelity judge was "not wired into any generator." It has
+  been, since commit `d320cc1` (2026-08-31) — into all three sourced-fact generators,
+  with majority-voting (`votes=3`) and a Groq fallback already addressing both blockers
+  the decision record had named. 51/51 unit tests pass (mocked). **Not independently
+  re-verified live** — `logs/.judge-cache.json` doesn't exist on this machine, meaning
+  the judge has never actually been called against live Gemini/Groq here, and this box
+  still has no `GEMINI_API_KEY` (§8.5). Addendum appended to `REMAINING_WORK.md` rather
+  than rewriting the stale entries, per that document's own append-only convention.
+- **`CLAUDE.md` and `README.md` corrected in place** (not append-only docs, unlike the
+  above): `CLAUDE.md` claimed a `hermes3:3b` Ollama model that exists nowhere in this
+  codebase (confused with `hermes.py`'s own `HermesCore`), a `remote.futrx`/DuckDNS/LXD
+  remote-access layer with zero code behind it anywhere in the repo, and the wrong kill-
+  switch path (`~/.jarvis-x/STOP` instead of the real `.jarvis-x-STOP` at repo root).
+  `README.md`'s Rules §3 said paper trading's module was deleted; `code/paper-trading.js`
+  exists and is enforced right now, matching `CONSTITUTION.md` §IV — see
+  `DECISION_RECORD_paper-trading.md` for why it was deleted, then rebuilt the same
+  evening.
+
+### 8.4 `llmfit` (`AlexsJones/llmfit`, MIT, PyPI 1.1.14) — hardware fit, measured
+
+`llmfit doctor` on this machine: 11th Gen Intel Core i5-1135G7 @ 2.40GHz, 8 threads, no
+GPU, 14.12 GB total RAM, 3.84 GB available *at the moment of the scan* (three Claude Code
+sessions plus browser processes were running concurrently — see §8.6). Model-specific
+verdicts at 14 GB total:
+
+| Model | Fit | Speed score | Baseline est. | Min RAM |
+|---|---|---|---|---|
+| `Qwen/Qwen2.5-3B-Instruct` | 100/100 | 15/100 | ~6.0 tok/s | 1.6 GB |
+| `Qwen/Qwen2.5-7B-Instruct` | 100/100 | 6/100 | ~2.4 tok/s | 3.9 GB |
+
+Both "fit" against the full 14 GB, but `qwen2.5:7b`'s 3.9 GB requirement is right at the
+edge of what's actually free once normal dev load is running (§8.6) — this puts a hard
+number on `REMAINING_WORK.md`'s already-flagged "Ollama single-slot serialization causing
+10-100x latency spikes under concurrent load" rather than resolving it. The estimated
+tok/s figures are consistent with this session's own empirical benchmark (§8.3's Hermes
+measurement: 25-60s per call, typically 150-350 output tokens on `qwen2.5:3b`).
+
+### 8.5 Gemini CLI — installed, not yet authenticated
+
+`@google/gemini-cli` 0.59.0, global npm install. `gemini -p "..."` fails with: *"Please
+set an Auth method... GEMINI_API_KEY, GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_GENAI_USE_GCA."*
+Two paths to fix it, both requiring Ahmed directly and neither doable from this session:
+interactive OAuth (`gemini` → "Sign in with Google"), or a `GEMINI_API_KEY` in
+`~/.jarvis-x/.env` — the same file `code/gemini.js` already reads, and the same file
+Claude Code is structurally denied Read/Edit on. This also blocks re-verifying §8.3's P4
+judge live. See `GEMINI.md` (new, this session) for the fuller writeup Gemini CLI sessions
+will load automatically.
+
+### 8.6 A live finding, not a hypothetical: concurrent sessions on one working tree
+
+Mid-session, `git status` showed uncommitted changes to `app.py` and a new
+`code/verticals/clipper/` directory that this session never touched. Traced to three
+concurrent `claude` processes on the same machine (PIDs logged in this session's
+transcript, not reproduced here) — evidently another Claude Code session building a
+video-clipping vertical in a separate terminal, not a cron job or a kill-switch failure
+(`.jarvis-x-STOP` was absent throughout). No file overlap occurred and nothing from that
+work was touched or reviewed here. Recorded because it's exactly the kind of thing
+`llmfit`'s 3.84 GB "available RAM" reading (§8.4) was actually measuring — this machine
+runs multiple agent sessions at once in practice, not just in theory, and any future
+capacity planning should assume that baseline, not an idle machine.
+
+### 8.7 Still open after this session
+
+- `~/.jarvis-x/.env` — no `GEMINI_API_KEY`/`GROQ_API_KEY`/`OPENROUTER_API_KEY`. Blocks:
+  Gemini CLI auth, live P4 judge re-verification, the `code/providers/registry.js`
+  remote tiers, the "quality" web-chat tier's Gemini path.
+  `jarvis-supervisord.service` systemd unit not installed (bootstrap step 9) — offered,
+  not done without confirmation, since it needs `sudo` and this session didn't get an
+  explicit go-ahead on that specific step.
+- `tts-worker` / Egyptian Arabic voice cloning — needs `chatterbox` (pip) + `voices/`
+  (~5GB+, personal reference audio). Not chased without Ahmed's direction (§8.2).
+- `nomic-embed-text` is pulled but unwired — no ChromaDB or embedding-search code found
+  anywhere in `code/` or `hermes.py` that calls it. Available capacity, not a built
+  feature; CLAUDE.md now says so explicitly.
+- `DECISION_RECORD_hermes-backbone.md` option D (unify memory + tier tables) — E's
+  measurement (§8.3) cleared the evidence bar the record asked for; D itself (~a day of
+  schema/migration work per the record's own estimate) was not started, pending Ahmed's
+  scope call.
+- See `MASTER_PLAN_v4.md` (new, this session) for the consolidated current-state +
+  forward-roadmap view this section feeds into.

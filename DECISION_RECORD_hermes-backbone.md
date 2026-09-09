@@ -181,3 +181,47 @@ requires that, the option is wrong.
   and `code/memory.js`
 - The working cross-language call: `hermes.py`'s `_market_brief()`, tested in
   `test_hermes_market_context.py`
+
+## 7. Step E, measured (2026-09-08)
+
+Ran the recommended measurement: `explain.py`'s current direct
+`requests.post()` call vs. routing the same prompt through
+`HermesCore.ask(context=False, log=False)`, 3 timed trials each, same
+prompt, same model (`qwen2.5:3b`), same machine, back to back.
+
+| | run 1 | run 2 | run 3 | mean |
+|---|---|---|---|---|
+| direct `requests.post()` | 42.2s | 44.4s | 56.5s | 47.7s |
+| `hermes.ask(log=False)` | 26.5s | 59.0s | 51.6s | 45.7s |
+
+Delta: -2.0s (-4.2%) in `ask()`'s favor — but that's noise, not signal.
+Run-to-run variance within a single path (26s-59s, a 2.2x spread) is far
+larger than the gap between paths, and this run had a real confound: the
+`qwen2.5:7b` model pull was still in progress on the same CPU-only box
+during all six trials, adding uncontrolled load. Output length also
+varied 878-2014 chars unprompted (no `max_tokens` pin), which alone
+explains most of the per-run spread.
+
+**What's actually established, confound and all**: `ask()`'s
+`subprocess.run(["curl", ...])` vs. `explain.py`'s in-process
+`requests.post()` adds process-spawn overhead on the order of tens of
+milliseconds. LLM generation on this hardware runs 25-60s per call. That
+gap is roughly three orders of magnitude, so no re-run under cleaner
+conditions is going to surface a real cost here — the noise floor above
+already brackets any true difference well below the level anyone would
+notice. `HermesCore.__init__()`'s only other cost is an idempotent SQLite
+`CREATE TABLE IF NOT EXISTS`, and with `context=False` the expensive part
+of `build_context()` (`_module_index()`, filesystem walk + cache check)
+never runs.
+
+**E's verdict: routing `explain.py` through `ask(log=False)` costs
+nothing measurable.** Per the docstring's own stated condition ("it
+should move... on evidence rather than on a reason that expired"), this
+clears the bar for `explain.py`'s one call site specifically.
+
+That is not the same finding as D. E only measured latency for one
+call site — it says nothing about the actual D-level work (a schema
+decision to unify `~/.hermes/state.db` and `logs/*.jsonl`, and merging
+`router.py`'s `TIERS` with `router.js`'s `ROUTE`), which the record
+estimates at "roughly a day, not a rewrite." That remains a scope
+decision for Ahmed, not something E's latency number settles on its own.

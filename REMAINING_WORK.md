@@ -769,6 +769,57 @@ that broke the local-model attempt
   a future session should not re-attempt "just ask an LLM if it's
   faithful" a third time with a third model before trying one of these.
 
+**2026-08-31 — wired in, per Ahmed's go-ahead. This section (through the
+2026-08-24 entry above) is stale as a description of current behavior;
+preserved as history, not rewritten, per this doc's own convention.**
+
+Commit `d320cc1` ("wire enforce_semantic_fidelity() into all three
+generators") re-wired what the 2026-08-24 entry above says was reverted.
+Between that entry and this one, two things changed that the 2026-08-24
+"not wired in" verdict was conditioned on:
+
+- `DECISION_RECORD_p4-gemini-judge.md` got a **second amendment**, same
+  day: the "known-faithful" fixture that produced the 5/5 false-positive
+  result was itself found to contain two real factual errors. Corrected,
+  the same judge/prompt/model returned 0/5. Status moved to "GO for
+  deliberate review use, not automatic gating" — see that record for the
+  two conditions it named before gating: majority-voting (nondeterministic
+  recall, 3/5 on a real defect) and quota handling (free-tier 429s).
+- Both conditions now have code behind them in `content_generator.py`:
+  `check_semantic_fidelity(..., votes=3)`, any-flag-not-majority (asymmetric
+  cost reasoning in its own docstring — a miss ships a fabrication, a
+  spurious flag costs one human re-read); and `_call_gemini_judge()` now
+  falls back to Groq (`openai/gpt-oss-120b`) when Gemini is unreachable or
+  out of quota, deliberately with **no further local-model fallback**
+  below that (rejected per the 2026-08-23 entry above — degrading to a
+  known-unreliable judge would turn "the check couldn't run" into "the
+  check ran badly"). Verdicts are also disk-cached by prompt hash + vote
+  count (`logs/.judge-cache.json`) so repeated verify runs don't re-burn
+  quota on unchanged content.
+
+`enforce_semantic_fidelity()` is called in `economic_facts_generator.py`,
+`commodities_macro_generator.py`, and `geopolitical_risk_generator.py`,
+right after `enforce_numeric_fidelity()`, before each writes its output —
+confirmed by reading all three call sites, not just the wiring commit.
+**Not called in the `letters` vertical** (`content_generator.py`'s
+`generate_letter_content()`) — that vertical has no sourced fact to be
+unfaithful to (alphabet content, not a sourced claim), so this looks like
+correct scope, not a gap, but was not independently confirmed against
+`automation/phase-b/CONTEXT.md`'s vertical checklist this session.
+
+`automation/phase-b/test_content_generator_semantic_fidelity.py` +
+`test_content_generator_numeric_fidelity.py`: 51/51 passing (mocked judge
+calls, verified 2026-09-08). **Not independently re-verified live** —
+`logs/.judge-cache.json` doesn't exist on this machine, meaning the judge
+has never actually been called against a live Gemini/Groq endpoint here,
+and this box currently has no `~/.jarvis-x/.env`/`GEMINI_API_KEY` at all
+(separate, already-flagged bootstrap gap). So: **the code that would
+close P4's semantic-fidelity gap is wired in and unit-tested, but whether
+it behaves in production the way the 2026-08-24 live acceptance run
+showed (0/5 false positives, 3/5→~94% recall at votes=3) has not been
+re-confirmed since the wiring commit.** That's the actual remaining
+verification step, not a design or coding gap.
+
 ## P5 — Correctness audit (this session's earlier fixes + new sweep)
 
 - `code/paper-trading.js`'s always-0 P&L — **already fixed** (`397ea77`, prior turn this session).
