@@ -410,8 +410,8 @@ as much as possible so the metered tier is spent only where it earns its keep.
    one count; everything else increments a printed `claimsUnchecked`. Currently
    5 checked, 5 unchecked.
 
-10. **Bitemporal memory** (§3 item 4) — **layers 1–2 and 4–6 of 7 built,
-    2026-09-09; deliberately not wired in.** `code/memory-bitemporal.js`,
+10. **Bitemporal memory** (§3 item 4) — **all seven layers built except
+    layer 3's semantic half, 2026-09-09; deliberately not wired in.** `code/memory-bitemporal.js`,
     `code/test-memory-bitemporal.js` (28 assertions, 14/14 mutations caught),
     in CI. The template's §8 build order is bottom-up and says each layer must
     be usable on its own before the next starts, so this is the clock
@@ -475,8 +475,21 @@ as much as possible so the metered tier is spent only where it earns its keep.
     judgement). Both route through layer 5, so the kill switch and the v5 audit
     row cover the timer-driven path with no second door to keep locked.
 
-    Layer 7 (a review surface for the parked inbox) is **not built**, and
-    `code/memory.js` keeps its one consumer, `code/scheduler.js`, untouched —
+    **Layer 7 (the human inbox) is built**: `code/memory-inbox.js` +
+    `code/test-memory-inbox.js` (17 assertions, 12/12 mutations caught). List
+    what is open, resolve one item, see what was decided. The property that
+    would have been easiest to lose at the very last step is that **approving
+    goes back through the writer rather than round it**: `resolve('approve')`
+    re-submits the parked decision to layer 5 with `approved_by: 'human'`, so
+    the staleness check, the kill switch and the audit row all still apply. A
+    proposal parked in March and approved in June, whose target moved in April,
+    is **refused** — and that refusal is the feature, because it is precisely
+    the case a review queue creates and a naive one ignores. Append-only: a
+    resolution is a new row referencing the proposal's id, and "what is open"
+    is a fold rather than a stored state.
+
+    So the architecture is complete except for layer 3's semantic retrieval,
+    and `code/memory.js` keeps its one consumer, `code/scheduler.js`, untouched —
     swapping that over needs layers 4–5, which decide what a new fact does to
     an old one. "Not wired in" is pinned by a test rather than left as a
     promise in a commit message.

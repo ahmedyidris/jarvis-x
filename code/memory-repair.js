@@ -46,6 +46,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { guard, APPROVERS } = require('./guard.js');
 const { STATUS } = require('./memory-bitemporal.js');
 
@@ -62,10 +63,14 @@ const OUTCOMES = Object.freeze(['applied', 'parked', 'refused']);
  * by guard() in a fixed shape and a proposal is not an action that happened.
  * What matters is the property they share: nothing in it is ever rewritten.
  */
-function park(entry, { file = INBOX, now }) {
+function park(entry, { file = INBOX, now, id = crypto.randomUUID() }) {
+  // An id, because layer 7 has to be able to resolve exactly one proposal.
+  // Without it a reviewer can only approve "the third line", which stops being
+  // true the moment anything else is parked.
+  const row = { id, ...entry, parked_at: now };
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.appendFileSync(file, `${JSON.stringify({ ...entry, parked_at: now })}\n`);
-  return entry;
+  fs.appendFileSync(file, `${JSON.stringify(row)}\n`);
+  return row;
 }
 
 function readInbox(file = INBOX) {
