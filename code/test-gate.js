@@ -227,6 +227,29 @@ await test('logAction carries a claim too', () => {
   assert.strictEqual(row.approved_by, 'jarvis');
 });
 
+await test('SECURITY: a caller cannot forge the fields guard.js derives itself', () => {
+  // logAction spreads its meta into the row. Before the derived fields were
+  // moved after that spread, a caller could set actor, origin, pid and — worst
+  // — `schema`. A forged `schema: 'v5'` with a valid approved_by reads as
+  // APPROVED to gateVerdict(), which is exactly the lie the gate exists to
+  // prevent. Not reachable by the agent (it cannot call a JS function), so
+  // this is defence in depth; but three of this file's own claims about these
+  // fields were false until it was fixed.
+  const before = readLog().length;
+  G.logAction('forge-probe', 'quick', {
+    allowed: true, actor: 'FORGED', origin: 'FORGED', schema: 'v99', pid: 0,
+    confidence: 1, approved_by: 'human',
+  });
+  const row = readLog()[before];
+  assert.notStrictEqual(row.actor, 'FORGED', 'actor is derived from argv, never supplied');
+  assert.notStrictEqual(row.origin, 'FORGED');
+  assert.strictEqual(row.schema, G.SCHEMA, 'a forgeable schema makes every reader\'s branch untrustworthy');
+  assert.notStrictEqual(row.pid, 0);
+  // The claim fields ARE the caller's to set — that is what they are for.
+  assert.strictEqual(row.confidence, 1);
+  assert.strictEqual(row.approved_by, 'human');
+});
+
 await test('a claim object cannot smuggle extra keys into an audit row', () => {
   // Callers pass options bags around; only the two v5 fields may land in the log.
   assert.deepStrictEqual(

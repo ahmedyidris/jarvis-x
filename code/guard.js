@@ -140,6 +140,19 @@ function currentLogFile() {
 // be fixed; the second is a caller that should be passing the field and is a
 // real thing to go fix. Collapsing them into one "unknown" would hide the
 // actionable half behind the permanent half.
+// WHAT `approved_by` IS, AND WHAT IT IS NOT. It records what the CALLING CODE
+// claims, not proof that a human was involved. Nothing in this file can verify
+// that; a trusted module writing `approved_by: 'human'` is taken at its word,
+// exactly as `allowed: true` always has been. That is not a hole so much as
+// the boundary of what an audit log can do — but it decides where the claim
+// may be made, and it is worth being explicit so nobody over-trusts a row.
+//
+// The agent cannot make the claim at all: it emits actions (list, read, write,
+// shell, query, answer, list_models), so it cannot call a JS function, and the
+// fields derived below are unreachable to it besides. What makes 'human'
+// meaningful is that exactly one module sets it — code/memory-inbox.js, on an
+// actual resolve() from the review surface. Any new call site passing 'human'
+// should be able to point at the human the same way.
 const SCHEMA = 'v5';
 
 /** 'v5' -> 5, 'v2' -> 2, undefined/'type-v2'/garbage -> 0. Defensive on
@@ -209,11 +222,35 @@ function normalizeClaim(entry) {
   return out;
 }
 
+/**
+ * THE DERIVED FIELDS GO LAST, AND THAT ORDER IS THE POINT.
+ *
+ * They used to be spread first, so `...entry` overrode them and any caller
+ * could forge them — `logAction('x', 'y', {actor: 'FORGED', origin: 'app',
+ * schema: 'v5'})` wrote exactly that. Which makes three of this file's own
+ * claims false at once: v3's "the agent cannot reach it", v4's same promise
+ * for `actor`, and v5's whole gate — a row with a forged `schema: 'v5'` and a
+ * valid `approved_by: 'human'` reads as `approved` to gateVerdict(), which is
+ * precisely the lie the gate exists to prevent.
+ *
+ * Not a live exploit: the agent emits actions (list, read, write, shell,
+ * query, answer, list_models) and cannot call a JS function, so nothing it can
+ * do reaches logAction. It is defence in depth — but a control whose
+ * documentation overstates it is worse than one that does not, because the
+ * next person reasons from the documentation. Found by adversarially probing
+ * this diff rather than by a test failing, which is why it had survived since
+ * v2.
+ *
+ * No caller legitimately sets any of these: every logAction() call site in
+ * code/ passes only {allowed, outcome, error}, and guard() builds its own
+ * entries. Checked before reordering, not assumed.
+ */
 function append(entry) {
   try {
     fs.appendFileSync(logFile, JSON.stringify({
+      ...normalizeClaim(entry),
       timestamp: new Date().toISOString(), schema: SCHEMA,
-      pid: process.pid, origin: ORIGIN, actor: ACTOR, ...normalizeClaim(entry)
+      pid: process.pid, origin: ORIGIN, actor: ACTOR,
     }) + '\n');
   } catch (_e) { /* auditing must never break the caller */ }
 }
