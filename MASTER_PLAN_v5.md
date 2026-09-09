@@ -286,6 +286,13 @@ plus, on this specific machine, real-time `SendMessage` between concurrent sessi
 which *is* instant and doesn't need a network-exposed anything, since it's local
 process-to-process.
 
+**Confirmed working this session, a third channel**: `~/.claude/settings.json` is a
+shared global file — a change one session makes (Ahmed's other session set
+`autoUpdatesChannel: "rc"` there) is visible to every other session on this machine
+immediately, no sync step needed. Real for *machine-level Claude Code config*; not a
+channel for Jarvis's own application state (that still belongs in the repo/git, or a
+real data store, not this file).
+
 If genuinely instant *cross-machine* sync is still wanted after weighing that tradeoff,
 that's a distinct, separately-scoped decision (a relay service, a VPN, or a narrowly-
 scoped authenticated tunnel) — not something this document adopts by default given the
