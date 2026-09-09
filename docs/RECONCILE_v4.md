@@ -57,6 +57,13 @@ Total across the 20 CI suites, measured by running each one:
 CI JS assertions total: 396 across 20 files
 ```
 
+**That number was wrong, and the sweep built on 2026-09-09 is what found it.**
+It summed only `Passed: N` lines, so `test-scheduler.js`'s 8 assertions — which
+print as `8/8 passed` — were invisible to it, and `test-helper.js` contributed
+0 while occupying a slot. The real figure with `test-sweep`'s own 20 included is
+**424 across 20 suites**. A hand count that understood one output format is the
+same defect the sweep exists to catch, committed by the tool that reported it.
+
 ## Claims that are still true and still open
 
 | Claim | Verified how |
