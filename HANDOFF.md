@@ -190,6 +190,7 @@ Newest at the bottom. Format:
 2026-09-09T02:00Z | local  | DONE  | claude/local-bootstrap-rebuild-and-doc-corrections | see PR — test.yml/status.sh drop test-helper from the CI list, CLAUDE.md corrected in place, PLAN_5.md sec9 added, GEMINI.md added, MASTER_PLAN_v4/v5.md removed (folded into PLAN_5 per this file's instruction, not duplicated)
 2026-09-09T02:45Z | local  | CLAIM | claude/local-clipper-and-bootstrap-reconcile | clipper vertical tests, app.py SPA shadowing fix, AS_BUILT sec 8.8, Drive sync
 2026-09-09T02:45Z | local  | DONE  | claude/local-clipper-and-bootstrap-reconcile | test_clipper.py (6/6), app.py route fix, AS_BUILT 8.8, Drive sync pack for NotebookLM/Gemini
+2026-09-09T06:19Z | local  | CLAIM | claude/local-schema-v5-upgrade | Schema v5 Agent Upgrade (confidence, approved_by keys)
 
 
 ---
