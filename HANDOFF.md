@@ -5,6 +5,26 @@ Two agents work this repo: a **remote** cloud session (claude.ai/code) and the
 is not disagreement — it is two agents pushing to the same branch and silently
 overwriting each other's work.
 
+## Run this, don't remember this
+
+```bash
+bash scripts/sync.sh           # read-only: what changed, what you owe
+bash scripts/sync.sh --push    # same, and push your own branch
+```
+
+It fetches with retries, tells you what the other side did since your last
+sync, warns you when **this file** changed, lists your unpushed commits, and
+says whether master is ahead of you. It will not push to the other side's
+namespace, will not push a dirty tree, will not force-push or rebase, and will
+not merge for you — a merge can conflict, so it stays a decision.
+
+To make it automatic on the Chromebook (it is read-only without `--push`, so a
+cron entry cannot lose work):
+
+```bash
+(crontab -l 2>/dev/null; echo "*/15 * * * * cd ~/jarvis-x && bash scripts/sync.sh >> /tmp/jx-sync.log 2>&1") | crontab -
+```
+
 ## The protocol
 
 **1. Branch namespaces never overlap.**
@@ -165,3 +185,4 @@ Newest at the bottom. Format:
 2026-09-09T00:45Z | remote | CLAIM | claude/new-session-ojg9ah | PLAN_5 §6.1 + §6.2 rulings applied; ownership table added
 2026-09-09T01:15Z | remote | CLAIM | claude/new-session-ojg9ah | inbox section; message to local re: wrong branch
 2026-09-09T01:20Z | remote | DONE  | claude/new-session-ojg9ah | inbox on master; SHA-pinned check replaced with a path check that cannot go stale
+2026-09-09T01:35Z | remote | DONE  | claude/new-session-ojg9ah | sweep.js + test-sweep.js in CI; scripts/sync.sh for two-way sync
