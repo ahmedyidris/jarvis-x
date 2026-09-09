@@ -31,12 +31,20 @@ const rest = args.slice(1);
         console.log('Plan:', JSON.stringify(plan, null, 2));
         break;
         
-      case 'status':
-        console.log('✅ Jarvis X ready');
-        console.log('   Available tiers: local | fast | smart | long');
-        console.log('   Usage: jj ask "<q>" --tier smart');
-        break;
-        
+      case 'status': {
+        // Was three unconditional console.log calls that inspected nothing and
+        // always exited 0 -- it reported "ready" with the daemon down and the
+        // kill switch pulled. See code/status.js for what it checks now.
+        // It also advertised a tier named "long", which no tier table has ever
+        // defined; the tiers below are read out of the router.
+        const status = require(path.join(__dirname, '../code/status.js'));
+        const report = await status.collect();
+        console.log(rest.includes('--json')
+          ? JSON.stringify(report, null, 2)
+          : status.format(report));
+        process.exit(status.exitCode(report));
+      }
+
       default:
         console.log('Commands: ask, plan, status');
         process.exit(1);

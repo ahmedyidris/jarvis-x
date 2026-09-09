@@ -310,8 +310,26 @@ as much as possible so the metered tier is spent only where it earns its keep.
 
 **Tier 3 — real gaps, no ruling needed.**
 
-7. `jj status` prints `✅ Jarvis X ready` unconditionally (`bin/jj:34-38`). A
-   status command that cannot report a problem is worse than none.
+7. ~~**`jj status` prints `✅ Jarvis X ready` unconditionally**~~ — **DONE
+   2026-09-09.** `code/status.js`, `code/test-status.js` (24 assertions), in
+   CI. It now reports the kill switch, the ollama daemon, the models the tier
+   table actually routes to, each remote provider's key and remaining quota,
+   the audit log, and per-tier answerability — and **exits non-zero** when any
+   of it fails, which is the part that makes it usable from a script. Three
+   things it deliberately does not do: duplicate `scripts/status.sh` (that
+   audits the *machine*; this answers "can Jarvis answer right now, and on
+   which tiers"), treat a missing cloud key as a failure (booting keyless is a
+   hard rule, so that is INFO), or copy any fact that lives elsewhere — the
+   kill-switch path comes from `guard.js`'s `STOP_FILE` export, the required
+   models are derived by walking `TIERS`, and the endpoint comes from
+   `PROVIDERS.ollama.url`. 12 mutations, 12 caught; **one escaped the first
+   run** and was worth more than the other eleven — disabling the probe's abort
+   timer did not turn the suite red, it made it *truncate and exit 0*, the
+   vacuous-pass shape `sweep.js` exists to catch, in `sweep.js`'s own
+   neighbour. Fixed with a `process.exitCode = 1` fuse plus a watchdog on the
+   one test that can hang. Run against this container, where no ollama exists,
+   it correctly reports four dead tiers and exits 1 where the old command said
+   "ready".
 8. Reconcile `CLAUDE.md` with the code: `hermes3:3b` and `nomic-embed-text` are
    documented architecture that appears nowhere in `code/` or `config/` (§5).
 9. Weekly sweep (§3 item 3).

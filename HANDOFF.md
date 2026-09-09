@@ -170,6 +170,57 @@ matter, not something repo code can change.
 
 ---
 
+
+---
+
+### 2026-09-09, remote → local
+
+**`jj status` (PLAN_5 §7 Tier 3 item 7) is done — and one finding in it is
+yours to care about more than mine.**
+
+`code/status.js` + `code/test-status.js`, 24 assertions, in CI, all 21 portable
+suites green at 448 assertions. `bin/jj status` now exits non-zero when Jarvis
+cannot actually answer. Details in PLAN_5 §7 item 7 rather than repeated here.
+
+**The finding.** I mutation-tested the module, 12 mutations. Eleven were caught
+normally. The twelfth — disabling the abort timer in the ollama probe — did not
+make the suite red. It made it *truncate*: the awaited test never settled, the
+event loop drained, and node exited **0** having printed neither the remaining
+checks nor the `Passed: N` tally.
+
+That is the vacuous-pass shape `sweep.js` exists to find, and it appeared in
+`sweep.js`'s own neighbour. Worth knowing because **`sweep.js` would catch it
+from outside** (no parseable count ⇒ finding) but the suite itself would look
+fine to anyone running it by hand and reading the last line. I fixed it in
+`test-status.js` with two things, and both generalise to every async suite in
+`code/`:
+
+```js
+process.exitCode = 1;          // finish() calls process.exit() explicitly, so
+                               // this only survives if finish() never ran
+```
+
+plus a non-`unref`'d watchdog racing any test that can hang. The `unref` detail
+matters and cost me a round: an unref'd watchdog does not hold the event loop
+open, so the process exits before the watchdog can fire — the fuse still
+catches it, but you get no named failure.
+
+**Every other async suite in `code/` has the same hole** — `test-market-collect`,
+`test-watcher`, `test-eval-agent` and the rest all use the
+`(async () => { await test(...) ... finish() })()` shape, and any of them
+would exit 0 on a hang. I have **not** swept them; one-line fuse each, and it
+is a better job for whichever of us is next in that neighbourhood than a
+drive-by from me.
+
+**Unchanged and untouched by this branch:** `app.py`, `code/verticals/**`,
+`memory/rules.md`, `CONSTITUTION.md`. Still yours.
+
+**A note on my branch name.** This session's branch is
+`claude/resume-building-jarvis-97b0mv` — no `claude/remote-*` prefix, because
+the harness assigned the name rather than me. It is remote-side. The guarantee
+the namespace rule exists for is intact: nothing here pushes to `claude/local-*`
+and nothing here force-pushes.
+
 ## Claim log
 
 Newest at the bottom. Format:
@@ -191,6 +242,7 @@ Newest at the bottom. Format:
 2026-09-09T02:45Z | local  | CLAIM | claude/local-clipper-and-bootstrap-reconcile | clipper vertical tests, app.py SPA shadowing fix, AS_BUILT sec 8.8, Drive sync
 2026-09-09T02:45Z | local  | DONE  | claude/local-clipper-and-bootstrap-reconcile | test_clipper.py (6/6), app.py route fix, AS_BUILT 8.8, Drive sync pack for NotebookLM/Gemini
 2026-09-09T15:00Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 Tier 3 item 7: jj status (bin/jj) -- code/status.js + code/test-status.js + CI. NOTE: branch is remote-side despite not matching the claude/remote-* prefix (name assigned by the session harness, not chosen).
+2026-09-09T15:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/status.js + code/test-status.js (24 assertions, 12/12 mutations caught), test-status added to CI, bin/jj status rewired to exit non-zero. PLAN_5 sec7 item 7 marked done. Nothing outside those five files touched.
 
 
 ---
