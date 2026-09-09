@@ -56,8 +56,18 @@ and why, or `AS_BUILT.md`'s 2026-09-09 entry for the fuller session record.
      OAuth login or a `GEMINI_API_KEY`/`GOOGLE_API_KEY` env var, neither
      of which a Claude Code session can do on Ahmed's behalf (OAuth is
      interactive; the key lives in `~/.jarvis-x/.env`, which is
-     Read+Edit-denied to Claude Code by design). This is a real,
-     currently-blocking gap, not a formality.
+     Read+Edit-denied to Claude Code by design). All of that is still
+     true. **What was overstated, and is corrected here 2026-09-09: this
+     is not "currently-blocking".** Grepped — *nothing in this codebase
+     invokes the `gemini` binary*. Every `gemini` hit in `code/`,
+     `automation/` and `bootstrap/` is either the registry's HTTPS path
+     (next bullet) or a test fixture string in `code/test-guard.js`. So
+     an unauthenticated CLI blocks Ahmed from using a second interactive
+     assistant on his own machine — real, and worth two minutes of his
+     time — and blocks no build, test, or runtime path in Jarvis. It is
+     a workstation setup task, not a deployment blocker, and it was
+     listed as the latter in a blocker review before anyone checked what
+     depended on it.
    - **`code/gemini.js` / `code/providers/registry.js`** — the
      always-has-been remote-tier path used *inside* Jarvis's own JS
      agent-autonomy loop (`code/agent.js`, `code/scheduler.js`,
