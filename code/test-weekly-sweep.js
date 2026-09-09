@@ -249,16 +249,39 @@ test('no workflow to compare against means silence, not a false alarm', () => {
     'with no .github/workflows/test.yml, the detector must abstain');
 });
 
-test('REAL repo: every orphan it names really is absent from the CI list', () => {
+test('a suite the workflow explains in a COMMENT is documented, not orphaned', () => {
+  // The rule is about silence, not exclusion. Excluding test-kokoro because it
+  // needs real audio is correct; excluding it without saying so is the finding.
+  // Documenting it is therefore the action the finding asks for, which makes
+  // the finding self-clearing.
+  const wf = 'jobs:\n  x:\n    steps:\n      # test-hardware needs a GPU, so it is not in the list\n'
+           + '      - run: |\n          for f in test-listed; do\n            node "code/$f.js"\n          done\n';
+  const root = fakeRepo({
+    '.github/workflows/test.yml': wf,
+    'code/test-listed.js': 'assert.ok(1);',
+    'code/test-hardware.js': 'assert.ok(1);',
+    'code/test-silent.js': 'assert.ok(1);',
+  });
+  const found = W.orphanSuites({ repoRoot: root });
+  assert.deepStrictEqual(found.map((f) => f.ref), ['test-silent'],
+    'only the suite the workflow never mentions at all is a finding');
+});
+
+test('REAL repo: nothing it reports is mentioned by the real workflow', () => {
+  // Deliberately NOT "this repo has orphans" — an earlier version asserted
+  // that, and it broke the moment the twelve were documented, which is the
+  // detector succeeding. Assert the invariant instead, which holds at any
+  // count including zero.
   const repoRoot = path.join(__dirname, '..');
+  const wfText = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'test.yml'), 'utf8');
   const listed = new Set(require('./sweep.js').ciSuites());
-  const found = W.orphanSuites({ repoRoot });
-  assert.ok(found.length > 0, 'this repo has known orphans; zero would mean the detector is broken');
-  for (const f of found) {
+  for (const f of W.orphanSuites({ repoRoot })) {
     assert.ok(!listed.has(f.ref), `${f.ref} was reported as an orphan but IS in the CI list`);
+    assert.ok(!wfText.includes(f.ref), `${f.ref} was reported but the workflow does mention it`);
     assert.ok(fs.existsSync(path.join(repoRoot, 'code', `${f.ref}.js`)), `${f.ref}.js does not exist`);
   }
-  // ...and every listed suite is absent from the findings.
+  // Every listed suite must be absent from the findings, at any count.
+  const found = W.orphanSuites({ repoRoot });
   for (const name of listed) {
     assert.ok(!found.some((f) => f.ref === name), `${name} is in CI but was reported as an orphan`);
   }
@@ -361,6 +384,31 @@ test('run() reports coverage even when it finds nothing', () => {
     '"no findings" must never be reported without the blind spot beside it');
   assert.match(W.format(r), /no findings/);
   assert.match(W.format(r), /1 numeric claim\(s\) seen but too ambiguous/);
+});
+
+test('a red run says in one line whether any CONTROL broke', () => {
+  // In CI the inbox starts empty every run, so a standing backlog keeps the
+  // job red. The count by kind is what stops that being unreadable: "did
+  // something newly break?" must be answerable without reading the list.
+  const root = fakeRepo({ 'D.md': 'see `code/gone.js`' });
+  const opts = {
+    repoRoot: root, docs: ['D.md'], now: CLOCK, isIgnored: NEVER_IGNORED,
+  };
+
+  const backlogOnly = W.format(W.run({ ...opts, inboxFile: inboxPath(), runSweep: () => fakeSweep() }));
+  assert.match(backlogOnly, /by kind: stale-ref=1/);
+  assert.match(backlogOnly, /no control is broken/,
+    'a backlog-only run must say so, or it reads like an incident');
+
+  const broken = W.format(W.run({
+    ...opts, inboxFile: inboxPath(),
+    runSweep: () => fakeSweep({
+      results: [{ name: 'test-a', count: null }],
+      findings: [{ name: 'test-a', verdict: 'no-count' }],
+    }),
+  }));
+  assert.match(broken, /1 CONTROL\(S\) BROKEN/);
+  assert.match(broken, /by kind: .*suite-cannot-report=1/);
 });
 
 test('exit code is non-zero for NEW findings and zero for already-parked ones', () => {

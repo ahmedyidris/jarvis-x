@@ -386,7 +386,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
 8. Reconcile `CLAUDE.md` with the code: `hermes3:3b` and `nomic-embed-text` are
    documented architecture that appears nowhere in `code/` or `config/` (§5).
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
-   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (36 assertions), in CI,
+   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (38 assertions), in CI,
    plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Four
    detectors, all pure lookups, no model calls: suite health (delegated to
    `sweep.js`, so the two cannot disagree about the CI list), doc references to

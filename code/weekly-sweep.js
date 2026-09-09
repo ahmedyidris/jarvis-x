@@ -191,17 +191,34 @@ function assertionDrift(claims, suiteResults) {
  * of which test.yml documents five as needing local hardware. The other seven
  * were excluded silently, and three of those assert nothing at all.
  *
- * NO ALLOWLIST, deliberately. An allowlist of "deliberately excluded" suites
- * is one more list to drift from the workflow, and it is the exact shape of
- * the thing being detected. Instead the inbox's dedupe carries it: each orphan
- * is parked ONCE, ever, and then never mentioned again. A finding that fires
- * once is information; one that fires weekly is wallpaper.
+ * WHAT IT ACTUALLY OBJECTS TO IS SILENCE, NOT EXCLUSION. Ten of the twelve are
+ * excluded for good reasons — they need Piper, Kokoro, ollama, live APIs, or
+ * are not suites at all. Excluding those is correct. What was wrong is that
+ * seven of them were excluded with no reason written anywhere, so nobody could
+ * tell a deliberate omission from a suite that fell out of the list.
+ *
+ * So the rule is: a suite the workflow NAMES is fine, wherever it names it —
+ * in the run list or in a comment explaining why it is not in the run list.
+ * A suite the workflow never mentions at all is the finding.
+ *
+ * This is deliberately NOT a second allowlist. An allowlist is a new list that
+ * drifts from the workflow; this reads the workflow itself, so the decision
+ * and its record live in one file and cannot disagree. Documenting an
+ * exclusion is exactly the action the finding is asking for, which makes the
+ * finding self-clearing — and a control that goes quiet when you do the right
+ * thing is worth far more than one that is permanently red.
  */
 function orphanSuites({ repoRoot = REPO, codeDir = null, listed = null } = {}) {
   const dir = codeDir || path.join(repoRoot, 'code');
+  const workflowFile = path.join(repoRoot, '.github', 'workflows', 'test.yml');
   let inCI;
+  let workflowText = '';
   try {
-    inCI = new Set(listed || sweepMod.ciSuites({ workflowFile: path.join(repoRoot, '.github', 'workflows', 'test.yml') }));
+    inCI = new Set(listed || sweepMod.ciSuites({ workflowFile }));
+    // Read the whole file, comments included: naming a suite in a comment that
+    // explains why it is excluded is a documented decision, and this detector
+    // exists to find UNdocumented ones.
+    if (!listed) workflowText = fs.readFileSync(workflowFile, 'utf8');
   } catch {
     return [];                       // no workflow to compare against; say nothing
   }
@@ -211,6 +228,9 @@ function orphanSuites({ repoRoot = REPO, codeDir = null, listed = null } = {}) {
     if (!m) continue;
     const name = m[1];
     if (name === 'test-helper' || inCI.has(name)) continue;
+    // Named anywhere in the workflow — including a comment giving the reason —
+    // counts as a documented decision rather than a silent drop.
+    if (workflowText.includes(name)) continue;
     const src = fs.readFileSync(path.join(dir, f), 'utf8');
     const asserts = (src.match(/assert[.(]/g) || []).length;
     out.push({

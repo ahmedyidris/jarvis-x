@@ -84,6 +84,22 @@ jobs:
       # The explicit exit below makes the script honest under plain `bash`
       # too.
       #
+      # THE SUITES STILL EXCLUDED, and why — recorded 2026-09-09 because until
+      # then seven were excluded with no reason written anywhere, which is how
+      # code/weekly-sweep.js's orphan detector found them:
+      #   test-kokoro, test-vision, test-voice, test-voice-interaction,
+      #   test-voice-router, test-voice-accents, test-voice-full-system
+      #                       need local Piper/Kokoro/Ollama and real audio
+      #   test-list-models    talks to ollama on 127.0.0.1:11434
+      #   test-live-data      shells out to scripts that reach live APIs
+      #   test-net            is a GATE for network tests, not a suite at all —
+      #                       misnamed test-*, like test-helper was
+      # test-accessibility and test-full-accessibility were in that list and
+      # should not have been: both are offline, need only i18next (declared),
+      # and are now in the run above. Both ALSO could not fail until this
+      # commit — they ended in `.catch(console.error)`, the same line test.yml
+      # already documents in test-data-layer.js.
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -107,7 +123,8 @@ jobs:
                    test-status test-weekly-sweep test-memory-bitemporal \
                    test-gate test-trading-performance test-memory-policy \
                    test-memory-repair test-memory-sweep test-memory-inbox \
-                   test-memory-integration test-trading-integration; do
+                   test-memory-integration test-trading-integration \
+                   test-accessibility test-full-accessibility; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
