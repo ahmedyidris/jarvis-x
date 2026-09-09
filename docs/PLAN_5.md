@@ -410,7 +410,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    one count; everything else increments a printed `claimsUnchecked`. Currently
    5 checked, 5 unchecked.
 
-10. **Bitemporal memory** (§3 item 4) — **layers 1–2 and 4 of 7 built,
+10. **Bitemporal memory** (§3 item 4) — **layers 1–2, 4 and 5 of 7 built,
     2026-09-09; deliberately not wired in.** `code/memory-bitemporal.js`,
     `code/test-memory-bitemporal.js` (28 assertions, 14/14 mutations caught),
     in CI. The template's §8 build order is bottom-up and says each layer must
@@ -439,8 +439,28 @@ as much as possible so the metered tier is spent only where it earns its keep.
     against a fact stored under topic `city` — a real limit, stated rather
     than rounded off.
 
-    Layers 5–7 (the repair writer, the detect/propose sweep, the human inbox)
-    are **not built**, and
+    **Layer 5 (the repair writer) is built**: `code/memory-repair.js` +
+    `code/test-memory-repair.js` (21 assertions, 12/12 mutations caught). It is
+    the template's "one writer" — the only thing that turns a decision into a
+    stored fact — and everything passes three gates on the way. It closes a
+    real gap while doing so: `memory-bitemporal.js` writes with
+    `fs.appendFileSync` and does not import `guard.js`, so the kill switch did
+    not reach a store write. Correct for a data structure, wrong for an action,
+    so the gating lives here — a pulled switch now blocks the write *and*
+    records the block, as §VI requires. Every applied repair writes a schema v5
+    audit row carrying its `confidence` and `approved_by`, which makes this the
+    v5 gate's first production caller. A `parked` decision is never applied, at
+    any confidence, by any caller.
+
+    Its hardest case is the stale decision: layer 4 decides every candidate
+    against ONE snapshot, so by the time one arrives here its target may
+    already be superseded. Applying it anyway would leave two successors to one
+    predecessor — the self-contradiction layer 4 refuses to add a third opinion
+    to — so every application re-validates against the store as it is now and
+    refuses rather than guessing.
+
+    Layers 6–7 (the detect/propose sweep over stale facts, and a review surface
+    for the inbox) are **not built**, and
     `code/memory.js` keeps its one consumer, `code/scheduler.js`, untouched —
     swapping that over needs layers 4–5, which decide what a new fact does to
     an old one. "Not wired in" is pinned by a test rather than left as a

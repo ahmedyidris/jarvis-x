@@ -127,6 +127,22 @@ await test('a malformed confidence is refused and RECORDED as refused, not dropp
   }
 });
 
+await test('an explicit undefined is ABSENCE, not a malformed claim', () => {
+  // `{confidence: obj.confidence}` where obj has none is the commonest way to
+  // build this, and it must read the same as claiming nothing. Reporting it as
+  // `rejected` would flag a caller that simply did not claim as one passing
+  // nonsense — found by wiring code/memory-repair.js up to this gate.
+  const row = { schema: 'v5', ...G.normalizeClaim({ action: 'x', confidence: undefined, approved_by: undefined }) };
+  assert.ok(!('confidence_rejected' in row), 'undefined is not a rejection');
+  assert.ok(!('approved_by_rejected' in row));
+  assert.strictEqual(G.readConfidence(row).reason, 'not-claimed');
+  assert.strictEqual(G.readApproval(row).reason, 'not-claimed');
+  assert.strictEqual(G.gateVerdict(row), 'unknown');
+  // null is different: that IS a value, and it is not a number.
+  assert.strictEqual(
+    G.readConfidence({ schema: 'v5', ...G.normalizeClaim({ confidence: null }) }).reason, 'rejected');
+});
+
 await test('a valid confidence at either boundary survives normalisation', () => {
   assert.strictEqual(G.normalizeClaim({ confidence: 0 }).confidence, 0);
   assert.strictEqual(G.normalizeClaim({ confidence: 1 }).confidence, 1);

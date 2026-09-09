@@ -182,6 +182,16 @@ const APPROVERS = Object.freeze(['human', 'jarvis']);
  */
 function normalizeClaim(entry) {
   const out = { ...entry };
+  // An explicit `undefined` is ABSENCE, not a malformed claim. `{confidence:
+  // undefined}` and `{}` must be indistinguishable, because building the
+  // former is the commonest way a caller ends up here -- `{confidence:
+  // obj.confidence}` where obj has none. Treating them differently would make
+  // the verdict depend on how the caller happened to construct the object,
+  // and would report a caller that simply did not claim as one passing
+  // nonsense, diluting the signal `rejected` exists to carry. `null` stays a
+  // rejection: that is a value, and it is not a number.
+  if (out.confidence === undefined) delete out.confidence;
+  if (out.approved_by === undefined) delete out.approved_by;
   if ('confidence' in out) {
     const c = out.confidence;
     if (typeof c !== 'number' || !Number.isFinite(c) || c < 0 || c > 1) {

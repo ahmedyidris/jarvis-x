@@ -39,6 +39,9 @@ memory/observed.jsonl
 # not the container's. Ignoring it also keeps code/weekly-sweep.js from
 # reporting it as a stale reference, since that detector skips ignored paths.
 memory/facts.jsonl
+# The human inbox for parked memory repairs (code/memory-repair.js). Same
+# reasoning as facts.jsonl: agent-written runtime data, per-machine.
+memory/repair-inbox.jsonl
 models/
 node_modules/
 ollama/
