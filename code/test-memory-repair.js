@@ -291,7 +291,8 @@ await test('layer 4 decides and layer 5 applies, with the store the only thing t
   // A hesitant one: decided as a park, and it stays a park.
   const weak = cand({ value: 'Delhi', text: 'Delhi', confidence: 0.65 });
   const d2 = decideFact(weak, store.recall());
-  assert.strictEqual(d2.action, 'park');
+  assert.strictEqual(d2.routing, 'parked');
+  assert.strictEqual(d2.action, 'replace', 'the intent survives so a human can approve it later');
   const r2 = R.repair({ decision: d2, candidate: weak, store, inboxFile });
   assert.strictEqual(r2.outcome, 'parked');
   assert.strictEqual(store.validAt(store.clock.iso())[0].value, 'Bengaluru', 'unchanged');

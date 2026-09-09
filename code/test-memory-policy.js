@@ -50,7 +50,11 @@ await test('nothing comparable stored means born, at the LOWER add bar', () => {
 
 await test('below the add bar even a new fact parks', () => {
   const d = P.decideFact(cand({ confidence: 0.3 }), []);
-  assert.strictEqual(d.action, 'park');
+  // The ACTION is still 'born' -- that is what was proposed. `routing` is what
+  // says it may not happen automatically. Keeping the two separate is what
+  // lets layer 7 re-submit the proposal when a human approves it.
+  assert.strictEqual(d.action, 'born');
+  assert.strictEqual(d.routing, 'parked');
   assert.ok(d.why.some((w) => /below the add bar/.test(w)), `why: ${d.why}`);
 });
 
@@ -132,7 +136,8 @@ await test('a contradiction between the two bars PARKS — retiring costs more t
   assert.ok(between > THRESHOLDS.add && between < THRESHOLDS.retire);
   assert.strictEqual(P.decideFact(cand({ confidence: between }), []).action, 'born');
   const d = P.decideFact(cand({ confidence: between }), [fact()]);
-  assert.strictEqual(d.action, 'park');
+  assert.strictEqual(d.action, 'replace', 'the proposal survives; only the routing changes');
+  assert.strictEqual(d.routing, 'parked');
   assert.ok(d.why.some((w) => /below the retire bar/.test(w)), `why: ${d.why}`);
 });
 
@@ -140,13 +145,14 @@ await test('a contradiction on a STABLE fact parks at any confidence', () => {
   const stored = [fact({ topic: 'birthday', volatility: 'stable', value: '1990-01-01' })];
   const d = P.decideFact(
     cand({ topic: 'birthday', volatility: 'stable', value: '1991-02-02', confidence: 1 }), stored);
-  assert.strictEqual(d.action, 'park');
+  assert.strictEqual(d.routing, 'parked');
+  assert.strictEqual(d.action, 'replace', 'a human may still approve it; the agent may not');
   assert.ok(d.why.some((w) => /extraction error/.test(w)), `why: ${d.why}`);
 });
 
 await test('a park still names its target, so the human inbox knows what is in question', () => {
   const d = P.decideFact(cand({ confidence: 0.65 }), [fact()]);
-  assert.strictEqual(d.action, 'park');
+  assert.strictEqual(d.routing, 'parked');
   assert.strictEqual(d.targetId, 'f1', 'a proposal with no target is unreviewable');
 });
 
@@ -174,8 +180,24 @@ await test('an unknown volatility class parks rather than defaulting to a shelf 
 
 await test('a candidate with no confidence is treated as zero, not as certain', () => {
   const c = cand(); delete c.confidence;
-  assert.strictEqual(P.decideFact(c, []).action, 'park',
+  assert.strictEqual(P.decideFact(c, []).routing, 'parked',
     'a missing claim must never read as a confident one — same rule as guard.js v5');
+});
+
+await test('a parked proposal keeps WHAT it proposed, so a human can approve it', () => {
+  // The cross-layer bug code/test-memory-integration.js found: collapsing a
+  // low-confidence contradiction to action:'park' threw away the intent, so
+  // layer 7 re-submitted 'park' on approval and layer 5 refused. Every layer's
+  // own tests passed while no human-approved change could ever be applied.
+  const parked = P.decideFact(cand({ confidence: 0.65 }), [fact()]);
+  assert.strictEqual(parked.routing, 'parked');
+  assert.strictEqual(parked.action, 'replace');
+  assert.ok(P.ACTIONS.includes(parked.action));
+
+  // 'park' remains an action only where nothing coherent WAS proposed, and
+  // those are exactly the ones a human cannot approve into existence either.
+  assert.strictEqual(P.decideFact({ text: 'no topic' }, []).action, 'park');
+  assert.strictEqual(P.decideFact(cand({ volatility: 'nope' }), []).action, 'park');
 });
 
 await test('every action returned is in the closed set', () => {

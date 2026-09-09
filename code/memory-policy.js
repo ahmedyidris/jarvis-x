@@ -41,7 +41,21 @@ const { decide, VOLATILITY, THRESHOLDS } = require('./memory-bitemporal.js');
  *   reaffirm  the stored fact says the same thing; it is evidence, not news
  *   replace   the stored fact is contradicted; close it where this one opens
  *   coexist   both can be true at once (different scope)
- *   park      the decision is not the agent's to make — human inbox
+ *   park      there is nothing coherent to propose at all
+ *
+ * `action` and `routing` are ORTHOGONAL, and an earlier draft conflated them:
+ * a low-confidence contradiction returned `action: 'park'`, which threw away
+ * WHAT was being proposed. That only broke once all seven layers ran together
+ * -- layer 7 re-submits a parked proposal when a human approves it, and the
+ * writer received `action: 'park'` and refused, so no human-approved change
+ * could ever be applied. Every layer's own tests passed throughout, which is
+ * the whole reason code/test-memory-integration.js exists.
+ *
+ * So `action` now always says what was proposed and `routing` says whether the
+ * agent may do it alone. `park` survives as an action only where there is
+ * genuinely nothing to propose -- no topic, an unknown volatility class, a
+ * store already contradicting itself -- and those are exactly the ones a human
+ * cannot approve into existence either.
  */
 const ACTIONS = Object.freeze(['born', 'reaffirm', 'replace', 'coexist', 'park']);
 
@@ -99,7 +113,7 @@ function decideFact(candidate, current = []) {
         `(${others.length} fact(s) at other scopes are unaffected)`
       : `nothing stored under topic "${candidate.topic}"`);
     if (routing === 'parked') why.push(`confidence ${confidence} is below the add bar ${THRESHOLDS.add}`);
-    return { action: routing === 'auto' ? 'born' : 'park', targetId: null, routing, why };
+    return { action: 'born', targetId: null, routing, why };
   }
 
   // More than one comparable fact means the store already disagrees with
@@ -134,7 +148,7 @@ function decideFact(candidate, current = []) {
       ? 'a contradiction on a stable fact always parks — more often an extraction error than a real change'
       : `confidence ${confidence} is below the retire bar ${THRESHOLDS.retire}`);
   }
-  return { action: routing === 'auto' ? 'replace' : 'park', targetId: rival.id, routing, why };
+  return { action: 'replace', targetId: rival.id, routing, why };
 }
 
 /**
