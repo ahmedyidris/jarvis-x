@@ -439,8 +439,8 @@ as much as possible so the metered tier is spent only where it earns its keep.
    one count; everything else increments a printed `claimsUnchecked`. Currently
    5 checked, 5 unchecked.
 
-10. **Bitemporal memory** (§3 item 4) — **all seven layers built except
-    layer 3's semantic half, 2026-09-09; deliberately not wired in.** `code/memory-bitemporal.js`,
+10. **Bitemporal memory** (§3 item 4) — **all seven layers built,
+    2026-09-09; deliberately not wired in.** `code/memory-bitemporal.js`,
     `code/test-memory-bitemporal.js` (28 assertions, 14/14 mutations caught),
     in CI. The template's §8 build order is bottom-up and says each layer must
     be usable on its own before the next starts, so this is the clock
@@ -459,14 +459,48 @@ as much as possible so the metered tier is spent only where it earns its keep.
     injected argument with **no default**, since a default extractor would
     become the implementation nobody replaced.
 
-    **Layer 3 is half-met and half-blocked.** Its requirement — "retrieval that
-    returns a fact's age/confidence alongside its content" — is already what
-    `recall()` does. The missing half is *semantic* retrieval, which needs
-    `nomic-embed-text` through ollama; `CLAUDE.md` records that model as pulled
-    but wired into nothing, and this container has no ollama. Recall is
-    exact-match on (topic, scope) until then, which will miss "where I live"
-    against a fact stored under topic `city` — a real limit, stated rather
-    than rounded off.
+    **Layer 3 was recorded as blocked, and that was half wrong.**
+    `code/memory-embed.js` + `code/test-memory-embed.js` (44 assertions,
+    25/25 mutations caught), in CI. The reasoning that blocked it: semantic
+    retrieval needs `nomic-embed-text` through ollama, and this container has
+    none. True of the *live embedder*; not true of the *layer*, because the
+    embedder is an argument exactly like the clock in layer 1 and the
+    `repairFn` in layer 6. Every embedder in the suite is a plain function
+    over a lookup table and `ollamaEmbedder` is driven by an injected
+    `fetchFn`, so the suite opens no socket and runs identically with or
+    without a daemon. What still needs the Chromebook is the live round trip —
+    that `nomic-embed-text` returns a vector of the shape this expects — not
+    the layer.
+
+    **The design decision that matters here is that ranking is not by
+    similarity.** The template's §1 says the dangerous memory is the one that
+    *was* true: "it embedded perfectly, retrieves with the highest score" and
+    is then stated with total confidence. So a similarity-only semantic recall
+    is not a neutral baseline in this system — it is the mechanism of the
+    failure, and it would make retrieval strictly worse than the exact-match
+    `recall()` it sits beside. Score is `similarity × freshness`, multiplicative
+    rather than a weighted sum, because a sum lets a perfect embedding carry a
+    dead fact to the top on similarity alone. Both inputs are returned
+    separately so a caller can disagree with the combination without
+    re-deriving it. Two tests exist only to make a regression to
+    similarity-only impossible, and the mutation that performs exactly that
+    regression is caught.
+
+    Three further rules, each pinned: **nothing stale is dropped** (demoted and
+    flagged, never silent — silence reads as "I never knew that", a different
+    and worse claim than "I knew that and it may be out of date"); **the
+    similarity floor applies to raw similarity, before freshness demotes it**,
+    or an old-but-correct answer vanishes through the back door; and **the
+    staleness threshold is `THRESHOLDS.freshnessFloor`, imported**, the same
+    number `recall()` and the sweep use, per the template's §9 checklist item
+    about retrieval and the sweep contradicting each other in front of a user.
+
+    **A dead embedder is reported, never swallowed.** It falls back to the
+    lexical path and returns `degraded`/`reason`; it does not return `[]`
+    (which reads as "no such memory") and does not throw (which would take the
+    chat down over a ranking improvement). Same rule as `jj status` and the v5
+    gate. `code/memory-sweep.js` must not import this module — detection stays
+    free of model calls per template §6 — and a test asserts it doesn't.
 
     **Layer 5 (the repair writer) is built**: `code/memory-repair.js` +
     `code/test-memory-repair.js` (21 assertions, 12/12 mutations caught). It is
@@ -517,8 +551,8 @@ as much as possible so the metered tier is spent only where it earns its keep.
     resolution is a new row referencing the proposal's id, and "what is open"
     is a fold rather than a stored state.
 
-    So the architecture is complete except for layer 3's semantic retrieval,
-    and `code/memory.js` keeps its one consumer, `code/scheduler.js`, untouched —
+    So the architecture is complete, and `code/memory.js` keeps its one
+    consumer, `code/scheduler.js`, untouched —
     swapping that over needs layers 4–5, which decide what a new fact does to
     an old one. "Not wired in" is pinned by a test rather than left as a
     promise in a commit message.

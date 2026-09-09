@@ -100,6 +100,17 @@ jobs:
       # commit — they ended in `.catch(console.error)`, the same line test.yml
       # already documents in test-data-layer.js.
       #
+      # test-memory-embed covers code/memory-embed.js, bitemporal memory's
+      # layer 3. The layer needs an embedding model (`nomic-embed-text` via
+      # ollama), which is exactly why it was the last layer built and was
+      # recorded as blocked -- but the MODEL is an argument, like the clock and
+      # the repairFn before it, so the layer is offline here for the same
+      # reason the rest are. Every embedder in the suite is a plain function
+      # over a lookup table, and `ollamaEmbedder` is exercised with an injected
+      # fetchFn, so no socket opens and the run is identical with or without a
+      # daemon. What still needs the Chromebook is the live round trip, not
+      # this suite.
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -124,7 +135,8 @@ jobs:
                    test-gate test-trading-performance test-memory-policy \
                    test-memory-repair test-memory-sweep test-memory-inbox \
                    test-memory-integration test-trading-integration \
-                   test-accessibility test-full-accessibility; do
+                   test-accessibility test-full-accessibility \
+                   test-memory-embed; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

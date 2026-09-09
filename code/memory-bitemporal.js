@@ -10,11 +10,15 @@
  *
  *   1. clock abstraction          <- here
  *   2. store + read/write helpers <- here
- *   3. embed + recall             not built
- *   4. extract + classify + policy  not built
- *   5. repair (the one writer)      not built
- *   6. detect + propose + sweep     not built
- *   7. human inbox                  not built
+ *   3. embed + recall               code/memory-embed.js
+ *   4. extract + classify + policy  code/memory-policy.js
+ *   5. repair (the one writer)      code/memory-repair.js
+ *   6. detect + propose + sweep     code/memory-sweep.js
+ *   7. human inbox                  code/memory-inbox.js
+ *
+ * (Layers 3-7 all read "not built" here until 2026-09-09, when they were.
+ * A map of the system that lives in the system and is not updated with it is
+ * the stale-doc-ref case code/weekly-sweep.js exists to catch.)
  *
  * It is deliberately NOT wired into anything yet. `code/memory.js` (the flat
  * observed.jsonl log) keeps its one consumer, `code/scheduler.js`, untouched;
