@@ -60,6 +60,16 @@ const PATH_RE = /`([A-Za-z0-9_./-]+\.(?:js|py|json|md|sh|yml|yaml))`/g;
  *   - a bare filename with no directory (`guard.js`) is skipped: that is
  *     usually prose about a module, and resolving it against the repo root
  *     would invent findings for every module discussed by name.
+ *
+ * A KNOWN LIMITATION, hit immediately by this module's own paperwork: a doc
+ * that *reports* a missing file, in backticks, is itself flagged -- writing up
+ * the gateway-adapter finding in PLAN_5 made PLAN_5 a second finding for the
+ * same underlying rot. The detector is not wrong (the path really is not
+ * there), it just cannot tell a stale pointer from a deliberate mention. The
+ * fix is in the prose, not here: name such a file WITHOUT backticks, since
+ * backticks are precisely what marks it as a live path. Teaching the detector
+ * to spot "does not exist" nearby would be the prose-guessing this module
+ * exists to avoid, and it would be one more rule to be subtly wrong.
  *   - a gitignored path is skipped. `logs/.judge-cache.json` is referenced by
  *     AS_BUILT.md and is *supposed* to be absent from a fresh checkout -- it is
  *     created at runtime. Flagging it would be a false positive on every single

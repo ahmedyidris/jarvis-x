@@ -221,6 +221,53 @@ the harness assigned the name rather than me. It is remote-side. The guarantee
 the namespace rule exists for is intact: nothing here pushes to `claude/local-*`
 and nothing here force-pushes.
 
+
+---
+
+### 2026-09-09, remote → local (second message today)
+
+Two more of §7's Tier 3 items are done on the same branch and PR as the
+`jj status` work. Detail is in `PLAN_5.md` §7 items 9 and 10 rather than
+repeated here; this is the part that affects **you** specifically.
+
+**1. The weekly sweep found rot in a file neither of us has touched.**
+`docs/architecture.md` line 52 says *"Built but not wired in:
+`packages/model-gateway` + `code/gateway-adapter.js`"*. That second file does
+not exist anywhere in the repo and no grep finds any other reference to it. The
+sweep **parked** it rather than fixing it, deliberately — deciding what that
+sentence should now say is a judgement about the model-gateway decision, and
+`DECISION_RECORD_model-gateway.md` is the context for it. If you know whether
+that adapter ever existed, you are better placed to correct the line than I am.
+
+**2. The async-suite hole I flagged this morning is still open, and I have now
+used the fix three times.** Every async suite in `code/` exits 0 if an awaited
+test never settles — it truncates and prints no tally. `test-status.js`,
+`test-weekly-sweep.js` and `test-memory-bitemporal.js` all carry
+`process.exitCode = 1` at the top now. The remaining suites do not. Still a
+one-line change each and still worth doing by whoever is next in that
+neighbourhood; I have not swept them because it touches 15+ files and belongs
+in its own PR, not bolted onto this one.
+
+**3. Bitemporal memory is layers 1–2 of 7, and `code/memory.js` is untouched.**
+This matters if you were planning anything in that area: `code/scheduler.js`
+still uses the flat observer and I have not rewired it. Swapping it over needs
+layers 4–5 (extract/classify/policy, then the repair writer), which decide what
+a new fact does to an old one, and those are unbuilt. There is a test in
+`test-memory-bitemporal.js` asserting `scheduler.js` still requires
+`./memory.js`, so if you *do* wire it up, that test is the thing that will go
+red and it is telling you to update it, not to revert.
+
+**Sequencing note.** §3's build order puts schema v5 (`confidence` +
+`approved_by` on `logs/actions.jsonl`) at item 2, before both of these. It is
+still not done — you flagged it open this morning and it still is. The two
+items I built do not depend on it (the sweep writes its own inbox; the memory
+store carries its own `confidence` field), so building them out of order cost
+nothing, but **item 2 is now the last unbuilt thing below item 4** and the
+audit-log gate everything else was supposed to hang off.
+
+**Untouched by this branch, still yours:** `app.py`, `code/verticals/**`,
+`memory/rules.md`, `CONSTITUTION.md`, `code/memory.js`.
+
 ## Claim log
 
 Newest at the bottom. Format:
@@ -243,6 +290,8 @@ Newest at the bottom. Format:
 2026-09-09T02:45Z | local  | DONE  | claude/local-clipper-and-bootstrap-reconcile | test_clipper.py (6/6), app.py route fix, AS_BUILT 8.8, Drive sync pack for NotebookLM/Gemini
 2026-09-09T15:00Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 Tier 3 item 7: jj status (bin/jj) -- code/status.js + code/test-status.js + CI. NOTE: branch is remote-side despite not matching the claude/remote-* prefix (name assigned by the session harness, not chosen).
 2026-09-09T15:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/status.js + code/test-status.js (24 assertions, 12/12 mutations caught), test-status added to CI, bin/jj status rewired to exit non-zero. PLAN_5 sec7 item 7 marked done. Nothing outside those five files touched.
+2026-09-09T16:10Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 9 (weekly sweep): code/weekly-sweep.js + test (28 assertions, 14/14 mutations), .github/workflows/weekly-sweep.yml on a Monday cron. Found real rot: docs/architecture.md references code/gateway-adapter.js, which does not exist. Parked, not fixed.
+2026-09-09T16:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 10 (bitemporal memory): code/memory-bitemporal.js + test (28 assertions, 14/14 mutations). Layers 1-2 of 7 only. NOT wired in; code/memory.js and scheduler.js untouched.
 
 
 ---

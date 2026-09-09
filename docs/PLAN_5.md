@@ -104,11 +104,15 @@ and exits 0 unconditionally.** It is a library, not a test.
 2. **`confidence` + `approved_by` on the audit log** (schema v5). These are what
    turn the log from a record into a gate. A v4 row must read as *absent*, never
    as a default — a guessed `1.0` on old rows is a lie the gate would then trust.
-3. **The weekly sweep.** Re-run the suites, diff `AS_BUILT.md`'s claims against
-   fresh command output, park anything that drifted.
-4. **Bitemporal memory.** `code/memory.js` is a flat JSONL observer today: no
-   `valid_from`/`valid_to`, no volatility class, no confidence. The second PDF is
-   the design. Days of work — after 1–3.
+3. ~~**The weekly sweep.**~~ **DONE 2026-09-09** — `code/weekly-sweep.js`.
+   Re-runs the suites, diffs doc claims against fresh output, parks anything
+   that drifted. See §7 item 9.
+4. **Bitemporal memory.** `code/memory.js` is still the flat JSONL observer in
+   the live path. `code/memory-bitemporal.js` (2026-09-09) adds the store
+   beside it — `valid_from`/`valid_to`, volatility class, confidence, and the
+   rest of the template's schema — but **layers 3–7 are not built and nothing
+   uses it yet**. See §7 item 10 for exactly what exists. Still days of work
+   remaining; the foundation is no longer one of them.
 
 Confidence-gated, never autonomous: routine low-risk fixes get proposed with a
 diff; anything that deletes, disables, or touches a constraint file parks for
@@ -332,8 +336,58 @@ as much as possible so the metered tier is spent only where it earns its keep.
    "ready".
 8. Reconcile `CLAUDE.md` with the code: `hermes3:3b` and `nomic-embed-text` are
    documented architecture that appears nowhere in `code/` or `config/` (§5).
-9. Weekly sweep (§3 item 3).
-10. Bitemporal memory (§3 item 4).
+9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
+   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (28 assertions), in CI,
+   plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Three
+   detectors, all pure lookups, no model calls: suite health (delegated to
+   `sweep.js`, so the two cannot disagree about the CI list), doc references to
+   files that no longer exist, and assertion-count claims re-checked against
+   what the suites now report. It parks findings in an append-only inbox and
+   **never fixes** — the exit code is non-zero only for *new* findings, because
+   re-reporting last week's parked item every week is how a control trains you
+   to ignore it. **It found real rot on its first run:** `docs/architecture.md`
+   line 52 claims a file named code/gateway-adapter.js exists; it does not
+   exist anywhere in the repo. (Named without backticks here on purpose:
+   backticks are exactly what the detector reads as "a path in this repo", so
+   a doc reporting an absence would otherwise report itself.) Parked, not fixed — deciding what that sentence should now say is
+   a judgement, and this module's contract is that it does not make those.
+   14 mutations, 14 caught.
+
+   The design point worth carrying elsewhere: it reports **its own blind spot**
+   on every run. A prose scraper either misses claims or invents them, and for
+   a control the second is far worse, because "no drift found" then means
+   "found nothing" rather than "checked everything". So a claim counts as
+   *checked* only when its sentence names exactly one suite and carries exactly
+   one count; everything else increments a printed `claimsUnchecked`. Currently
+   5 checked, 5 unchecked.
+
+10. **Bitemporal memory** (§3 item 4) — **layers 1–2 of 7 built, 2026-09-09;
+    deliberately not wired in.** `code/memory-bitemporal.js`,
+    `code/test-memory-bitemporal.js` (28 assertions, 14/14 mutations caught),
+    in CI. The template's §8 build order is bottom-up and says each layer must
+    be usable on its own before the next starts, so this is the clock
+    abstraction and the store — the two axes (`valid_from`/`valid_to` and
+    derived transaction time), the four lifecycle transitions (born, replaced,
+    ages, ends), the volatility classes with their half-lives, freshness
+    measured from `last_verified_at`, and the two-threshold confidence gate.
+    Layers 3–7 (embed/recall, extract/classify/policy, the repair writer, the
+    detect/propose sweep, the human inbox) are **not built**, and
+    `code/memory.js` keeps its one consumer, `code/scheduler.js`, untouched —
+    swapping that over needs layers 4–5, which decide what a new fact does to
+    an old one. "Not wired in" is pinned by a test rather than left as a
+    promise in a commit message.
+
+    Two things worth recording. **One deliberate deviation from the template's
+    schema:** it lists `expired_at` as a stored column, but in an append-only
+    file closing version N would mean editing a row already written, which is
+    the one thing this store must never do — so transaction time is *derived*
+    on read (version N closes exactly where N+1 opens). Same queries, no
+    mutation. **And one design bug its own test caught:** an earlier draft
+    filtered valid-time queries by `status`, excluding `superseded` rows. That
+    made the store answer "nothing" when asked what was true on a date before
+    a fact was replaced — "I live in Pune" on June 2nd is not retroactively
+    false because they moved on the 3rd. The interval is the only criterion;
+    status is a lifecycle label and plays no part.
 
 **Tier 4 — gated on Tier 2 producing a measurement.**
 
