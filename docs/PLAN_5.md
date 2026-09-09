@@ -410,8 +410,8 @@ as much as possible so the metered tier is spent only where it earns its keep.
    one count; everything else increments a printed `claimsUnchecked`. Currently
    5 checked, 5 unchecked.
 
-10. **Bitemporal memory** (§3 item 4) — **layers 1–2 of 7 built, 2026-09-09;
-    deliberately not wired in.** `code/memory-bitemporal.js`,
+10. **Bitemporal memory** (§3 item 4) — **layers 1–2 and 4 of 7 built,
+    2026-09-09; deliberately not wired in.** `code/memory-bitemporal.js`,
     `code/test-memory-bitemporal.js` (28 assertions, 14/14 mutations caught),
     in CI. The template's §8 build order is bottom-up and says each layer must
     be usable on its own before the next starts, so this is the clock
@@ -419,8 +419,28 @@ as much as possible so the metered tier is spent only where it earns its keep.
     derived transaction time), the four lifecycle transitions (born, replaced,
     ages, ends), the volatility classes with their half-lives, freshness
     measured from `last_verified_at`, and the two-threshold confidence gate.
-    Layers 3–7 (embed/recall, extract/classify/policy, the repair writer, the
-    detect/propose sweep, the human inbox) are **not built**, and
+    **Layer 4 (policy) is also built**: `code/memory-policy.js` +
+    `code/test-memory-policy.js` (25 assertions, 14/14 mutations caught).
+    It decides what a new fact does to an old one — born / reaffirm / replace /
+    coexist / park — and writes nothing; a test asserts it imports only the
+    gate and cannot reach the store, because applying a decision is layer 5's
+    job. The judgement most likely to be silently wrong is coexist-vs-replace,
+    which turns on topic-vs-scope: get it wrong and a store that should
+    remember two jobs instead thinks you keep changing jobs. Extraction is an
+    injected argument with **no default**, since a default extractor would
+    become the implementation nobody replaced.
+
+    **Layer 3 is half-met and half-blocked.** Its requirement — "retrieval that
+    returns a fact's age/confidence alongside its content" — is already what
+    `recall()` does. The missing half is *semantic* retrieval, which needs
+    `nomic-embed-text` through ollama; `CLAUDE.md` records that model as pulled
+    but wired into nothing, and this container has no ollama. Recall is
+    exact-match on (topic, scope) until then, which will miss "where I live"
+    against a fact stored under topic `city` — a real limit, stated rather
+    than rounded off.
+
+    Layers 5–7 (the repair writer, the detect/propose sweep, the human inbox)
+    are **not built**, and
     `code/memory.js` keeps its one consumer, `code/scheduler.js`, untouched —
     swapping that over needs layers 4–5, which decide what a new fact does to
     an old one. "Not wired in" is pinned by a test rather than left as a
