@@ -1,0 +1,60 @@
+name: weekly-sweep
+
+# THE TIME-DRIVEN HALF of PLAN_5 §3. `test.yml` is the arrival path: it fires
+# when something changes. This fires when nothing has, which is the whole point
+# -- rot that no commit touches is invisible to an event-driven control by
+# construction, because there is no event to fire on. Five instances in this
+# repo were found by hand and none by tooling.
+#
+# WHY IT IS A SEPARATE WORKFLOW and not another job in test.yml: a job in
+# test.yml would run on every push, which is the schedule it is specifically
+# not supposed to have, and it would double the cost of every PR to re-derive
+# an answer that only changes on the scale of weeks.
+on:
+  schedule:
+    # 07:00 UTC every Monday. Cron here is UTC; GitHub gives no timezone knob.
+    - cron: '0 7 * * 1'
+  # So it can be exercised without waiting a week -- and so a failure can be
+  # re-checked after a fix without editing the cron.
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      # Same reason as test.yml: code/exec.js resolves BASE as $HOME/jarvis-x,
+      # which is not where actions/checkout puts the code.
+      - name: Symlink $HOME/jarvis-x -> checkout dir (matches exec.js's BASE)
+        run: ln -sfn "$GITHUB_WORKSPACE" "$HOME/jarvis-x"
+
+      # THE INBOX BEHAVES DIFFERENTLY HERE THAN ON THE CHROMEBOOK, deliberately.
+      #
+      # logs/ is gitignored and the runner is ephemeral, so the inbox starts
+      # empty on every scheduled run. Every finding therefore reads as NEW and
+      # the job goes red for as long as the rot exists. That is the right
+      # semantics for CI -- red means "there is rot right now", and a finding
+      # that got parked once should not then be invisible forever to the only
+      # unattended check that runs.
+      #
+      # On the Chromebook, where logs/ persists across runs, the dedupe does
+      # apply and a parked finding notifies once. Two different jobs for the
+      # same module: CI answers "is there rot", the local cron answers "is
+      # there anything NEW". Both are wanted; neither is a bug.
+      - name: Weekly sweep (detects only — never fixes, never rewrites a doc)
+        run: node code/weekly-sweep.js
+
+      # The sweep exits non-zero with the findings already printed above, so
+      # this only adds the pointer to what to do about them.
+      - name: What a red run here means
+        if: failure()
+        run: |
+          echo "The weekly sweep found rot. It changed nothing — it only reports."
+          echo "Findings are printed in the step above and parked in logs/sweep-inbox.jsonl."
+          echo "Each is a doc claim that no longer matches the code, or a suite that"
+          echo "cannot report whether it passed. Fix the doc or the suite; do not"
+          echo "silence the sweep."
