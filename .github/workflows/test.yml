@@ -107,7 +107,7 @@ jobs:
                    test-status test-weekly-sweep test-memory-bitemporal \
                    test-gate test-trading-performance test-memory-policy \
                    test-memory-repair test-memory-sweep test-memory-inbox \
-                   test-memory-integration; do
+                   test-memory-integration test-trading-integration; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
