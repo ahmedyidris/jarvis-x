@@ -101,7 +101,7 @@ jobs:
                    test-eval-agent test-agent test-data-layer test-lib \
                    test-selfdebug test-agent-data-integration test-sweep \
                    test-status test-weekly-sweep test-memory-bitemporal \
-                   test-gate; do
+                   test-gate test-trading-performance; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

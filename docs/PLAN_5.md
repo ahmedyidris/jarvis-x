@@ -321,9 +321,35 @@ as much as possible so the metered tier is spent only where it earns its keep.
    script draft in his voice → *his edit* → Higgsfield render → thumbnail,
    title, description → queue. Posting automated, publishing gated on his
    approval of the cut. English first.
-6. **Trading, phase 1** (§6.1): bot trader, TradingView signals, local models on
-   analysis, paper execution on the six instruments, and the honest performance
-   measurement that makes phase 2 a decision rather than a guess.
+6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
+   The clause that gates phase 2 is built: **the honest performance
+   measurement**, `code/trading-performance.js` +
+   `code/test-trading-performance.js` (28 assertions, 15/15 mutations caught),
+   in CI. Read-only — it imports `fs` and `path` and nothing else, asserted by
+   its own test, so there is no path from it to an order.
+
+   Its design is mostly defences against a performance report flattering
+   itself, each one a named rule: seven trades is not a win rate (the default
+   verdict is `insufficient-evidence` and it is the hardest of the three to
+   escape); realized-only P&L flatters a book that never closes its losers (open
+   exposure is reported separately and *never* netted in); a profit inside the
+   noise is not a profit (expectancy sits beside its dispersion); zero stop-outs
+   means the stop-derived position sizing in `config/trading.json` is
+   UNVALIDATED rather than working; and the window is always stated.
+
+   **The ceiling is deliberate: the strongest verdict it can ever return is
+   `promising`.** There is no `ready`, `approved` or `go` value, and a test
+   asserts none can exist. Authorising real money is a `CONSTITUTION.md` §IV
+   amendment that is Ahmed's alone, and a report able to print its own approval
+   would be making that decision for him. Every rendered report repeats that in
+   its footer.
+
+   **Still not built** — the other four clauses: the bot-trader loop,
+   TradingView signals, local models on analysis, and the scheduled paper
+   execution that would actually populate `logs/trading-journal.jsonl`. Run
+   today against this container's empty journal the report correctly returns
+   `insufficient-evidence` on both bars, which is the honest state: the
+   measurement exists and has nothing to measure yet.
 
 **Tier 3 — real gaps, no ruling needed.**
 
