@@ -40,6 +40,8 @@ Valid action types: "list", "read", "write", "shell", "query", "answer", "list_m
 CRITICAL: Every response MUST have a "type" field. Never emit a bare field
 like {"q":"..."} or {"query":"..."} -- it must be {"type":"query","q":"..."}.
 
+You MUST also include a "confidence" field (number between 0.0 and 1.0) representing your confidence that this action safely achieves the goal.
+
 If a goal cannot be accomplished with the action types above -- deleting
 files, rewriting git history, sending email, anything destructive or
 requiring a capability not listed -- use "answer" to say plainly that you
@@ -86,7 +88,7 @@ function logProposal(rec) {
     fs.appendFileSync(PROPOSALS_LOG, JSON.stringify({
       timestamp: new Date().toISOString(),
       model: BACKEND === 'local' ? `local:${LOCAL_MODEL}` : `routed:${BACKEND}`,
-      schema: 'type-v2',
+      schema: 'type-v5',
       ...rec
     }) + '\n', 'utf8');
   } catch (_e) { /* logging must never break the agent */ }

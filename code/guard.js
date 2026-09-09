@@ -121,24 +121,32 @@ function currentLogFile() {
 function append(entry) {
   try {
     fs.appendFileSync(logFile, JSON.stringify({
-      timestamp: new Date().toISOString(), schema: 'v4',
+      timestamp: new Date().toISOString(), schema: 'v5',
       pid: process.pid, origin: ORIGIN, actor: ACTOR, ...entry
     }) + '\n');
   } catch (_e) { /* auditing must never break the caller */ }
 }
 
-function guard(action, level = 'quick', fn) {
+function guard(action, level = 'quick', metaOrFn, fn) {
+  let meta = {};
+  let actualFn = fn;
+  if (typeof metaOrFn === 'function' || metaOrFn === undefined || metaOrFn === null) {
+    actualFn = metaOrFn;
+  } else {
+    meta = metaOrFn;
+  }
+
   // Was logged BEFORE fn() ran, so the outcome could never be recorded --
   // 331 of 414 shell rows have no allow/deny verdict. The kill-switch throw
   // also sat above the append, so blocked actions left no trace at all:
   // the single event most worth auditing was the one never written.
   if (fs.existsSync(STOP_FILE)) {
-    append({ action, level, allowed: false, outcome: 'killswitch' });
+    append({ action, level, allowed: false, outcome: 'killswitch', ...meta });
     throw new Error('⛔ Kill switch active – action blocked');
   }
 
-  if (!fn) {
-    append({ action, level, allowed: true, outcome: 'no-op' });
+  if (!actualFn) {
+    append({ action, level, allowed: true, outcome: 'no-op', ...meta });
     return { executed: true, action };
   }
 
@@ -148,24 +156,24 @@ function guard(action, level = 'quick', fn) {
   // append to its settlement instead. Sync callers keep sync behavior.
   let result;
   try {
-    result = fn();
+    result = actualFn();
   } catch (err) {
-    append({ action, level, allowed: false, outcome: 'error', error: err.message });
+    append({ action, level, allowed: false, outcome: 'error', error: err.message, ...meta });
     throw err;
   }
 
   if (result && typeof result.then === 'function') {
     return result.then(
-      value => { append({ action, level, allowed: true, outcome: 'ok', async: true }); return value; },
+      value => { append({ action, level, allowed: true, outcome: 'ok', async: true, ...meta }); return value; },
       err => {
         append({ action, level, allowed: false, outcome: 'error', async: true,
-                 error: err && err.message ? err.message : String(err) });
+                 error: err && err.message ? err.message : String(err), ...meta });
         throw err;
       }
     );
   }
 
-  append({ action, level, allowed: true, outcome: 'ok' });
+  append({ action, level, allowed: true, outcome: 'ok', ...meta });
   return result;
 }
 
