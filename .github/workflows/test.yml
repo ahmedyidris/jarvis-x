@@ -86,12 +86,12 @@ jobs:
       - name: Run portable test suite (excludes voice/vision tests needing local Ollama/Piper/Kokoro)
         run: |
           failed=""
-          for f in test-exec test-guard test-helper test-scheduler test-shell \
+          for f in test-exec test-guard test-scheduler test-shell \
                    test-validate test-watcher test-paper-trading \
                    test-market-analyst test-market-collect test-trade-advisor \
                    test-market-brief test-supervisor test-stooq-provider \
                    test-eval-agent test-agent test-data-layer test-lib \
-                   test-selfdebug test-agent-data-integration; do
+                   test-selfdebug test-agent-data-integration test-sweep; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
@@ -102,6 +102,20 @@ jobs:
           fi
           echo ""
           echo "all suites passed"
+
+      # THE SWEEP. The loop above reports a suite that FAILS. It cannot report
+      # a suite that cannot fail -- and six of those have been found by hand in
+      # this repo (test-data-layer, test-shell, test-guard,
+      # test-agent-data-integration, test-helper, and a status.sh check that
+      # grepped a string the file never writes). sweep.js reads THIS list and
+      # fails the build when any suite in it cannot report an assertion count.
+      #
+      # test-helper.js was removed from the list above by that sweep's first
+      # real run: it is the shared harness, a library, and it emitted 0 bytes
+      # and 0 assertions while counting toward the suite total.
+      # test-data-layer.js covers it with 28 assertions, so nothing lost cover.
+      - name: Zero-assertion sweep (every listed suite must be able to fail)
+        run: node code/sweep.js
 
   python-suite:
     runs-on: ubuntu-latest

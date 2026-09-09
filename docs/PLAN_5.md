@@ -33,7 +33,7 @@ ranked by how unblocked they are right now:
 | Leg | Blocked by | Honest status |
 |---|---|---|
 | **Content creation + monetisation** (YouTube, all free social) | Nothing in the rules. Awaiting Ahmed's content rules — see §6. | Not built. **Highest ceiling, zero rule friction.** |
-| **Jarvis Engineer** (the assistant doing real engineering work) | Nothing | Partly real — this repo *is* the demo. 396 assertions, 20 CI suites. |
+| **Jarvis Engineer** (the assistant doing real engineering work) | Nothing | Partly real — this repo *is* the demo. 424 assertions, 20 CI suites, gated by `sweep.js`. |
 | **SaaS** ("if I have a cool solid project that's cross platform") | Needs a product to exist first | Not started. Deliberately downstream of the platform work in §2. |
 | **Trading** — **committed, two-phase** | Phase 1 blocked by nothing. Phase 2 needs one rule amendment. See §6.1. | 712 LOC, 106 assertions, all six suites in CI, wired into nothing. |
 
@@ -280,11 +280,16 @@ as much as possible so the metered tier is spent only where it earns its keep.
 
 **Tier 1 — cheap, unblocked, closes a live defect.**
 
-1. **The zero-assertion sweep**, and drop `test-helper.js` from the CI list
-   (`test-data-layer.js` already covers it with 28 assertions). Must key on
-   **exit code plus a parsed count**, not one output format — `test-scheduler.js`
-   prints `8/8 passed` and is fine, `test-helper.js` prints nothing and is not.
-   ~1h.
+1. ~~**The zero-assertion sweep**~~ — **DONE 2026-09-09.** `code/sweep.js`,
+   `code/test-sweep.js` (20 assertions), and a CI step that fails the build.
+   Keys on **exit code plus a count parsed from any known format**, so it
+   clears `test-scheduler.js` (`8/8 passed`, 8 real checks) and flags
+   `test-helper.js` (0 bytes, 0 assertions) — the pair a one-format sweep gets
+   backwards. Reads the suite list out of `.github/workflows/test.yml` rather
+   than keeping a copy that could drift. `test-helper.js` removed from the CI
+   list by the sweep's first real run; `test-data-layer.js` still covers it
+   with 28 assertions. 15 mutations, all caught — **two escaped the first run
+   and both were bugs in my tests**, which is what the exercise is for.
 2. **`HANDOFF.md` live on both sides.** Already needed once: two sessions were
    independently writing a Plan 5. ~15 min.
 3. **Five hardware suites on the Chromebook** — `test-kokoro`, `test-vision`,
