@@ -201,6 +201,69 @@ test('a suite that reported no count at all is not drift either', () => {
     [{ name: 'test-foo', count: null }]), []);
 });
 
+// --- detector 3: test files nothing runs ------------------------------------
+
+test('a test file no CI list runs is a finding', () => {
+  // sweep.js asks whether each suite IN the list can report a pass, so a file
+  // outside the list is invisible to it by construction. That is the blind
+  // spot this detector covers.
+  const root = fakeRepo({ 'code/test-orphan.js': 'assert.ok(1);' });
+  const out = W.orphanSuites({ repoRoot: root, listed: ['test-other'] });
+  assert.strictEqual(out.length, 1);
+  assert.strictEqual(out[0].kind, 'suite-not-in-ci');
+  assert.strictEqual(out[0].ref, 'test-orphan');
+});
+
+test('a listed suite is not a finding', () => {
+  const root = fakeRepo({ 'code/test-listed.js': 'assert.ok(1);' });
+  assert.deepStrictEqual(W.orphanSuites({ repoRoot: root, listed: ['test-listed'] }), []);
+});
+
+test('an orphan that asserts NOTHING says so — it is the worse case', () => {
+  // Unlisted is bad; unlisted AND vacuous means nothing anywhere can tell you
+  // it stopped working.
+  const root = fakeRepo({ 'code/test-hollow.js': 'console.log("hi");' });
+  const [f] = W.orphanSuites({ repoRoot: root, listed: [] });
+  assert.match(f.detail, /asserts nothing/);
+  assert.match(f.detail, /invisible to sweep\.js/);
+
+  const root2 = fakeRepo({ 'code/test-real.js': 'assert.ok(1); assert.ok(2);' });
+  assert.match(W.orphanSuites({ repoRoot: root2, listed: [] })[0].detail, /2 assertion\(s\)/);
+});
+
+test('test-helper is never an orphan — it is the harness, not a suite', () => {
+  const root = fakeRepo({ 'code/test-helper.js': 'module.exports = {};' });
+  assert.deepStrictEqual(W.orphanSuites({ repoRoot: root, listed: [] }), []);
+});
+
+test('non-test files in code/ are not suites', () => {
+  const root = fakeRepo({ 'code/guard.js': 'x', 'code/testing-utils.js': 'y', 'code/test-a.js.bak': 'z' });
+  assert.deepStrictEqual(W.orphanSuites({ repoRoot: root, listed: [] }), []);
+});
+
+test('no workflow to compare against means silence, not a false alarm', () => {
+  // Better to say nothing than to report every suite in the repo as orphaned
+  // because the workflow could not be read.
+  const root = fakeRepo({ 'code/test-a.js': 'assert.ok(1);' });
+  assert.deepStrictEqual(W.orphanSuites({ repoRoot: root }), [],
+    'with no .github/workflows/test.yml, the detector must abstain');
+});
+
+test('REAL repo: every orphan it names really is absent from the CI list', () => {
+  const repoRoot = path.join(__dirname, '..');
+  const listed = new Set(require('./sweep.js').ciSuites());
+  const found = W.orphanSuites({ repoRoot });
+  assert.ok(found.length > 0, 'this repo has known orphans; zero would mean the detector is broken');
+  for (const f of found) {
+    assert.ok(!listed.has(f.ref), `${f.ref} was reported as an orphan but IS in the CI list`);
+    assert.ok(fs.existsSync(path.join(repoRoot, 'code', `${f.ref}.js`)), `${f.ref}.js does not exist`);
+  }
+  // ...and every listed suite is absent from the findings.
+  for (const name of listed) {
+    assert.ok(!found.some((f) => f.ref === name), `${name} is in CI but was reported as an orphan`);
+  }
+});
+
 // --- the inbox --------------------------------------------------------------
 
 test('park appends new findings and stamps them with the INJECTED clock', () => {
@@ -264,6 +327,27 @@ test('suite findings and failures both surface as findings', () => {
   assert.deepStrictEqual(kinds, ['suite-cannot-report', 'suite-failing']);
   assert.strictEqual(r.suite.total, 2);
   assert.strictEqual(r.suite.assertions, 5);
+});
+
+test('run() actually INCLUDES orphans in its findings', () => {
+  // Both mutations that escaped the first pass exploited the same gap: every
+  // other test calls orphanSuites() directly, so the detector could have been
+  // perfect and unwired — "built but not wired in", the failure this repo
+  // keeps finding. This goes through run().
+  const root = fakeRepo({
+    'D.md': 'nothing to see',
+    'code/test-orphaned.js': 'assert.ok(1);',
+    '.github/workflows/test.yml': 'jobs:\n  x:\n    steps:\n      - run: |\n          for f in test-listed; do\n            node "code/$f.js"\n          done\n',
+    'code/test-listed.js': 'assert.ok(1);',
+  });
+  const r = W.run({
+    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    isIgnored: NEVER_IGNORED, runSweep: () => fakeSweep(),
+  });
+  const orphans = r.findings.filter((f) => f.kind === 'suite-not-in-ci');
+  assert.strictEqual(orphans.length, 1, `expected exactly one orphan, got ${JSON.stringify(r.findings)}`);
+  assert.strictEqual(orphans[0].ref, 'test-orphaned');
+  assert.strictEqual(W.exitCode(r), 1, 'a new orphan must notify');
 });
 
 test('run() reports coverage even when it finds nothing', () => {

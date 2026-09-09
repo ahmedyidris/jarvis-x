@@ -386,7 +386,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
 8. Reconcile `CLAUDE.md` with the code: `hermes3:3b` and `nomic-embed-text` are
    documented architecture that appears nowhere in `code/` or `config/` (§5).
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
-   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (28 assertions), in CI,
+   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (36 assertions), in CI,
    plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Three
    detectors, all pure lookups, no model calls: suite health (delegated to
    `sweep.js`, so the two cannot disagree about the CI list), doc references to
@@ -420,7 +420,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
     ages, ends), the volatility classes with their half-lives, freshness
     measured from `last_verified_at`, and the two-threshold confidence gate.
     **Layer 4 (policy) is also built**: `code/memory-policy.js` +
-    `code/test-memory-policy.js` (25 assertions, 14/14 mutations caught).
+    `code/test-memory-policy.js` (26 assertions, 14/14 mutations caught).
     It decides what a new fact does to an old one — born / reaffirm / replace /
     coexist / park — and writes nothing; a test asserts it imports only the
     gate and cannot reach the store, because applying a decision is layer 5's

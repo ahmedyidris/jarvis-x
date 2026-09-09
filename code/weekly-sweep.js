@@ -174,6 +174,56 @@ function assertionDrift(claims, suiteResults) {
   return out;
 }
 
+// --- detector 3: test files nothing runs ------------------------------------
+
+/**
+ * A code/test-*.js that no CI list runs.
+ *
+ * WHY THIS IS THE SWEEP'S JOB AND NOT sweep.js's. `code/sweep.js` asks whether
+ * each suite IN the CI list can report a pass — which means a file outside
+ * that list is invisible to it by construction. So the control that hunts
+ * zero-assertion suites has a blind spot exactly where a suite has been
+ * quietly dropped, and dropping one is the failure this repo has corrected
+ * repeatedly (test.yml's own comment: "a tested module CI never runs is the
+ * failure this repo keeps correcting").
+ *
+ * Found by cross-checking the two lists by hand on 2026-09-09: twelve files,
+ * of which test.yml documents five as needing local hardware. The other seven
+ * were excluded silently, and three of those assert nothing at all.
+ *
+ * NO ALLOWLIST, deliberately. An allowlist of "deliberately excluded" suites
+ * is one more list to drift from the workflow, and it is the exact shape of
+ * the thing being detected. Instead the inbox's dedupe carries it: each orphan
+ * is parked ONCE, ever, and then never mentioned again. A finding that fires
+ * once is information; one that fires weekly is wallpaper.
+ */
+function orphanSuites({ repoRoot = REPO, codeDir = null, listed = null } = {}) {
+  const dir = codeDir || path.join(repoRoot, 'code');
+  let inCI;
+  try {
+    inCI = new Set(listed || sweepMod.ciSuites({ workflowFile: path.join(repoRoot, '.github', 'workflows', 'test.yml') }));
+  } catch {
+    return [];                       // no workflow to compare against; say nothing
+  }
+  const out = [];
+  for (const f of fs.readdirSync(dir).sort()) {
+    const m = /^(test-[a-z0-9-]+)\.js$/.exec(f);
+    if (!m) continue;
+    const name = m[1];
+    if (name === 'test-helper' || inCI.has(name)) continue;
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    const asserts = (src.match(/assert[.(]/g) || []).length;
+    out.push({
+      kind: 'suite-not-in-ci', ref: name,
+      detail: asserts === 0
+        ? `${name}.js is in code/ but no CI list runs it, AND it asserts nothing — ` +
+          'invisible to sweep.js, which only checks the listed suites'
+        : `${name}.js is in code/ with ${asserts} assertion(s) but no CI list runs it`,
+    });
+  }
+  return out;
+}
+
 // --- the inbox: park, never fix --------------------------------------------
 
 /** Stable across runs, so a finding parked last week is not parked again. */
@@ -235,10 +285,11 @@ function run({
   ];
 
   const refs = staleRefs({ repoRoot, docs, isIgnored });
+  const orphans = orphanSuites({ repoRoot });
   const { claims, unchecked } = assertionClaims({ repoRoot, docs });
   const drift = assertionDrift(claims, suite.results);
 
-  const findings = [...suiteFindings, ...refs, ...drift];
+  const findings = [...suiteFindings, ...refs, ...orphans, ...drift];
   const parked = park(findings, { file: inboxFile, now });
 
   return {
@@ -285,7 +336,7 @@ function format(r) {
 function exitCode(r) { return r.parked.length ? 1 : 0; }
 
 module.exports = {
-  run, format, exitCode, staleRefs, assertionClaims, assertionDrift,
+  run, format, exitCode, staleRefs, assertionClaims, assertionDrift, orphanSuites,
   sentences, park, readInbox, fingerprint, gitIgnored,
   DEFAULT_DOCS, INBOX, PATH_RE, SUITE_RE, COUNT_RE,
 };
