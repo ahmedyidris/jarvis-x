@@ -55,6 +55,29 @@ Not a rule, a default — it follows from what each side can actually reach.
 When in doubt: **if it needs the hardware, it belongs to local.** If it needs
 patience, it belongs to remote.
 
+## Live ownership — files with a known owner
+
+Registered because it already went wrong once: on 2026-09-09 the remote session
+wrote `docs/PLAN_5.md` while the local session was independently composing
+`MASTER_PLAN_v5.md`. Neither knew. Nothing was lost only because the local work
+was unpushed.
+
+| Path | Owner | Note |
+|---|---|---|
+| `app.py` | **local** | Do not touch from remote. |
+| `code/verticals/**` | **local** | The clipper work. Do not touch from remote. |
+| `MASTER_PLAN_v4.md`, `MASTER_PLAN_v5.md` | **local** | Local-only, unpushed as of 2026-09-09. |
+| `docs/PLAN_5.md` | **remote** | The ruled mission + evidence. **Merge into, do not duplicate.** |
+| `HANDOFF.md` | shared | Append-only. Everyone writes, nobody rewrites. |
+| `docs/RECONCILE_v4.md` | remote | Evidence pass on the blueprint. |
+| `memory/rules.md`, `CONSTITUTION.md` | **Ahmed only** | Neither agent amends these without an explicit approval from him, in his own words, for that specific file. |
+
+**If you are the local session and about to write a Plan 5:** `docs/PLAN_5.md`
+already exists on `master` and carries Ahmed's 2026-09-09 rulings on trading
+(two-phase, switchable) and content (his voice, Jarvis's production line). Merge
+your `MASTER_PLAN_v4.md` content into it rather than creating a third plan
+document — the whole point of this file is that there is one.
+
 ## Claim log
 
 Newest at the bottom. Format:
@@ -67,3 +90,4 @@ Newest at the bottom. Format:
 
 2026-09-09T00:30Z | remote | CLAIM | claude/new-session-ojg9ah | PLAN_5 + this file + RECONCILE_v4 update
 2026-09-09T00:30Z | remote | DONE  | claude/new-session-ojg9ah | see PR — PLAN_5.md, HANDOFF.md, RECONCILE_v4.md
+2026-09-09T00:45Z | remote | CLAIM | claude/new-session-ojg9ah | PLAN_5 §6.1 + §6.2 rulings applied; ownership table added

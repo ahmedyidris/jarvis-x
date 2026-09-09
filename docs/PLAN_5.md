@@ -35,11 +35,17 @@ ranked by how unblocked they are right now:
 | **Content creation + monetisation** (YouTube, all free social) | Nothing in the rules. Awaiting Ahmed's content rules — see §6. | Not built. **Highest ceiling, zero rule friction.** |
 | **Jarvis Engineer** (the assistant doing real engineering work) | Nothing | Partly real — this repo *is* the demo. 396 assertions, 20 CI suites. |
 | **SaaS** ("if I have a cool solid project that's cross platform") | Needs a product to exist first | Not started. Deliberately downstream of the platform work in §2. |
-| **Trading** ("safe if possible") | **A standing absolute rule. See §6.** | 712 LOC, 106 assertions, all six suites in CI, wired into nothing. Paper only. |
+| **Trading** — **committed, two-phase** | Phase 1 blocked by nothing. Phase 2 needs one rule amendment. See §6.1. | 712 LOC, 106 assertions, all six suites in CI, wired into nothing. |
 
-Read the ordering literally: **content and engineering are where real money is
-reachable without touching a single safety rule.** Trading is the one leg with a
-hard block in front of it, and it is also the one Ahmed ranked "if possible".
+Ranking is about *what is unblocked*, not about what matters. Ahmed's words on
+trading, after the conflict below was put to him and he reaffirmed:
+
+> *"I will not park this project... you may make it secondary or at a later
+> stage but not parked, delayed or forgotten completely or excluded from the
+> overall project. I need to make money automated as I don't have time."*
+
+Recorded as a **commitment**, not a maybe. "Secondary" means sequenced after
+Jarvis itself, not deprioritised out of existence.
 
 ## 2. Platform order (Ahmed's, verbatim)
 
@@ -157,46 +163,109 @@ not wired.
 Nothing here needs a 70B model and nothing should reach for one. The `3b`→`7b`
 gap is the only local upgrade with measured evidence behind it.
 
-## 6. Open rulings — Ahmed's to make, not mine
+## 6. Rulings
 
-### 6.1 Trading: "real profit" vs. an absolute standing rule
+### 6.1 Trading — RULED 2026-09-09. Two phases, one switch.
 
-Ahmed asked for *"the most efficient stable safe real profit system"* and *not to
-drop trading completely.*
+The conflict was put to Ahmed. He reaffirmed, in his own words, and told me not
+to raise it again:
 
-`memory/rules.md` currently says, in three separate places:
+> *"1 safely then 2 when auto mode enabled, make a switchable mode for auto
+> trading, make both possible 1 then two... I want to make money first from safe
+> trading and legally I can, then crypto... build a secure solid private bot
+> trader inside Jarvis and connect with TradingView and all other local free AI
+> models... I will not negotiate my goals and scope again when it comes to this
+> matter."*
 
-> - No real money moves. Paper trading only; every open and close needs approval.
-> - No real-money trading and no broker connection, ever.
-> - No autonomous trade execution: a paper trade is proposed, Ahmed approves it.
+**That is his decision and this document treats it as settled.** The concern was
+raised once; repeating it would be arguing, not advising.
 
-**"Real profit" and "no real money, ever" cannot both be true.** This is a
-direct collision on money, it is hard to reverse, and `memory/rules.md` is a
-constraint file. **Nothing about it has been changed.** Paper trading, the six
-instruments in `config/trading.json`, and the approval requirement all stand
-exactly as they were.
+His sequencing, which is also the safe sequencing — that is a convenience, not a
+reason:
 
-What can proceed today with no rule change at all: making the paper system
-honest and *measured* — a real, auditable edge on paper, with the six suites
-already in CI. If there is no measurable edge on paper, there is no real-money
-question worth asking. If there is one, that is the moment to decide the rule,
-with a number in hand instead of a hope.
+**Phase 1 — buildable now, no rule change needed.** Everything in the quote
+except real money:
+- A real bot trader inside Jarvis: strategy, signals, position sizing, risk
+  limits, kill-switch integration.
+- TradingView connection for charts and signals.
+- Local free models on the analysis, per §5.
+- Paper execution against the six instruments in `config/trading.json`.
+- **Honest, auditable performance measurement.** This is the part that makes
+  phase 2 a decision instead of a gamble: a strategy with no measured edge on
+  paper has no edge with real money either, and the only thing that tells you
+  which you have is the measurement.
 
-**Ahmed's call, and only Ahmed's**, and it is three separate questions, not one:
-does the paper-only rule change; does a broker connection become permissible;
-does execution stay approval-gated. Recommended default until then: **build the
-measurement, keep the rule.**
+**Phase 2 — the switch.** Real-money mode, off by default, one explicit flag.
+It requires amending `CONSTITUTION.md` §IV and the three lines in
+`memory/rules.md`. Ahmed has authorised that in principle. It has **not** been
+done, for one reason only: he said *"1 then 2"*, and phase 1 does not exist yet.
+Amending the rule before there is anything to switch on would remove a control
+and gain nothing.
 
-### 6.2 Content creation rules
+When phase 1 is built and measured, the amendment is a single deliberate commit
+he approves, and per-trade approval stays a separate switch from real-money
+mode — so "real money" and "no human in the loop" remain two decisions, not one.
 
-Ahmed: *"come back to me on content creation rules because I don't want to
-entirely drop it but enhance it, text overcame me for its generated."*
+**What no phase changes:** the kill switch still halts everything, and every
+trade still writes an audit row.
 
-Read as: the volume of generated text became unmanageable, and the fix is better
-rules, not abandoning the leg. This is the **highest-ceiling, least-blocked
-income leg**, so it deserves a real conversation rather than a guess. Needed
-before anything is built: what platforms, what cadence, whose voice, how much is
-generated vs. written, and what the review gate is before anything publishes.
+### 6.2 Content — RULED 2026-09-09. His voice, Jarvis's production line.
+
+Two answers, and they fit together better than they first look.
+
+On authorship he chose, explicitly: **"Your words, Jarvis assists."**
+
+On scope he asked for: *"a high quality video generation model, automated for
+income... I can write a prompt for subject or give a link for similar subject...
+English first then Arabic... integrate with all free content creation tools,
+models, repos, skills, plugins, connectors, make room for free Higgsfield or
+paid integration... create an automation process to generate videos, content,
+media and post on YouTube and social media... 100% legal."*
+
+The resolution, and it is the whole design: **Ahmed owns the idea and the
+narrative; Jarvis owns everything downstream of it.**
+
+| Ahmed | Jarvis, automated |
+|---|---|
+| A prompt, a subject, or a reference link | Research, outline, shot list |
+| The narrative angle — the thing that makes it his | Script draft in his voice, for his edit |
+| Approves the script | Voice, render, edit, thumbnail, title, description, tags |
+| Approves the finished cut | Schedules and posts, tracks views and revenue |
+
+That is what fixes *"text overcame me for its generated"*: the flood was
+generated text arriving with no gate. Here the gate is at the script, where it
+is cheapest to say no, and the automation is on production, where volume
+actually costs him time.
+
+**Higgsfield is already connected to the remote session** — `generate_video`,
+`generate_image`, `generate_audio`, batch generation, shorts studio, and
+TikTok publishing. That is the fastest route to "best quality possible" and it
+needs no new integration work. Local free models handle what they can per §5;
+Higgsfield handles what a 14 GB CPU-only box cannot, which for video generation
+is most of it.
+
+**English first, then Arabic** — and Arabic has a known trap already recorded in
+this repo: a romanisation bug silently converted Arabic to Latin script before
+it reached the TTS engine. Any Arabic pipeline has to assert on the script of
+the string that actually reaches the renderer.
+
+**On copyright, taking his own "100% legal" as the binding constraint.** He is
+right that transformative work is legal — commentary, criticism, parody, and
+genuinely new narrative around source material. Two things are worth stating
+because they are what actually costs money, not law:
+
+1. **Legality and monetisation are different tests.** YouTube's Content ID is
+   automated pattern matching. It does not evaluate fair use. Re-used footage
+   gets claimed and demonetised even when a court would call it transformative
+   — so a pipeline built on other people's frames earns nothing regardless of
+   who is right.
+2. **Original generation sidesteps both tests.** Higgsfield-generated visuals
+   over his own script have no third-party claim to make. That is not a
+   compromise on his goal, it is the only version of it that gets paid.
+
+So: reference links are **inputs to research**, and the frames that ship are
+generated or licensed. Same content, same automation, and it can actually be
+monetised.
 
 ### 6.3 "No limit" on Claude Code
 
@@ -209,36 +278,53 @@ as much as possible so the metered tier is spent only where it earns its keep.
 
 ## 7. Next actions, in order
 
-Tier 1 — cheap, unblocked, closes a live defect:
+**Tier 1 — cheap, unblocked, closes a live defect.**
 
 1. **The zero-assertion sweep**, and drop `test-helper.js` from the CI list
-   (`test-data-layer.js` already covers it with 28 assertions). ~1h.
-2. **`HANDOFF.md`** live, and both agents using it. ~15 min.
-3. **Run the five hardware suites on the Chromebook** — `test-kokoro`,
-   `test-vision`, `test-voice`, `test-voice-interaction`, `test-voice-router`.
-   Only that machine can. Converts six unknowns into knowns.
-4. **`schema` v5**: `confidence` + `approved_by`. ~1h.
+   (`test-data-layer.js` already covers it with 28 assertions). Must key on
+   **exit code plus a parsed count**, not one output format — `test-scheduler.js`
+   prints `8/8 passed` and is fine, `test-helper.js` prints nothing and is not.
+   ~1h.
+2. **`HANDOFF.md` live on both sides.** Already needed once: two sessions were
+   independently writing a Plan 5. ~15 min.
+3. **Five hardware suites on the Chromebook** — `test-kokoro`, `test-vision`,
+   `test-voice`, `test-voice-interaction`, `test-voice-router`. Only that machine
+   can run them.
+4. **`schema` v5**: `confidence` + `approved_by`. The gate every approval flow
+   below depends on. ~1h.
 
-Tier 2 — needs a ruling from §6 first:
+**Tier 2 — the two income legs, now ruled.** Both proceed under existing rules.
 
-5. Content pipeline — blocked on §6.2.
-6. Paper-trading measurement — proceeds under the existing rule; §6.1 is only
-   needed if the measurement finds an edge.
+5. **Content pipeline, phase 1** (§6.2): prompt/link → research → outline →
+   script draft in his voice → *his edit* → Higgsfield render → thumbnail,
+   title, description → queue. Posting automated, publishing gated on his
+   approval of the cut. English first.
+6. **Trading, phase 1** (§6.1): bot trader, TradingView signals, local models on
+   analysis, paper execution on the six instruments, and the honest performance
+   measurement that makes phase 2 a decision rather than a guess.
 
-Tier 3 — real gaps, no ruling needed:
+**Tier 3 — real gaps, no ruling needed.**
 
-7. `jj status` currently prints `✅ Jarvis X ready` unconditionally
-   (`bin/jj:34-38`). A status command that cannot report a problem is worse than
-   none.
-8. Reconcile `CLAUDE.md` with the code: remove or wire `hermes3:3b` and
-   `nomic-embed-text` (§5).
+7. `jj status` prints `✅ Jarvis X ready` unconditionally (`bin/jj:34-38`). A
+   status command that cannot report a problem is worse than none.
+8. Reconcile `CLAUDE.md` with the code: `hermes3:3b` and `nomic-embed-text` are
+   documented architecture that appears nowhere in `code/` or `config/` (§5).
 9. Weekly sweep (§3 item 3).
 10. Bitemporal memory (§3 item 4).
 
+**Tier 4 — gated on Tier 2 producing a measurement.**
+
+11. Trading phase 2 (§6.1): the `CONSTITUTION.md` §IV + `memory/rules.md`
+    amendment and the real-money switch. One deliberate commit Ahmed approves,
+    once phase 1 exists and has a measured result to approve *against*.
+
 ## 8. What has NOT changed, whatever else does
 
-- No real-money trading, no broker connection, no autonomous execution. §6.1 is
-  a question, not a change.
+- **Today, and until Ahmed approves the phase-2 amendment: no real-money
+  trading, no broker connection, no autonomous execution.** §6.1 records that he
+  has authorised phase 2 in principle and sequenced it after phase 1 — so this
+  line is the *current* state, not a permanent one, and it changes by his
+  explicit commit and no other route.
 - The kill switch (`~/.jarvis-x/STOP`) halts everything.
 - Nothing binds to `0.0.0.0`. Git is the sync layer.
 - `guard.js`, `validate.js`, `exec.js`, `shell.js`, `Guidelines.md`,
