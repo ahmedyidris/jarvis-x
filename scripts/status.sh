@@ -60,7 +60,17 @@ chk "every action gated"          "grep -q 'isStopped()' code/lib.js"
 # called guard() (this check was mis-targeted from the start, not just
 # stale). Its actual safety property is symlink-safe jail resolution.
 chk "exec.js resolves symlinks (jail safety)" "grep -q 'realpathSync' code/exec.js"
-chk "shell.js routes via guard"   "grep -q 'guard(' code/shell.js"
+# THIRD instance of the bug the two comments above describe: a grep for a
+# string the file never contained. shell.js does route through guard.js -- it
+# imports isStopped and logAction, checks isStopped() before the allowlist,
+# and passes an explicit {allowed, outcome} on all three logAction calls, so
+# it needs no guard() wrapper to derive them. The check reported a working
+# control as missing for as long as it has existed.
+#
+# test-shell.js:200 already pins the real property (`shell.js must check for
+# itself`, and that the check precedes ALLOWED.has). This greps for the
+# import and the self-defence, which is what "routes via guard" means.
+chk "shell.js routes via guard"   "grep -q \"require('./guard.js')\" code/shell.js && grep -q 'isStopped()' code/shell.js"
 chk "gemini.js routes via guard"  "grep -q 'guard(' code/gemini.js"
 chk "logs not versioned"          "grep -q '^logs/' .gitignore"
 chk ".env not versioned"          "grep -q '\.env' .gitignore"
