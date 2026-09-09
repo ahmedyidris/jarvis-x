@@ -298,6 +298,45 @@ template is reference material that PLAN_5 §0 says does not set scope; the
 constitution is the law. It is now `['human','jarvis']`. If you wrote any code
 against `'agent'` or `'oracle'`, it needs updating.
 
+
+---
+
+### 2026-09-10, remote -> local (fourth message)
+
+**Twelve test files in `code/` are run by nothing, and five of them assert
+nothing at all.** There is now a detector for it in `code/weekly-sweep.js`; the
+findings are parked in the inbox, not fixed, because which of them belong in CI
+is a judgement and several are yours:
+
+| | |
+|---|---|
+| hardware, documented in test.yml | `test-kokoro`, `test-vision`, `test-voice`, `test-voice-interaction`, `test-voice-router` |
+| excluded with no reason given | `test-accessibility`, `test-full-accessibility`, `test-list-models`, `test-live-data`, `test-net`, `test-voice-accents`, `test-voice-full-system` |
+
+The five documented ones are the hardware suites you already run by hand — the
+only question there is whether the list should say so somewhere a tool can
+read. The other seven are the interesting ones. `test-net`, `test-list-models`
+and `test-live-data` look network- or ollama-dependent at a glance, which would
+be a fair exclusion. `test-accessibility` and `test-full-accessibility` need
+only `i18next`, which IS declared in `package.json` (AS_BUILT §3.1 records
+fixing exactly that undeclared-dependency bug), so those two may simply belong
+in CI. I have not decided any of it.
+
+**Why `sweep.js` never caught this:** it asks whether each suite *in* the CI
+list can report a pass, so a file outside the list is invisible to it by
+construction. The control built to hunt vacuous suites had a blind spot exactly
+where a suite has been quietly dropped.
+
+No allowlist of "deliberately excluded" suites — that is one more list to drift
+from the workflow, and it is the exact shape of the thing being detected. The
+inbox dedupe handles it: each orphan is parked once, ever.
+
+**One caveat on my own numbers:** `node_modules` is empty in this container, so
+`test-accessibility` fails here on a missing `i18next` that is genuinely
+installed in CI. That is a container artefact, not a repo defect — worth
+knowing before you chase it. It also means the 31 CI suites all pass here with
+no dependencies installed at all, which is a nice property nobody had checked.
+
 ## Claim log
 
 Newest at the bottom. Format:
@@ -332,6 +371,7 @@ Newest at the bottom. Format:
 2026-09-09T23:05Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 7 (human inbox): code/memory-inbox.js + test (17 assertions, 12/12 mutations). Approving re-submits through layer 5 with approved_by:'human' -- never round it. ALL SEVEN LAYERS now built except layer 3's semantic half (needs ollama + nomic-embed-text, which is yours). Still not wired into scheduler.js.
 2026-09-09T23:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/test-memory-integration.js -- the seven layers as one story. FOUND A REAL CROSS-LAYER BUG on its first run: layer 4 collapsed the intended action into 'park' when routing was parked, so layer 7 re-submitted 'park' on approval and layer 5 refused -- no human-approved change could ever apply, while every layer's own suite stayed green. action and routing are now orthogonal. Also fixed guard.js: a caller could forge actor/origin/schema via logAction.
 2026-09-10T00:05Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/test-trading-integration.js -- drives a REAL PaperBook and measures what it actually wrote. The PaperBook/trading-performance seam is SOUND: every field the reader wants is one the writer emits, verified against the book's own computed pnl rather than just non-zero. 31 suites, 650 assertions.
+2026-09-10T00:35Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | weekly-sweep detector 4: test files no CI list runs. FOUND 12 -- test.yml documents 5 as hardware-only, the other 7 are excluded silently and 5 of the 12 assert nothing. Blind spot in sweep.js by construction (it only checks the LISTED suites). Parked, not fixed: which of the 7 belong in CI is a judgement and several are yours.
 
 
 ---

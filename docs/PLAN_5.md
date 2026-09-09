@@ -387,11 +387,25 @@ as much as possible so the metered tier is spent only where it earns its keep.
    documented architecture that appears nowhere in `code/` or `config/` (§5).
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
    `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (36 assertions), in CI,
-   plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Three
+   plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Four
    detectors, all pure lookups, no model calls: suite health (delegated to
    `sweep.js`, so the two cannot disagree about the CI list), doc references to
-   files that no longer exist, and assertion-count claims re-checked against
-   what the suites now report. It parks findings in an append-only inbox and
+   files that no longer exist, assertion-count claims re-checked against what
+   the suites now report, and **test files no CI list runs**.
+
+   That fourth detector covers a blind spot in `sweep.js` itself: `sweep.js`
+   asks whether each suite *in* the CI list can report a pass, so a file
+   outside the list is invisible to it by construction — and dropping a suite
+   from the list is the failure `test.yml`'s own comment says this repo keeps
+   correcting. It found **12 such files**, of which `test.yml` documents only
+   five as needing local hardware; the other seven are excluded with no reason
+   recorded anywhere, and five of the twelve assert nothing at all. No
+   allowlist of "deliberately excluded" suites, deliberately: that is one more
+   list to drift from the workflow and is the exact shape of the thing being
+   detected — the inbox's dedupe carries it instead, so each orphan is parked
+   once, ever.
+
+   It parks findings in an append-only inbox and
    **never fixes** — the exit code is non-zero only for *new* findings, because
    re-reporting last week's parked item every week is how a control trains you
    to ignore it. **It found real rot on its first run:** `docs/architecture.md`
