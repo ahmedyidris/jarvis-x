@@ -1,7 +1,13 @@
 # Decision record — the autonomous trading loop, and why it is not built
 
 *Opened 2026-09-09 by the remote session, on branch
-`claude/resume-building-jarvis-97b0mv`. **Not decided. This needs Ahmed.***
+`claude/resume-building-jarvis-97b0mv`.*
+
+***RULED 2026-09-09: Ahmed chose option C — automate only the exits.**
+Entries stay gated; a breached stop closes unattended. The ruling is
+recorded here; the amendment it calls for is drafted below and **has not been
+applied** — `CONSTITUTION.md` is untouched. §VII: Jarvis proposes, Ahmed
+reviews, Ahmed commits. See "The amendment, drafted for Ahmed to commit".*
 
 ## The one-sentence version
 
@@ -84,12 +90,101 @@ stay gated; risk management runs unattended. This is the smallest change that
 makes the paper book behave like a real one, and it fails safe: the automated
 half only ever *reduces* exposure.
 
-**My read, offered as input and not as a decision:** C is the one I would take
-first. It is the only option where the automated behaviour can only shrink the
+**My read, offered as input and not as a decision — and the one Ahmed took:**
+C is the one I would take first. It is the only option where the automated behaviour can only shrink the
 book, it needs no new signal source (the stops already exist), and it leaves
 the contested question — whether a machine may open positions unattended —
 untouched for a later, better-informed decision. B is a bigger step than it
 looks, and A is honest but slow.
+
+
+## The amendment, drafted for Ahmed to commit
+
+**Nothing in this section has been applied.** `CONSTITUTION.md` is unmodified
+on this branch — `git log -- CONSTITUTION.md` will show no commit from this
+session. §VII forbids Jarvis modifying that file, and `HANDOFF.md`'s ownership
+table records it as Ahmed-only. A ruling in chat authorises the *direction*;
+only Ahmed's commit makes it the constitution. Until that commit lands, the
+unattended-exit path below **is not built**, because building it first would
+mean shipping behaviour the constitution currently forbids on the strength of
+a message rather than the file.
+
+### 1. The §III change
+
+Current text:
+
+```
+- Proposing a paper trade. Proposing is gated; opening and closing run
+  through guard() like any other action.
+```
+
+Proposed replacement:
+
+```
+- Proposing a paper trade, and opening a position. Both are gated.
+  Closing a position whose pre-agreed stop is breached is NOT gated: the
+  limit was set when the position opened, by a human tap, and enforcing it
+  is not a new decision. That exemption is narrow on purpose — it covers a
+  breached stop and nothing else. A close for any other reason (a signal, a
+  target, a rebalance, a judgement call) is gated like an open. Both paths
+  still run through guard() and still write an audit row; the exemption is
+  from the human tap, never from the audit trail.
+```
+
+Why the wording is shaped this way, since the wording is the whole safeguard:
+
+- **It names what is exempt, not what is gated.** An exemption phrased as
+  "closing is not gated" would cover every close, including a discretionary
+  one, which is not what was ruled. The carve-out has to be the narrow half.
+- **It ties the exemption to the prior human tap.** The reason a stop-close
+  is not a new decision is that a human already agreed the stop when the
+  position opened. If entries ever stop being gated, this justification
+  collapses with them — and the sentence says so by construction rather than
+  in a comment somewhere else.
+- **It keeps `guard()` and the audit row.** The ruling removes the tap, not
+  the record. `logs/actions.jsonl` must still show every close, or the
+  measurement clause is reading a journal the audit trail cannot corroborate.
+- **It fails safe.** The automated half can only reduce exposure. Nothing
+  here lets a machine open a position, and §IV's absolute ban on real-money
+  trading is untouched and unmentionable in this context — no amendment to
+  §III can reach it.
+
+### 2. The test narrowing, in the same commit
+
+`code/test-trade-advisor.js` hands `advise()` a book that throws if `open()`
+or `close()` is touched. That test is what makes the gate real rather than
+documented, so it must be narrowed **deliberately and in the same commit as
+the amendment** — never quietly relaxed, and never before.
+
+The narrowing is: the book still throws on `open()`, and still throws on
+`close()` for every reason except a breached stop. Concretely, the throwing
+book gains one permitted call — `close()` where the advisor's own
+`because[0]` matches `/past the agreed stop/`, the string
+`code/trade-advisor.js` already emits — and a new test asserts that a
+`close()` for any other reason still throws. That way the test surface after
+the change is *larger*, not smaller: it now pins both what the exemption
+permits and what it still forbids.
+
+### 3. What gets built once the amendment is committed
+
+In order, each with tests and mutation coverage before the next:
+
+1. A stop-breach executor that consumes `advise()`'s existing `CLOSE`
+   recommendations — the detection already exists in `code/trade-advisor.js`
+   and needs no new signal source, which is part of why C is the small change.
+2. Its wiring into `code/scheduler.js`, behind `guard()` and the kill switch
+   (`.jarvis-x-STOP`), so the halt path covers it like every other agent
+   action.
+3. The remaining three of trading phase 1's five clauses, which were blocked
+   only by this ruling.
+
+`code/trading-performance.js` needs no change: it measures whatever reaches
+the journal, and its strongest verdict stays `promising`. The 30-trade /
+30-day evidence bar is unaffected by this amendment and is not a thing option
+C makes easier to clear — exits alone do not open positions, so the journal
+still fills at the speed of gated entries. That is worth being plain about,
+because "automate the exits" can read as "phase 2 arrives sooner" and it does
+not.
 
 ## What must not happen
 
@@ -99,7 +194,9 @@ looks, and A is honest but slow.
   "1 then 2".
 - **Neither agent amends `CONSTITUTION.md`.** §VII: Jarvis proposes, Ahmed
   reviews, Ahmed commits. `HANDOFF.md`'s ownership table records the same file
-  as Ahmed-only. This document is the proposal step and nothing more.
+  as Ahmed-only. This document is the proposal step and nothing more — and
+  that remains true *after* the ruling: option C being chosen does not convert
+  this file into an amendment, it only fills in which amendment to draft.
 - **`code/test-trade-advisor.js`'s throwing book stays.** Whatever is decided,
   that test is what makes the answer real rather than documented, and if option
   B or C is taken it should be *narrowed* deliberately, in the same commit as
