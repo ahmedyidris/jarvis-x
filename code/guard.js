@@ -118,27 +118,154 @@ function currentLogFile() {
   return logFile;
 }
 
+// WHAT v5 ADDS, AND THE ONE RULE THAT MATTERS MORE THAN THE FIELDS.
+//
+// PLAN_5 §3 item 2: `confidence` + `approved_by` are "what turn the log from a
+// record into a gate". A gate needs to answer "was this action authorised, and
+// how sure was whoever authorised it?" -- v4 rows carry neither, so the answer
+// for them is genuinely unknown.
+//
+// THE RULE: a v4 row must read as ABSENT, never as a default. The plan states
+// it directly -- "a guessed 1.0 on old rows is a lie the gate would then
+// trust" -- and it is the whole reason the readers below return {known:false}
+// instead of a number. Every safe default is wrong here: default high and the
+// gate waves through 2810 rows nobody ever approved; default low and it
+// refuses history it has no business judging. The honest third answer is
+// "this log could not record that", which is what pre-v5 rows get.
+//
+// The same rule applies WITHIN v5, one step finer. A v5 row where the caller
+// claimed nothing is also unknown -- but for a different reason, and the
+// readers say which: `pre-v5` means the log could not record it, `not-claimed`
+// means the call site did not say. The first is a schema limit and can never
+// be fixed; the second is a caller that should be passing the field and is a
+// real thing to go fix. Collapsing them into one "unknown" would hide the
+// actionable half behind the permanent half.
+const SCHEMA = 'v5';
+
+/** 'v5' -> 5, 'v2' -> 2, undefined/'type-v2'/garbage -> 0. Defensive on
+ *  purpose: agent.js writes a `type-v2` schema to a DIFFERENT log, and a
+ *  reader that mistook it for this one's v2 would be quietly wrong. */
+function schemaVersion(s) {
+  const m = /^v(\d+)$/.exec(typeof s === 'string' ? s : '');
+  return m ? Number(m[1]) : 0;
+}
+
+/** Who authorised an action. A closed set: an open one degrades into free
+ *  text, and a gate cannot compare free text. */
+const APPROVERS = Object.freeze(['human', 'agent', 'oracle']);
+
+/**
+ * A confidence claim is only recorded if it is a real number in [0,1].
+ *
+ * A rejected claim is NOT silently dropped and NOT silently stored. Dropping
+ * it loses the fact that a call site is passing nonsense; storing it lets the
+ * gate compare against garbage. So the row keeps `confidence_rejected` with
+ * the raw value and no `confidence`, which reads as unknown to the gate and
+ * as a bug to whoever greps for it.
+ */
+function normalizeClaim(entry) {
+  const out = { ...entry };
+  if ('confidence' in out) {
+    const c = out.confidence;
+    if (typeof c !== 'number' || !Number.isFinite(c) || c < 0 || c > 1) {
+      delete out.confidence;
+      out.confidence_rejected = c === undefined ? null : String(c).slice(0, 40);
+    }
+  }
+  if ('approved_by' in out) {
+    if (!APPROVERS.includes(out.approved_by)) {
+      const raw = out.approved_by;
+      delete out.approved_by;
+      out.approved_by_rejected = raw === undefined ? null : String(raw).slice(0, 40);
+    }
+  }
+  return out;
+}
+
 function append(entry) {
   try {
     fs.appendFileSync(logFile, JSON.stringify({
-      timestamp: new Date().toISOString(), schema: 'v4',
-      pid: process.pid, origin: ORIGIN, actor: ACTOR, ...entry
+      timestamp: new Date().toISOString(), schema: SCHEMA,
+      pid: process.pid, origin: ORIGIN, actor: ACTOR, ...normalizeClaim(entry)
     }) + '\n');
   } catch (_e) { /* auditing must never break the caller */ }
 }
 
-function guard(action, level = 'quick', fn) {
+/**
+ * @returns {{known: boolean, value?: number, reason?: string}}
+ *   reason 'pre-v5'      the log could not record it — permanent, not a bug
+ *   reason 'not-claimed' a v5 call site said nothing — a real thing to fix
+ *   reason 'rejected'    a claim was made and refused as malformed
+ */
+function readConfidence(row) {
+  if (!row || typeof row !== 'object') return { known: false, reason: 'no-row' };
+  if (schemaVersion(row.schema) < 5) return { known: false, reason: 'pre-v5' };
+  if (typeof row.confidence === 'number') return { known: true, value: row.confidence };
+  if ('confidence_rejected' in row) return { known: false, reason: 'rejected' };
+  return { known: false, reason: 'not-claimed' };
+}
+
+/** Same contract as readConfidence, for `approved_by`. */
+function readApproval(row) {
+  if (!row || typeof row !== 'object') return { known: false, reason: 'no-row' };
+  if (schemaVersion(row.schema) < 5) return { known: false, reason: 'pre-v5' };
+  if (APPROVERS.includes(row.approved_by)) return { known: true, value: row.approved_by };
+  if ('approved_by_rejected' in row) return { known: false, reason: 'rejected' };
+  return { known: false, reason: 'not-claimed' };
+}
+
+/**
+ * The gate itself: 'approved' | 'refused' | 'unknown'.
+ *
+ * THE ONE PROPERTY THIS MUST NEVER LOSE: absence reads as 'unknown', never as
+ * 'approved'. Every pre-v5 row in the log — 2810 of them on the machine where
+ * v3 was written — goes to 'unknown', and a caller that treats 'unknown' as a
+ * pass has re-introduced exactly the lie the plan warned about. Three values
+ * rather than a boolean, so a caller cannot write `if (approved)` and have
+ * absence fall through as false OR true without noticing which.
+ *
+ * Defaults are deliberately strict: human approval, and the retire-grade 0.80
+ * from the memory template's two-threshold rule. A caller wanting the lower
+ * add-grade bar passes it explicitly, which puts that decision in the calling
+ * code where it can be read, rather than in this default.
+ */
+/** Pull only the two v5 fields out of a caller's claim object, so passing a
+ *  whole options bag cannot smuggle arbitrary keys into an audit row. */
+function claimFields(claim) {
+  if (!claim || typeof claim !== 'object') return {};
+  const out = {};
+  if ('confidence' in claim) out.confidence = claim.confidence;
+  if ('approved_by' in claim) out.approved_by = claim.approved_by;
+  return out;
+}
+
+function gateVerdict(row, { minConfidence = 0.80, allow = ['human'] } = {}) {
+  const approval = readApproval(row);
+  const confidence = readConfidence(row);
+  if (!approval.known || !confidence.known) return 'unknown';
+  if (!allow.includes(approval.value)) return 'refused';
+  return confidence.value >= minConfidence ? 'approved' : 'refused';
+}
+
+/**
+ * @param {object} [claim] v5's `{confidence, approved_by}`, optional. A fourth
+ *   positional rather than a new required argument: every existing three-arg
+ *   call site keeps working and simply records no claim, which reads as
+ *   `not-claimed` rather than as a fabricated default.
+ */
+function guard(action, level = 'quick', fn, claim = {}) {
+  const c = claimFields(claim);
   // Was logged BEFORE fn() ran, so the outcome could never be recorded --
   // 331 of 414 shell rows have no allow/deny verdict. The kill-switch throw
   // also sat above the append, so blocked actions left no trace at all:
   // the single event most worth auditing was the one never written.
   if (fs.existsSync(STOP_FILE)) {
-    append({ action, level, allowed: false, outcome: 'killswitch' });
+    append({ action, level, allowed: false, outcome: 'killswitch', ...c });
     throw new Error('⛔ Kill switch active – action blocked');
   }
 
   if (!fn) {
-    append({ action, level, allowed: true, outcome: 'no-op' });
+    append({ action, level, allowed: true, outcome: 'no-op', ...c });
     return { executed: true, action };
   }
 
@@ -150,22 +277,22 @@ function guard(action, level = 'quick', fn) {
   try {
     result = fn();
   } catch (err) {
-    append({ action, level, allowed: false, outcome: 'error', error: err.message });
+    append({ action, level, allowed: false, outcome: 'error', error: err.message, ...c });
     throw err;
   }
 
   if (result && typeof result.then === 'function') {
     return result.then(
-      value => { append({ action, level, allowed: true, outcome: 'ok', async: true }); return value; },
+      value => { append({ action, level, allowed: true, outcome: 'ok', async: true, ...c }); return value; },
       err => {
         append({ action, level, allowed: false, outcome: 'error', async: true,
-                 error: err && err.message ? err.message : String(err) });
+                 error: err && err.message ? err.message : String(err), ...c });
         throw err;
       }
     );
   }
 
-  append({ action, level, allowed: true, outcome: 'ok' });
+  append({ action, level, allowed: true, outcome: 'ok', ...c });
   return result;
 }
 
@@ -183,4 +310,7 @@ function logAction(action, level = 'quick', meta = {}) {
 
 module.exports = { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
                    ORIGIN, detectOrigin, ACTOR, detectActor,
-                   setLogFile, currentLogFile };
+                   setLogFile, currentLogFile,
+                   // v5: the gate. See the block comment above append().
+                   SCHEMA, APPROVERS, schemaVersion, normalizeClaim,
+                   readConfidence, readApproval, gateVerdict, claimFields };

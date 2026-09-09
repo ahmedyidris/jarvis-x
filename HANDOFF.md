@@ -292,6 +292,7 @@ Newest at the bottom. Format:
 2026-09-09T15:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/status.js + code/test-status.js (24 assertions, 12/12 mutations caught), test-status added to CI, bin/jj status rewired to exit non-zero. PLAN_5 sec7 item 7 marked done. Nothing outside those five files touched.
 2026-09-09T16:10Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 9 (weekly sweep): code/weekly-sweep.js + test (28 assertions, 14/14 mutations), .github/workflows/weekly-sweep.yml on a Monday cron. Found real rot: docs/architecture.md references code/gateway-adapter.js, which does not exist. Parked, not fixed.
 2026-09-09T16:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 10 (bitemporal memory): code/memory-bitemporal.js + test (28 assertions, 14/14 mutations). Layers 1-2 of 7 only. NOT wired in; code/memory.js and scheduler.js untouched.
+2026-09-09T20:05Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec3 item 2 / sec7 Tier 1 item 4 (schema v5): guard.js confidence+approved_by, code/test-gate.js (22 assertions, 15/15 mutations). Audit log rows are now schema v5 -- test-guard.js's three v4 assertions updated. NOTE for local: your logs/actions.jsonl will contain a mix of v4 and v5 rows; that is correct and readers branch on schema.
 
 
 ---

@@ -101,9 +101,18 @@ and exits 0 unconditionally.** It is a library, not a test.
 1. **The zero-assertion sweep.** Fails CI when a listed suite cannot report an
    assertion count. ~1h. The cheapest permanent defence this repo can buy, and
    there is a live instance right now.
-2. **`confidence` + `approved_by` on the audit log** (schema v5). These are what
-   turn the log from a record into a gate. A v4 row must read as *absent*, never
-   as a default — a guessed `1.0` on old rows is a lie the gate would then trust.
+2. ~~**`confidence` + `approved_by` on the audit log** (schema v5).~~
+   **DONE 2026-09-09** — `code/guard.js` schema v5, `code/test-gate.js`
+   (22 assertions), in CI. 15 mutations, 15 caught. The absent-not-default rule
+   is the point and is pinned by its own test: `gateVerdict()` is three-valued
+   (`approved` / `refused` / `unknown`) so absence cannot ride in as a boolean,
+   and every pre-v5 row returns `unknown`. `readConfidence()` on such a row
+   returns no `value` key at all, so a call site cannot write `?? 1.0`.
+   Two kinds of unknown are kept apart: `pre-v5` (the log could not record it —
+   permanent) and `not-claimed` (a live v5 call site said nothing — a real thing
+   to fix). A malformed claim is neither stored nor silently dropped: the row
+   keeps `confidence_rejected` / `approved_by_rejected`, which reads as unknown
+   to the gate and as a bug to whoever greps for it.
 3. ~~**The weekly sweep.**~~ **DONE 2026-09-09** — `code/weekly-sweep.js`.
    Re-runs the suites, diffs doc claims against fresh output, parks anything
    that drifted. See §7 item 9.
@@ -299,8 +308,12 @@ as much as possible so the metered tier is spent only where it earns its keep.
 3. **Five hardware suites on the Chromebook** — `test-kokoro`, `test-vision`,
    `test-voice`, `test-voice-interaction`, `test-voice-router`. Only that machine
    can run them.
-4. **`schema` v5**: `confidence` + `approved_by`. The gate every approval flow
-   below depends on. ~1h.
+4. ~~**`schema` v5**: `confidence` + `approved_by`.~~ **DONE 2026-09-09.**
+   The gate every approval flow below depends on. See §3 item 2 for what
+   landed and the rule it protects. `guard()` takes an optional fourth
+   argument, so all existing three-arg call sites keep working and record
+   `not-claimed` rather than a fabricated default — no call site was rewritten
+   to claim a confidence it does not actually have.
 
 **Tier 2 — the two income legs, now ruled.** Both proceed under existing rules.
 
