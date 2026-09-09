@@ -344,7 +344,17 @@ as much as possible so the metered tier is spent only where it earns its keep.
    would be making that decision for him. Every rendered report repeats that in
    its footer.
 
-   **Still not built** — the other four clauses: the bot-trader loop,
+   **The bot-trader clause is BLOCKED on a ruling, not on effort.**
+   `CONSTITUTION.md` §III gates *proposing* a paper trade on one-tap human
+   approval, and `code/trade-advisor.js` already refuses to execute for that
+   reason — with `code/test-trade-advisor.js` asserting it via a book that
+   throws if `open()` or `close()` is touched. A bot that generates and
+   executes its own proposals cannot satisfy both documents, and building one
+   would mean deleting that test. `DECISION_RECORD_autonomous-trading-loop.md`
+   sets out three options (leave §III as written / amend it for paper
+   proposals / automate only the exits) and is Ahmed's to rule on under §VII.
+
+   **Still not built** — the other four clauses: the bot-trader loop (above),
    TradingView signals, local models on analysis, and the scheduled paper
    execution that would actually populate `logs/trading-journal.jsonl`. Run
    today against this container's empty journal the report correctly returns

@@ -101,10 +101,10 @@ await test('below the confidence bar is refused, not unknown', () => {
 });
 
 await test('an approver outside the allowed set is refused', () => {
-  assert.strictEqual(G.gateVerdict({ ...v5full, approved_by: 'agent' }), 'refused',
-    'the default allows only human — an agent approving its own action is the thing to prevent');
+  assert.strictEqual(G.gateVerdict({ ...v5full, approved_by: 'jarvis' }), 'refused',
+    'the default allows only human — jarvis approving its own action is the thing to prevent');
   assert.strictEqual(
-    G.gateVerdict({ ...v5full, approved_by: 'agent' }, { allow: ['human', 'agent'] }),
+    G.gateVerdict({ ...v5full, approved_by: 'jarvis' }, { allow: ['human', 'jarvis'] }),
     'approved', 'a caller can widen it, but must say so in its own code');
 });
 
@@ -139,7 +139,10 @@ await test('an approver outside the closed set is refused and recorded as refuse
   assert.ok(!('approved_by' in row));
   assert.strictEqual(row.approved_by_rejected, 'ahmed');
   assert.strictEqual(G.readApproval({ schema: 'v5', ...row }).reason, 'rejected');
-  assert.deepStrictEqual(G.APPROVERS, ['human', 'agent', 'oracle']);
+  // The vocabulary is CONSTITUTION.md §V's, not the memory template's.
+  assert.deepStrictEqual(G.APPROVERS, ['human', 'jarvis']);
+  assert.ok(!G.APPROVERS.includes('oracle'),
+    'a third approver the written law does not name is a §VII amendment, not a constant');
 });
 
 await test('a rejected claim gates to unknown, never to approved', () => {
@@ -194,18 +197,18 @@ await test('guard() with no claim writes a row that reads as not-claimed', () =>
 
 await test('an async guard() carries the claim to the settled row', async () => {
   const before = readLog().length;
-  await G.guard('gated-async', 'quick', async () => 'ok', { confidence: 0.85, approved_by: 'oracle' });
+  await G.guard('gated-async', 'quick', async () => 'ok', { confidence: 0.85, approved_by: 'jarvis' });
   const row = readLog()[before];
   assert.strictEqual(row.async, true);
-  assert.strictEqual(row.approved_by, 'oracle');
+  assert.strictEqual(row.approved_by, 'jarvis');
 });
 
 await test('logAction carries a claim too', () => {
   const before = readLog().length;
-  G.logAction('noted', 'quick', { allowed: true, confidence: 0.7, approved_by: 'agent' });
+  G.logAction('noted', 'quick', { allowed: true, confidence: 0.7, approved_by: 'jarvis' });
   const row = readLog()[before];
   assert.strictEqual(row.confidence, 0.7);
-  assert.strictEqual(row.approved_by, 'agent');
+  assert.strictEqual(row.approved_by, 'jarvis');
 });
 
 await test('a claim object cannot smuggle extra keys into an audit row', () => {

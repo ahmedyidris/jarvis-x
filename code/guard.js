@@ -150,9 +150,26 @@ function schemaVersion(s) {
   return m ? Number(m[1]) : 0;
 }
 
-/** Who authorised an action. A closed set: an open one degrades into free
- *  text, and a gate cannot compare free text. */
-const APPROVERS = Object.freeze(['human', 'agent', 'oracle']);
+/**
+ * Who authorised an action. A closed set: an open one degrades into free text,
+ * and a gate cannot compare free text.
+ *
+ * THESE TWO VALUES COME FROM CONSTITUTION.md §V, which specifies the audit
+ * row's `"approved_by": "human|jarvis"`. An earlier draft of this used
+ * ['human', 'agent', 'oracle'], taken from
+ * docs/incoming/MEMORY_TEMPLATE.txt's §5. That was wrong twice over: the
+ * template is reference material that PLAN_5 §0 says explicitly does NOT set
+ * scope, and CONSTITUTION.md is the written law this file exists to enforce.
+ * A gate whose vocabulary disagrees with the constitution it enforces is the
+ * quietest possible way for the two to drift apart -- and `guard.js` is named
+ * in §III as a file whose modification is itself gated, so it is the last
+ * place that drift should start.
+ *
+ * 'oracle' is dropped rather than kept as an extension: a third approver the
+ * law does not name is exactly the sort of quiet widening this codebase keeps
+ * correcting. If one is wanted, it is a §VII amendment, not a constant.
+ */
+const APPROVERS = Object.freeze(['human', 'jarvis']);
 
 /**
  * A confidence claim is only recorded if it is a real number in [0,1].
