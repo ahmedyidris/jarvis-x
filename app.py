@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import urllib.request as _urlreq
+import uuid
 from datetime import datetime
 from pathlib import Path
 from subprocess import run as subprocess_run
@@ -843,20 +844,6 @@ async def resume_vertical(name: str, _token=Depends(require_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# SPA fallback: any unmatched non-/api path serves index.html
-@app.get("/{full_path:path}")
-async def spa_fallback(full_path: str):
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="Not found")
-    candidate = WEB_DIST / full_path
-    if full_path and candidate.is_file():
-        return FileResponse(candidate)
-    return FileResponse(WEB_DIST / "index.html")
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
-
 # === AGENT EXECUTOR ===
 class ExecuteRequest(BaseModel):
     cmd: str
@@ -903,6 +890,114 @@ async def execute_command(req: ExecuteRequest, _token=Depends(require_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === CLIPPER VERTICAL ===
+class ClipperRequest(BaseModel):
+    source: str
+    n_clips: int = 5
+    aspect: str = "9:16"
+    language: str = None
+    model_size: str = "base"
+    subtitles: bool = True
+
+# Keyed by job_id (uuid4), not by a fixed vertical name like
+# _generation_jobs -- any number of distinct sources can run concurrently,
+# so there's no small fixed keyspace to key on.
+_clipper_jobs: dict[str, dict] = {}
+
+
+def _run_clipper_job(job_id: str, params: dict):
+    """Background worker for one clipper pipeline run.
+
+    Same job-queue shape as _run_generator_job, adapted for an in-process
+    pipeline instead of a subprocess script. This runs inside a
+    ThreadPoolExecutor worker thread (via run_in_executor below), so
+    os.nice() here only renices this thread's kernel task, not the whole
+    process -- same deprioritization intent as _run_generator_job's
+    nice/ionice subprocess wrapping (see its P7 comment: this box measured
+    an interactive Ollama query go from 4s to 64-76s when a batch render
+    ran concurrently), just without a subprocess boundary to hang ionice
+    off of, so only CPU niceness is covered here, not I/O priority.
+    """
+    try:
+        os.nice(15)
+    except OSError:
+        pass  # best-effort; a failure to renice must not fail the job
+
+    from code.verticals.clipper import ClipperStoppedError, run as clipper_run
+    from code.verticals.clipper.ingest import IngestError
+
+    try:
+        result = clipper_run(**params)
+        _clipper_jobs[job_id] = {
+            "source": params["source"],
+            "status": "done",
+            "finished_at": datetime.now().isoformat(),
+            "language": result["transcript"]["language"],
+            "clips": result["clips"],
+        }
+    except IngestError as e:
+        _clipper_jobs[job_id] = {"source": params["source"], "status": "failed", "finished_at": datetime.now().isoformat(), "error": str(e)}
+    except ClipperStoppedError as e:
+        _clipper_jobs[job_id] = {"source": params["source"], "status": "stopped", "finished_at": datetime.now().isoformat(), "error": str(e)}
+    except Exception as e:
+        _clipper_jobs[job_id] = {"source": params["source"], "status": "error", "finished_at": datetime.now().isoformat(), "error": str(e)}
+
+
+@app.post("/api/verticals/clipper")
+async def run_clipper(req: ClipperRequest, _token=Depends(require_token)):
+    """Start the clipper vertical (code/verticals/clipper) on a local video file.
+
+    Background job-queue pattern, same shape as
+    /api/dashboard/generate/{vertical}: returns immediately with a job_id,
+    runs in a thread-pool executor, caller polls
+    GET /api/verticals/clipper/{job_id} for the result. Not /api/execute's
+    synchronous shape -- a whisper+ffmpeg pipeline can run for minutes, and
+    blocking the event loop that long would make the rest of Jarvis's API
+    (including the dashboard) look dead.
+    """
+    ALLOWED_ASPECTS = {'9:16', '16:9', '1:1', '4:5'}
+    ALLOWED_MODEL_SIZES = {'tiny', 'base', 'small', 'medium', 'large-v3'}
+
+    if req.aspect not in ALLOWED_ASPECTS:
+        raise HTTPException(status_code=400, detail=f"aspect must be one of {sorted(ALLOWED_ASPECTS)}")
+    if req.model_size not in ALLOWED_MODEL_SIZES:
+        raise HTTPException(status_code=400, detail=f"model_size must be one of {sorted(ALLOWED_MODEL_SIZES)}")
+    if not 1 <= req.n_clips <= 20:
+        raise HTTPException(status_code=400, detail="n_clips must be between 1 and 20")
+    if STOP_FILE.exists():
+        raise HTTPException(status_code=503, detail="Kill switch active — Jarvis is halted")
+
+    # One job per source path at a time -- same race dashboard_generate
+    # guards against, keyed by source instead of a fixed vertical name.
+    existing = next(
+        (j for j in _clipper_jobs.values() if j.get("source") == req.source and j.get("status") == "running"),
+        None,
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail=f"a clipper job for {req.source!r} is already running")
+
+    job_id = uuid.uuid4().hex
+    params = {
+        "source": req.source,
+        "n_clips": req.n_clips,
+        "aspect": req.aspect,
+        "language": req.language,
+        "model_size": req.model_size,
+        "subtitles": req.subtitles,
+    }
+    _clipper_jobs[job_id] = {"source": req.source, "status": "running", "started_at": datetime.now().isoformat()}
+    asyncio.get_event_loop().run_in_executor(None, _run_clipper_job, job_id, params)
+    return {"job_id": job_id, "status": "running"}
+
+
+@app.get("/api/verticals/clipper/{job_id}", dependencies=[Depends(require_token)])
+async def clipper_job_status(job_id: str):
+    job = _clipper_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown job_id")
+    return job
+
+
 @app.exception_handler(hermes_module.HermesBackendError)
 async def hermes_backend_exception_handler(request, exc):
     from fastapi.responses import JSONResponse
@@ -915,3 +1010,20 @@ async def hermes_backend_exception_handler(request, exc):
             "path": request.url.path
         }
     )
+
+
+# SPA fallback: any unmatched non-/api path serves index.html
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found")
+    candidate = WEB_DIST / full_path
+    if full_path and candidate.is_file():
+        return FileResponse(candidate)
+    return FileResponse(WEB_DIST / "index.html")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
+

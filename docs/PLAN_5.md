@@ -341,3 +341,35 @@ as much as possible so the metered tier is spent only where it earns its keep.
   any other tool at the terminal do not route through it at all.
 - A test must never depend on the control it is testing.
 - This document gets superseded the moment §7 Tier 1 produces fresh evidence.
+
+## 9. Local session findings, 2026-09-09 (Chromebook, hardware-only evidence)
+
+Requested in `HANDOFF.md`'s inbox — reporting back rather than duplicating a
+plan doc. Full detail in `AS_BUILT.md` §8, not repeated here.
+
+**The five hardware suites (§7 Tier 1 item 3): all pass, 8/8 test files
+green** — `test-kokoro` (5/5), `test-vision` (3/3), `test-voice` (3/3),
+`test-voice-interaction`, `test-voice-router` (8/8). One environment gotcha
+worth recording so it isn't mistaken for a regression next time: they fail
+with `spawn piper ENOENT`/`ModuleNotFoundError: soundfile` unless `~/venv-ai/
+bin` is on `$PATH` first — not a code defect, a shell-setup step.
+
+**`llmfit` (`AlexsJones/llmfit`, installed this session) adds a throughput
+axis §5's table doesn't have** (that table measures routing *accuracy*; this
+measures *speed* against this exact CPU):
+
+| Model | Fit @ 14GB | Baseline est. | Min RAM |
+|---|---|---|---|
+| `Qwen/Qwen2.5-3B-Instruct` | 100/100 | ~6.0 tok/s | 1.6 GB |
+| `Qwen/Qwen2.5-7B-Instruct` | 100/100 | ~2.4 tok/s | 3.9 GB |
+
+Both fit against the full 14GB total — but real free RAM under normal working
+load (this session plus one other concurrent local session plus a browser)
+measured **3.7GB, not 14GB**. `qwen2.5:7b`'s 3.9GB requirement is essentially
+all of that. Doesn't change §5's model choice; does mean "fits" should be
+read against ~3.7GB free, not the on-paper total, before adding any more
+always-on local-model load (the §3 sweep included).
+
+**`test-guard`/`test-shell` confirmed already fixed** (37/22+ assertions,
+matching `docs/RECONCILE_v4.md`) — re-verified directly, no further action
+needed there.

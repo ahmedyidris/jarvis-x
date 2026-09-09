@@ -41,13 +41,13 @@
       "source": "alchaincyf/huashu-design",
       "sourceType": "github",
       "skillPath": "SKILL.md",
-      "computedHash": "636ff50e17901f1809d9895c9ab15fc8cb5f4c3cc41cc93417da550613ce5e3b"
+      "computedHash": "78397b5fe0856385bb268ee2f881de46e94fa09e516b0b9983e898b91762a61f"
     },
     "icm-architect": {
       "source": "RinDig/icm-architect",
       "sourceType": "github",
       "skillPath": "SKILL.md",
-      "computedHash": "172e9804f711e805fa0c8047874484e29943c47649a4d0326ed6938c86775028"
+      "computedHash": "f0df37557a20a1e95df63eeb7ea559cf7c329c14a1725a4cb1a9f3a4bc22cdb0"
     },
     "image-to-code": {
       "source": "Leonxlnx/taste-skill",
@@ -71,7 +71,7 @@
       "source": "pbakaus/impeccable",
       "sourceType": "github",
       "skillPath": ".agents/skills/impeccable/SKILL.md",
-      "computedHash": "b4c7703e92fa409b45ee25ac6329c79076c6403fd3e9c6efad84d41a79123a8c"
+      "computedHash": "8d3cd4e3b45e6bc6a67a852ca9f8b4d067804de32b4784d75626263957ec5933"
     },
     "industrial-brutalist-ui": {
       "source": "Leonxlnx/taste-skill",

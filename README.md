@@ -54,7 +54,7 @@ Built but deliberately **not** wired into the agent loop: `packages/model-gatewa
 
 1. Every action that touches the filesystem, network, or money goes through `guard()`. This is a convention the caller must cooperate with, not a sandbox — a stray raw `fs`/`subprocess` call bypasses it entirely.
 2. `code/guard.js`, `code/validate.js`, `knowledge/Guidelines.md`, `memory/rules.md` are off-limits to self-modification (enforced via Claude Code's own deny-list, not a repo mechanism) — whatever can edit its own code must not be able to edit its own constraints.
-3. No trading, simulated or real. Ruled out 2026-09-04 and the module deleted — `CONSTITUTION.md` §IV forbids it outright rather than permitting a testnet carve-out.
+3. No real-money trading, ever (`CONSTITUTION.md` §IV). Simulation is different and is live: `code/paper-trading.js` enforces `config/trading.json`'s limits, proven by `code/test-paper-trading.js` — no code path to a broker exists to disable. **Corrected 2026-09-09**: this line previously said the module was deleted; it was, then rebuilt and re-landed the same evening — see `DECISION_RECORD_paper-trading.md`.
 4. Unattended (`scheduler.js`) means read-only. `write`/`shell` proposals always queue for a human, never auto-execute, even structurally-valid ones.
 5. A degraded model backend must never skip the human-approval gate. Gating is decided by action *level*, never by which model ultimately answered.
 
