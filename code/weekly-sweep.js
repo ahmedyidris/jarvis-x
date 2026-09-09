@@ -322,6 +322,28 @@ function format(r) {
          'seen but too ambiguous to verify');
   if (r.repeat) L.push(`  ${r.repeat} finding(s) already parked by an earlier run`);
   L.push('');
+
+  // A COUNT BY CATEGORY, because a red run has to be legible in one line.
+  // In CI the inbox starts empty on every run (logs/ is gitignored, the runner
+  // is ephemeral), so EVERY finding reads as new and the job is red for as
+  // long as any rot exists. With a backlog that needs human triage, that means
+  // red every week — the "perpetually-red badge nobody trusts" test.yml's own
+  // comment warns about. This does not change the pass/fail rule, which is a
+  // judgement about how Ahmed wants to be notified and not mine to make; it
+  // makes the red legible, so "did something newly break?" is answerable
+  // without reading the list.
+  const byKind = {};
+  for (const f of r.findings) byKind[f.kind] = (byKind[f.kind] || 0) + 1;
+  if (r.findings.length) {
+    L.push(`  by kind: ${Object.entries(byKind).map(([k, n]) => `${k}=${n}`).join('  ')}`);
+    const broken = (byKind['suite-cannot-report'] || 0) + (byKind['suite-failing'] || 0);
+    L.push(broken
+      ? `  ${broken} CONTROL(S) BROKEN — a suite cannot report, or is failing. Read these first.`
+      : '  no control is broken: nothing here means a check stopped working.');
+    L.push('  the rest is backlog awaiting a human decision, not an incident.');
+    L.push('');
+  }
+
   L.push(r.parked.length
     ? `${r.parked.length} new finding(s) parked in logs/sweep-inbox.jsonl — nothing was changed`
     : 'nothing new to park');
