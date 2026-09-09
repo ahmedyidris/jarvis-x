@@ -397,13 +397,28 @@ as much as possible so the metered tier is spent only where it earns its keep.
    asks whether each suite *in* the CI list can report a pass, so a file
    outside the list is invisible to it by construction — and dropping a suite
    from the list is the failure `test.yml`'s own comment says this repo keeps
-   correcting. It found **12 such files**, of which `test.yml` documents only
-   five as needing local hardware; the other seven are excluded with no reason
-   recorded anywhere, and five of the twelve assert nothing at all. No
-   allowlist of "deliberately excluded" suites, deliberately: that is one more
-   list to drift from the workflow and is the exact shape of the thing being
-   detected — the inbox's dedupe carries it instead, so each orphan is parked
-   once, ever.
+   correcting. It found **12 such files**, and all twelve are now resolved.
+
+   Two of them — `test-accessibility` and `test-full-accessibility` — were not
+   merely unrun but **could not fail**: both ended in `.catch(console.error)`,
+   so an AssertionError was caught, printed, and the process exited 0. Proven
+   by breaking the module under test and watching the suite print "ALL TESTS
+   PASSED" beside the AssertionError. That is the same line `test.yml` already
+   documents in `test-data-layer.js`, making these instances **seven and
+   eight** of that defect. Both are converted to `test-helper`, both now exit
+   non-zero on a real break, and both are in CI.
+
+   The other ten are correctly excluded — Piper, Kokoro, ollama, live APIs, and
+   `test-net`, which is a *gate* for network tests rather than a suite at all —
+   and `test.yml` now records why for each. **The detector objects to silence,
+   not to exclusion**: a suite the workflow names anywhere, including in a
+   comment explaining the exclusion, is a documented decision; one it never
+   mentions is the finding. That is not a second allowlist — it reads the
+   workflow itself, so the decision and its record cannot drift apart, and
+   documenting an exclusion is exactly the action the finding asks for, which
+   makes it self-clearing. With the backlog cleared the sweep is **green from
+   a clean inbox**, so the Monday job is green and its pass/fail rule never
+   needed changing.
 
    It parks findings in an append-only inbox and
    **never fixes** — the exit code is non-zero only for *new* findings, because
