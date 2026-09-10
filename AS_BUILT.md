@@ -576,9 +576,12 @@ capacity planning should assume that baseline, not an idle machine.
   explicit go-ahead on that specific step.
 - `tts-worker` / Egyptian Arabic voice cloning — needs `chatterbox` (pip) + `voices/`
   (~5GB+, personal reference audio). Not chased without Ahmed's direction (§8.2).
-- `nomic-embed-text` is pulled but unwired — no ChromaDB or embedding-search code found
-  anywhere in `code/` or `hermes.py` that calls it. Available capacity, not a built
-  feature; CLAUDE.md now says so explicitly.
+- ~~`nomic-embed-text` is pulled but unwired~~ — **no longer true as of §9.**
+  `code/memory-embed.js` calls it. Corrected here 2026-09-10, and worth noting the
+  correction was nearly missed: building layer 3 falsified this same claim in two
+  documents, and only the CLAUDE.md copy was caught at the time. Still no ChromaDB
+  and none planned — similarity is computed in-process over the append-only fact
+  log, which is why no vector database was ever needed.
 - `DECISION_RECORD_hermes-backbone.md` option D (unify memory + tier tables) — E's
   measurement (§8.3) cleared the evidence bar the record asked for; D itself (~a day of
   schema/migration work per the record's own estimate) was not started, pending Ahmed's
@@ -600,3 +603,104 @@ capacity planning should assume that baseline, not an idle machine.
   - `JARVIS_X_MASTER_BLUEPRINT_v4.pdf` and `Self-Repairing_Memory_Architecture_Template.pdf` ingested and reconciled into `MASTER_PLAN_v5.md` and `docs/PLAN_5.md`.
   - Found Egyptian Arabic TTS model assets at `/mnt/shared/GoogleDrive/MyDrive/Jarvis Files/voicetut-tts` (`model.safetensors` 2.4 GB, `reference_speakers`, `tokenizer.json`, `config.json`), resolving the missing weights needed by `tts_worker.py`.
 
+---
+
+## 9. Self-maintenance substrate, bitemporal memory, and content's two gates (2026-09-10, remote session)
+
+Branch `claude/resume-building-jarvis-97b0mv`, PR #29. **20 suites / 424 assertions →
+36 / 793.** ~190 mutations run across the session, all caught after the fixes below.
+This section is the narrative entry point for a diff too large to read straight
+through — 56 files, ~9.2k insertions, 27 commits, each independently reviewable.
+
+### 9.1 The one idea underneath all of it
+
+**An unknown must have its own value, and must never default to the reassuring one.**
+Not a style preference — each module needed it independently. `jj status` exits
+non-zero when Jarvis cannot answer. The v5 gate returns approved / refused /
+**unknown**, never a boolean, and ~2810 pre-v5 rows read unknown. The trading report
+defaults to `insufficient-evidence` and its strongest possible verdict is `promising`
+— there is no `ready`, and a test asserts none can exist. Semantic recall reports a
+dead embedder rather than returning an empty list that reads as "I know nothing".
+
+### 9.2 What was built
+
+- **`jj status`** (§7.7) — previously printed "ready" unconditionally and exited 0,
+  with the daemon down and the kill switch pulled.
+- **Weekly sweep** (§7.9) — the time-driven half, now **five detectors**: suite
+  health, stale doc refs, assertion-count drift, orphan suites, and the kill switch
+  documented at a path that is not it.
+- **Schema v5 audit gate** (§3.2 / §7.4) — `confidence` + `approved_by`, three-valued.
+- **Bitemporal memory, all seven layers** (§7.10) — including layer 3, semantic
+  recall ranked by `similarity × freshness` rather than similarity, because the
+  template's dangerous case is the memory that *was* true and "embeds perfectly,
+  retrieves with the highest score".
+- **Content phase 1's two gates** (§6.2) — script and cut, each bound to the SHA-256
+  of exactly what Ahmed read, plus `jj content` as the surface he operates them
+  through.
+- **Trading phase 1's measurement clause** (§7.6), 1 of 5. The rest wait on a
+  CONSTITUTION.md amendment only Ahmed can commit.
+
+### 9.3 Four defects found after the code was "done and green"
+
+1. **An audit-forgery hole in `code/guard.js`, surviving since v2.** `append()` spread
+   its derived fields *before* the caller's entry, so a caller could write
+   `actor: 'FORGED', schema: 'v5'` verbatim — and a forged v5 stamp plus a valid
+   `approved_by` reads as **approved** to the gate the stamp exists to protect. Not
+   agent-reachable, so defence in depth, but three of that file's own claims were
+   false until fixed.
+2. **A cross-layer bug no unit test could see.** Memory layer 4 collapsed the intended
+   action into `park` when routing was parked, so layer 7 re-submitted `park` on
+   approval and layer 5 refused: **no human-approved memory change could ever be
+   applied.** All five layer suites were green throughout, because no single layer was
+   wrong about its own job.
+3. **Twelve test files run by nothing**, five of which asserted nothing. Invisible to
+   `code/sweep.js` by construction — it checks suites *in* the CI list.
+4. **The kill switch documented at a path that halts nothing**, in docs/PLAN_5.md, in
+   two places including a row of its own safety table, by an agent that had already
+   corrected the identical claim in CLAUDE.md hours earlier.
+
+### 9.4 Two "blockers" that dissolved under a grep
+
+Both were recorded as hard-blocked on missing infrastructure. Both were wrong the same
+way — a dependency reasoned about rather than checked.
+
+- **Memory layer 3** was "blocked on ollama". True of the live embedder, false of the
+  layer: the embedder is an argument, exactly like the clock in layer 1 and the
+  `repairFn` in layer 6 — the pattern the other six layers already used.
+- **The Gemini CLI** was "a real, currently-blocking gap" (§8.5's framing, repeated in
+  a blocker review). Nothing in this codebase invokes the `gemini` binary; every hit is
+  the registry's HTTPS path or a fixture string in `code/test-guard.js`. It is a
+  workstation setup task, not a deployment blocker.
+
+### 9.5 Tests that could not fail, including four of this session's own
+
+Two more instances of the `.catch(console.error)` defect this repo keeps finding
+(`code/test-accessibility.js`, `code/test-full-accessibility.js`) — converted, and
+*demonstrated* to exit 1 on a broken module rather than assumed to.
+
+More usefully: **mutation testing caught four vacuous assertions written this session,
+in suites written to hunt exactly that defect.** Both abort-timer tests used
+`process._getActiveHandles()`, which does not see timers — they asserted `0 <= 0` and
+passed against a build with `clearTimeout` deleted. A content-pipeline test never
+covered the one case separating "posting needs the queue" from "posting needs
+approval". And a memoized `get()` escaped because the only freshness test used two
+handles, each of which would carry its own cache.
+
+### 9.6 Still open
+
+- **The CONSTITUTION.md §III amendment.** Ahmed ruled option C (automate only the
+  exits); the drafted text, the test narrowing that must land in the same commit, and
+  the build order are in DECISION_RECORD_autonomous-trading-loop.md. §VII makes the
+  commit his — a ruling in chat authorises the direction, not the file. It is
+  untouched on this branch.
+- **The weekly workflow has never actually run.** GitHub 404s `workflow_dispatch` off
+  the default branch, so it cannot be exercised until merged.
+- **Nothing is wired into `code/scheduler.js`** — not the memory stack, not the content
+  pipeline. Pinned by tests rather than promised.
+- **Layer 3's live embedder is unverified.** One round trip proving `nomic-embed-text`
+  returns the expected vector shape; the command is in HANDOFF.md.
+- **The content gates are not a defence against a hostile local agent**, and cannot be
+  at that layer: `code/shell.js`'s allowlist includes `node`, so the pipeline module can
+  be called directly. The `jj content` TTY check is a speed bump, described as one in
+  its own refusal text. Mitigation is detection — every approval writes an audit row
+  carrying actor and origin.
