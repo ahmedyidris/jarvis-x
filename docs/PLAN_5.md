@@ -91,7 +91,7 @@ and exits 0 unconditionally.** It is a library, not a test.
 |---|---|
 | One writer | `lib.js`'s `execute()` — single dispatch point for every action |
 | Append-only audit log | `logs/actions.jsonl`, schema v4: `origin` (test vs app) + `actor` (which of eight entry points), both derived from `argv[1]` so the agent cannot set them |
-| Kill switch | `~/.jarvis-x/STOP`, checked in `guard.js` and re-checked in `shell.js` so it self-defends regardless of caller |
+| Kill switch | `.jarvis-x-STOP` at the repo root (corrected 2026-09-10 — this row said `~/.jarvis-x/STOP`, which halts nothing), checked in `guard.js` and re-checked in `shell.js` so it self-defends regardless of caller |
 | Constraint files mechanically protected | `OFF_LIMITS` in `validate.js`, gated twice |
 | Clock injected, not called | House rule in `test.yml`; `selfdebug.js` takes `now` as a parameter |
 | Self-diagnosis | `selfdebug.js` — reads the log, groups failures by actor, proposes, never fixes |
@@ -460,12 +460,42 @@ as much as possible so the metered tier is spent only where it earns its keep.
    unauthenticated Gemini CLI "a real, currently-blocking gap" when nothing in
    this codebase invokes the `gemini` binary at all.
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
-   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (38 assertions), in CI,
-   plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Four
+   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (53 assertions), in CI,
+   plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Five
    detectors, all pure lookups, no model calls: suite health (delegated to
    `sweep.js`, so the two cannot disagree about the CI list), doc references to
    files that no longer exist, assertion-count claims re-checked against what
-   the suites now report, and **test files no CI list runs**.
+   the suites now report, **test files no CI list runs**, and **the kill
+   switch documented at a path that is not it**.
+
+   **The fifth detector was added 2026-09-10 because this document was
+   wrong about the kill switch, in two places, while being edited all
+   session.** `docs/PLAN_5.md` named it ~/.jarvis-x/STOP — a file that
+   halts nothing — including in a row of the safety table above, and the
+   agent editing this file had already corrected the identical claim in
+   `CLAUDE.md` earlier the same session. Detector 1 could not see it: that
+   one matches paths by file extension, and the switch has none.
+
+   It matters more than ordinary doc drift. Most stale docs cost a reader a
+   minute; this one tells someone trying to *stop* Jarvis to create a file
+   that does nothing, at the moment they most need to be right. The real
+   path is read from `guard.js`'s own `STOP_FILE` export and never written
+   in the detector — a check carrying its own copy of the value it checks
+   is one rename away from confidently enforcing the wrong answer.
+   (Note this paragraph writes the stale path *without* backticks. That is
+   the convention detector 1 already documents: backticks are precisely what
+   marks a token as a live path claim, so a write-up that uses them becomes
+   a finding about itself. This one did — and failed its own suite — before
+   the backticks came off.)
+
+   The one judgement call in it is mechanical rather than interpretive:
+   several docs name the stale path deliberately, to say it is stale, and
+   flagging those would punish exactly the correction the detector wants.
+   So if the *correct* path appears within 300 characters of the wrong one,
+   the mention counts as a contrast rather than a claim — no reading of the
+   surrounding prose, and no list of blessed phrasings to keep up to date.
+   The window excludes the matched token itself, or a path that merely
+   contained the right basename would excuse itself.
 
    That fourth detector covers a blind spot in `sweep.js` itself: `sweep.js`
    asks whether each suite *in* the CI list can report a pass, so a file
@@ -656,7 +686,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
   has authorised phase 2 in principle and sequenced it after phase 1 — so this
   line is the *current* state, not a permanent one, and it changes by his
   explicit commit and no other route.
-- The kill switch (`~/.jarvis-x/STOP`) halts everything.
+- The kill switch (`.jarvis-x-STOP`, at the repo root) halts everything.
 - Nothing binds to `0.0.0.0`. Git is the sync layer.
 - `guard.js`, `validate.js`, `exec.js`, `shell.js`, `Guidelines.md`,
   `memory/rules.md`, `CONSTITUTION.md` stay off-limits to *agent*

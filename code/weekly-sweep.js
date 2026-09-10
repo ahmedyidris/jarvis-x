@@ -244,6 +244,73 @@ function orphanSuites({ repoRoot = REPO, codeDir = null, listed = null } = {}) {
   return out;
 }
 
+// --- detector 4: the kill switch, documented at a path that is not it -------
+
+/**
+ * A doc naming the kill switch at the wrong path.
+ *
+ * WHY THIS IS ITS OWN DETECTOR rather than a case of detector 1. That one
+ * matches paths by extension (`.js`, `.md`, ...) and the switch file has
+ * none, so `~/.jarvis-x/STOP` was invisible to it. It was also invisible to
+ * every other control here, and sat wrong in docs/PLAN_5.md -- the living
+ * plan -- through an entire session of edits to that same file, including
+ * edits by the agent that had already corrected the identical claim in
+ * CLAUDE.md. That is the exact shape this module exists for: rot no commit
+ * touches and no human happens to re-read.
+ *
+ * IT MATTERS MORE THAN A NORMAL STALE REF. Most doc drift costs a reader a
+ * minute. This one tells someone trying to STOP Jarvis to create a file that
+ * halts nothing, at the moment they most need to be right.
+ *
+ * THE REAL PATH IS READ FROM guard.js's OWN EXPORT, never written here. A
+ * detector carrying its own copy of the value it checks is one rename away
+ * from confidently enforcing the wrong answer -- and the value it would be
+ * enforcing is the one thing in this repo that must not be wrong.
+ *
+ * THE CONTRAST EXCLUSION, and why it is not prose-guessing. Several docs name
+ * the stale path deliberately, to say it is stale ("`.jarvis-x-STOP` at repo
+ * root, not `~/.jarvis-x/STOP`"). Flagging those would punish exactly the
+ * correction this detector wants. The rule is mechanical rather than
+ * interpretive: if the CORRECT path appears within `WINDOW` characters of the
+ * wrong one, the mention is a contrast, not a claim. No reading of the prose
+ * around it, and no list of blessed phrasings to maintain.
+ */
+const STOP_TOKEN_RE = /`([^`\n]*STOP[^`\n]*)`/g;
+const WINDOW = 300;
+
+function killSwitchDrift({ repoRoot = REPO, docs = DEFAULT_DOCS, stopFile = null } = {}) {
+  // Injected for tests; the default is guard.js's own constant.
+  const real = path.basename(stopFile || require('./guard.js').STOP_FILE);
+  const out = [];
+  for (const doc of docs) {
+    const abs = path.join(repoRoot, doc);
+    if (!fs.existsSync(abs)) continue;
+    const text = fs.readFileSync(abs, 'utf8');
+    for (const m of text.matchAll(STOP_TOKEN_RE)) {
+      const token = m[1];
+      // ONLY TOKENS THAT LOOK LIKE A PATH. `STOP_FILE.exists()` in
+      // docs/architecture.md is a code expression naming guard.js's constant,
+      // which is correct prose and not a path claim at all -- the first run of
+      // this detector produced four such findings before this line existed.
+      // A path claim contains a separator or is explicitly relative/home-anchored.
+      if (!/[/\\]/.test(token) && !/^[.~]/.test(token)) continue;
+      if (path.basename(token) === real) continue;
+      // The window deliberately EXCLUDES the matched token itself. Including
+      // it let the token satisfy its own contrast test — a path that merely
+      // contained the real basename excused itself, masking the basename
+      // comparison above and making that check unfalsifiable.
+      const before = text.slice(Math.max(0, m.index - WINDOW), m.index);
+      const after = text.slice(m.index + m[0].length, m.index + m[0].length + WINDOW);
+      if (`${before}\n${after}`.includes(real)) continue;   // a contrast, not a claim
+      out.push({
+        kind: 'kill-switch-path', doc, ref: token,
+        detail: `${doc} names the kill switch as \`${token}\`; guard.js uses ${real}`,
+      });
+    }
+  }
+  return out;
+}
+
 // --- the inbox: park, never fix --------------------------------------------
 
 /** Stable across runs, so a finding parked last week is not parked again. */
@@ -308,8 +375,9 @@ function run({
   const orphans = orphanSuites({ repoRoot });
   const { claims, unchecked } = assertionClaims({ repoRoot, docs });
   const drift = assertionDrift(claims, suite.results);
+  const killSwitch = killSwitchDrift({ repoRoot, docs });
 
-  const findings = [...suiteFindings, ...refs, ...orphans, ...drift];
+  const findings = [...suiteFindings, ...refs, ...orphans, ...drift, ...killSwitch];
   const parked = park(findings, { file: inboxFile, now });
 
   return {
@@ -378,6 +446,7 @@ function format(r) {
 function exitCode(r) { return r.parked.length ? 1 : 0; }
 
 module.exports = {
+  killSwitchDrift,
   run, format, exitCode, staleRefs, assertionClaims, assertionDrift, orphanSuites,
   sentences, park, readInbox, fingerprint, gitIgnored,
   DEFAULT_DOCS, INBOX, PATH_RE, SUITE_RE, COUNT_RE,

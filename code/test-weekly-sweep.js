@@ -287,6 +287,116 @@ test('REAL repo: nothing it reports is mentioned by the real workflow', () => {
   }
 });
 
+// --- detector 4: the kill switch documented at a path that is not it -------
+//
+// The detector that matters most, because the claim it checks is the one
+// someone reads when they are trying to STOP Jarvis. It was added after
+// docs/PLAN_5.md -- the living plan -- was found naming the switch at
+// `~/.jarvis-x/STOP` in two places, through a whole session of edits to that
+// same file, by an agent that had already corrected the identical claim in
+// CLAUDE.md. Detector 1 could not see it: that one matches paths by
+// extension and the switch file has none.
+
+const STOP = '.jarvis-x-STOP';
+
+test('a doc naming the kill switch at the wrong path is a finding', () => {
+  const root = fakeRepo({ 'D.md': 'The kill switch (`~/.jarvis-x/STOP`) halts everything.' });
+  const out = W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP });
+  assert.strictEqual(out.length, 1);
+  assert.strictEqual(out[0].kind, 'kill-switch-path');
+  assert.strictEqual(out[0].ref, '~/.jarvis-x/STOP');
+  assert.match(out[0].detail, /guard\.js uses \.jarvis-x-STOP/);
+});
+
+test('the correct path is not a finding', () => {
+  const root = fakeRepo({ 'D.md': 'Kill switch: `.jarvis-x-STOP` at the repo root.' });
+  assert.deepStrictEqual(
+    W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('the same basename under a different directory is accepted', () => {
+  // The switch is identified by name; a doc writing the absolute path is
+  // stating the same file, not a different one.
+  const root = fakeRepo({ 'D.md': 'touch `/home/ahmed/jarvis-x/.jarvis-x-STOP`' });
+  assert.deepStrictEqual(
+    W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('naming the stale path IN CONTRAST with the real one is not a finding', () => {
+  // Several docs name the old path deliberately, to say it is stale. Flagging
+  // those would punish exactly the correction this detector wants.
+  const root = fakeRepo({
+    'D.md': 'Kill switch: `.jarvis-x-STOP` at repo root (not `~/.jarvis-x/STOP`).',
+  });
+  assert.deepStrictEqual(
+    W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('the contrast may come before or after the stale mention', () => {
+  const after = fakeRepo({ 'D.md': 'Do not use `~/.jarvis-x/STOP`; the real file is `.jarvis-x-STOP`.' });
+  assert.deepStrictEqual(W.killSwitchDrift({ repoRoot: after, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('a contrast too far away does NOT excuse the claim', () => {
+  // The window is what keeps this mechanical rather than a reading of the
+  // prose. A correct mention in a different section is not a correction of
+  // this one, and a reader of this paragraph never sees it.
+  const root = fakeRepo({
+    'D.md': `Kill switch: \`~/.jarvis-x/STOP\`.\n${'filler. '.repeat(80)}\nElsewhere: \`.jarvis-x-STOP\`.`,
+  });
+  assert.strictEqual(W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }).length, 1);
+});
+
+test('a code expression naming the constant is not a path claim', () => {
+  // `STOP_FILE.exists()` in docs/architecture.md is correct prose about
+  // guard.js's constant. The detector produced four such findings on its
+  // first real run, before it required the token to look like a path.
+  const root = fakeRepo({ 'D.md': 'guard() checks `STOP_FILE.exists()` before acting.' });
+  assert.deepStrictEqual(
+    W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('unbackticked prose is not scanned', () => {
+  // Backticks are what mark a token as a live path, the same convention
+  // detector 1 relies on.
+  const root = fakeRepo({ 'D.md': 'People sometimes think it is ~/.jarvis-x/STOP.' });
+  assert.deepStrictEqual(
+    W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('every wrong mention in a doc is reported, not just the first', () => {
+  // The real finding was TWO occurrences in one file. A detector reporting
+  // one would have let the second survive the fix.
+  const root = fakeRepo({
+    'D.md': `\`~/.jarvis-x/STOP\`\n${'x '.repeat(400)}\n\`~/jarvis/STOP\``,
+  });
+  assert.strictEqual(W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }).length, 2);
+});
+
+test('a missing doc is skipped rather than throwing', () => {
+  const root = fakeRepo({ 'D.md': 'x' });
+  assert.deepStrictEqual(
+    W.killSwitchDrift({ repoRoot: root, docs: ['gone.md'], stopFile: STOP }), []);
+});
+
+test('the real path is read from guard.js, not written here', () => {
+  // A detector carrying its own copy of the value it checks is one rename
+  // away from confidently enforcing the wrong answer — and this is the one
+  // value in the repo that must not be wrong.
+  const src = fs.readFileSync(path.join(__dirname, 'weekly-sweep.js'), 'utf8');
+  const body = src.slice(src.indexOf('function killSwitchDrift'));
+  const fn = body.slice(0, body.indexOf('\n}'));
+  assert.ok(/require\('\.\/guard\.js'\)\.STOP_FILE/.test(fn),
+    'killSwitchDrift no longer reads guard.js STOP_FILE');
+  assert.ok(!/'\.jarvis-x-STOP'/.test(fn), 'the path is hardcoded in the detector');
+});
+
+test('the live repo has no kill-switch drift', () => {
+  // Pins the fix, not just the detector. docs/PLAN_5.md carried this in two
+  // places until 2026-09-10.
+  assert.deepStrictEqual(W.killSwitchDrift({}), []);
+});
+
 // --- the inbox --------------------------------------------------------------
 
 test('park appends new findings and stamps them with the INJECTED clock', () => {
@@ -350,6 +460,39 @@ test('suite findings and failures both surface as findings', () => {
   assert.deepStrictEqual(kinds, ['suite-cannot-report', 'suite-failing']);
   assert.strictEqual(r.suite.total, 2);
   assert.strictEqual(r.suite.assertions, 5);
+});
+
+test('run() actually INCLUDES kill-switch drift in its findings', () => {
+  // Two mutations escaped without this: unwiring the detector from run(), and
+  // computing its findings then dropping them from the array. Every
+  // unit-level test above calls killSwitchDrift() directly, so neither showed.
+  const root = fakeRepo({ 'D.md': 'Kill switch: `~/.jarvis-x/STOP`.' });
+  const r = W.run({
+    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    isIgnored: NEVER_IGNORED, runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 1 }] }),
+  });
+  const ks = r.findings.filter((f) => f.kind === 'kill-switch-path');
+  assert.strictEqual(ks.length, 1, 'run() dropped the kill-switch finding');
+  assert.strictEqual(ks[0].ref, '~/.jarvis-x/STOP');
+});
+
+test('a kill-switch finding parks and so fails the weekly job', () => {
+  // It is only a control if a red run follows from it.
+  const root = fakeRepo({ 'D.md': 'Kill switch: `~/.jarvis-x/STOP`.' });
+  const r = W.run({
+    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    isIgnored: NEVER_IGNORED, runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 1 }] }),
+  });
+  assert.strictEqual(W.exitCode(r), 1);
+});
+
+test('a path containing the real basename does not excuse itself', () => {
+  // The contrast window must exclude the matched token, or a token that
+  // merely contains the right name passes its own test and the basename
+  // comparison becomes unfalsifiable.
+  const root = fakeRepo({ 'D.md': 'Kill switch: `~/wrong/.jarvis-x-STOP-old`.' });
+  const out = W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP });
+  assert.strictEqual(out.length, 1, 'a token excused itself via its own contrast window');
 });
 
 test('run() actually INCLUDES orphans in its findings', () => {
