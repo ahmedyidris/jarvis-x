@@ -100,6 +100,14 @@ jobs:
       # commit — they ended in `.catch(console.error)`, the same line test.yml
       # already documents in test-data-layer.js.
       #
+      # test-content-pipeline covers code/content-pipeline.js -- content phase
+      # 1's two human gates (PLAN_5 §6.2: Ahmed owns the idea and the
+      # narrative, Jarvis owns everything downstream). Offline by
+      # construction and then some: research, rendering and POSTING are
+      # injected functions with no defaults, so there is no code path from
+      # this suite to YouTube even if a test tried to take one. A test greps
+      # the module for a socket and finds none.
+      #
       # test-memory-embed covers code/memory-embed.js, bitemporal memory's
       # layer 3. The layer needs an embedding model (`nomic-embed-text` via
       # ollama), which is exactly why it was the last layer built and was
@@ -136,7 +144,7 @@ jobs:
                    test-memory-repair test-memory-sweep test-memory-inbox \
                    test-memory-integration test-trading-integration \
                    test-accessibility test-full-accessibility \
-                   test-memory-embed; do
+                   test-memory-embed test-content-pipeline; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

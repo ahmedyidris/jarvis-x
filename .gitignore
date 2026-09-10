@@ -62,3 +62,4 @@ quantum/.venv/
 voices/
 *.sw[a-p]
 .worktrees/
+logs/content-jobs.jsonl

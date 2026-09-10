@@ -317,10 +317,52 @@ as much as possible so the metered tier is spent only where it earns its keep.
 
 **Tier 2 — the two income legs, now ruled.** Both proceed under existing rules.
 
-5. **Content pipeline, phase 1** (§6.2): prompt/link → research → outline →
-   script draft in his voice → *his edit* → Higgsfield render → thumbnail,
-   title, description → queue. Posting automated, publishing gated on his
-   approval of the cut. English first.
+5. **Content pipeline, phase 1** (§6.2) — **the two gates are built,
+   2026-09-10; the production steps are not.** `code/content-pipeline.js` +
+   `code/test-content-pipeline.js` (34 assertions, 25/25 mutations caught),
+   in CI. The flow is prompt/link → research → outline → script draft in his
+   voice → *his edit* → Higgsfield render → thumbnail, title, description →
+   queue, with posting automated and publishing gated on his approval of the
+   cut. English first.
+
+   **What landed is the state machine and the two gates** — the half where
+   correctness matters and the half that needs no credentials. Research,
+   scripting, rendering and posting are injected functions with **no
+   defaults**, so the module opens no socket and there is no code path from
+   the suite to YouTube even if a test tried to take one.
+
+   Four rules, each pinned by a caught mutation, because a gate that reports
+   green while doing nothing is worse than no gate:
+
+   1. **An approval is bound to the artifact it approved.** Approve a script,
+      regenerate it, and the approval is void — otherwise "approve, then swap"
+      publishes something he never read. SHA-256 of the exact text, the same
+      mechanism as `source_hash` in the memory store. Re-approving the new
+      draft restores it, so the rule is not a trapdoor; re-attaching identical
+      bytes does not void anything, since it binds to content, not to the act
+      of writing.
+   2. **An approval names its gate.** A `script` approval must not satisfy the
+      `cut` gate. Not hypothetical caution — `test-memory-integration.js`
+      found exactly this class of bug one module over, where two distinct
+      intents collapsed into one token and every layer's own suite stayed
+      green.
+   3. **Absence of an approval is never approval.** Verdicts are
+      `guard.js`'s three-valued `gateVerdict()`, so "he said no" and "we never
+      asked" stay different facts. `by` has no default, because a default of
+      `'human'` would let a forgetful call path mint a human approval.
+   4. **Posting is reachable only from `queued`**, which is reachable only
+      through the cut gate — and the cut gate is re-checked *at post time*,
+      not just at queueing, because the cut can be re-attached in between.
+
+   The gate is at the script because that is where saying no is cheapest, and
+   §6.2's reasoning is the whole design: the flood Ahmed described was
+   generated text arriving with no gate at all. Automating production while
+   gating the narrative fixes that; the reverse is what caused it.
+
+   **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
+   the research/outline/script steps, the Higgsfield render call, and the
+   poster — all of which now plug into an enforced machine rather than
+   inventing their own control flow.
 6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
    The clause that gates phase 2 is built: **the honest performance
    measurement**, `code/trading-performance.js` +
