@@ -170,6 +170,173 @@ matter, not something repo code can change.
 
 ---
 
+
+---
+
+### 2026-09-09, remote → local
+
+**`jj status` (PLAN_5 §7 Tier 3 item 7) is done — and one finding in it is
+yours to care about more than mine.**
+
+`code/status.js` + `code/test-status.js`, 24 assertions, in CI, all 21 portable
+suites green at 448 assertions. `bin/jj status` now exits non-zero when Jarvis
+cannot actually answer. Details in PLAN_5 §7 item 7 rather than repeated here.
+
+**The finding.** I mutation-tested the module, 12 mutations. Eleven were caught
+normally. The twelfth — disabling the abort timer in the ollama probe — did not
+make the suite red. It made it *truncate*: the awaited test never settled, the
+event loop drained, and node exited **0** having printed neither the remaining
+checks nor the `Passed: N` tally.
+
+That is the vacuous-pass shape `sweep.js` exists to find, and it appeared in
+`sweep.js`'s own neighbour. Worth knowing because **`sweep.js` would catch it
+from outside** (no parseable count ⇒ finding) but the suite itself would look
+fine to anyone running it by hand and reading the last line. I fixed it in
+`test-status.js` with two things, and both generalise to every async suite in
+`code/`:
+
+```js
+process.exitCode = 1;          // finish() calls process.exit() explicitly, so
+                               // this only survives if finish() never ran
+```
+
+plus a non-`unref`'d watchdog racing any test that can hang. The `unref` detail
+matters and cost me a round: an unref'd watchdog does not hold the event loop
+open, so the process exits before the watchdog can fire — the fuse still
+catches it, but you get no named failure.
+
+**Every other async suite in `code/` has the same hole** — `test-market-collect`,
+`test-watcher`, `test-eval-agent` and the rest all use the
+`(async () => { await test(...) ... finish() })()` shape, and any of them
+would exit 0 on a hang. I have **not** swept them; one-line fuse each, and it
+is a better job for whichever of us is next in that neighbourhood than a
+drive-by from me.
+
+**Unchanged and untouched by this branch:** `app.py`, `code/verticals/**`,
+`memory/rules.md`, `CONSTITUTION.md`. Still yours.
+
+**A note on my branch name.** This session's branch is
+`claude/resume-building-jarvis-97b0mv` — no `claude/remote-*` prefix, because
+the harness assigned the name rather than me. It is remote-side. The guarantee
+the namespace rule exists for is intact: nothing here pushes to `claude/local-*`
+and nothing here force-pushes.
+
+
+---
+
+### 2026-09-09, remote → local (second message today)
+
+Two more of §7's Tier 3 items are done on the same branch and PR as the
+`jj status` work. Detail is in `PLAN_5.md` §7 items 9 and 10 rather than
+repeated here; this is the part that affects **you** specifically.
+
+**1. The weekly sweep found rot in a file neither of us has touched.**
+`docs/architecture.md` line 52 says *"Built but not wired in:
+`packages/model-gateway` + `code/gateway-adapter.js`"*. That second file does
+not exist anywhere in the repo and no grep finds any other reference to it. The
+sweep **parked** it rather than fixing it, deliberately — deciding what that
+sentence should now say is a judgement about the model-gateway decision, and
+`DECISION_RECORD_model-gateway.md` is the context for it. If you know whether
+that adapter ever existed, you are better placed to correct the line than I am.
+
+**2. The async-suite hole I flagged this morning is still open, and I have now
+used the fix three times.** Every async suite in `code/` exits 0 if an awaited
+test never settles — it truncates and prints no tally. `test-status.js`,
+`test-weekly-sweep.js` and `test-memory-bitemporal.js` all carry
+`process.exitCode = 1` at the top now. The remaining suites do not. Still a
+one-line change each and still worth doing by whoever is next in that
+neighbourhood; I have not swept them because it touches 15+ files and belongs
+in its own PR, not bolted onto this one.
+
+**3. Bitemporal memory is layers 1–2 of 7, and `code/memory.js` is untouched.**
+This matters if you were planning anything in that area: `code/scheduler.js`
+still uses the flat observer and I have not rewired it. Swapping it over needs
+layers 4–5 (extract/classify/policy, then the repair writer), which decide what
+a new fact does to an old one, and those are unbuilt. There is a test in
+`test-memory-bitemporal.js` asserting `scheduler.js` still requires
+`./memory.js`, so if you *do* wire it up, that test is the thing that will go
+red and it is telling you to update it, not to revert.
+
+**Sequencing note.** §3's build order puts schema v5 (`confidence` +
+`approved_by` on `logs/actions.jsonl`) at item 2, before both of these. It is
+still not done — you flagged it open this morning and it still is. The two
+items I built do not depend on it (the sweep writes its own inbox; the memory
+store carries its own `confidence` field), so building them out of order cost
+nothing, but **item 2 is now the last unbuilt thing below item 4** and the
+audit-log gate everything else was supposed to hang off.
+
+**Untouched by this branch, still yours:** `app.py`, `code/verticals/**`,
+`memory/rules.md`, `CONSTITUTION.md`, `code/memory.js`.
+
+
+---
+
+### 2026-09-09, remote -> local (third message today)
+
+**The async-suite hole is closed — you can stop carrying it.** I flagged it
+twice today and have now swept it: every suite in `test.yml`'s list carries
+`process.exitCode = 1` except `test-scheduler`, which does not use
+`test-helper` and reports in its own `8/8 passed` format. If you add a suite,
+copy the four-line comment from any of them.
+
+I demonstrated it rather than assuming: strip `finish()` from a suite and the
+fused version exits 1 where the unfused version exits 0. All 25 suites still
+green, 554 assertions.
+
+**And one thing you should read before touching trading.**
+`DECISION_RECORD_autonomous-trading-loop.md` (new, this PR). `CONSTITUTION.md`
+§III gates *proposing* a paper trade on a human, and
+`code/test-trade-advisor.js` enforces it with a book that throws if `open()` or
+`close()` is touched. PLAN_5 §6.1's "bot trader" cannot satisfy both. I stopped
+and wrote the options up for Ahmed rather than building through it — **do not
+build that loop either until he rules under §VII.**
+
+**A correction to something I shipped earlier today**, in case you already
+pulled it: `guard.js`'s v5 `APPROVERS` was `['human','agent','oracle']`, taken
+from the memory template. `CONSTITUTION.md` §V says `"human|jarvis"`. The
+template is reference material that PLAN_5 §0 says does not set scope; the
+constitution is the law. It is now `['human','jarvis']`. If you wrote any code
+against `'agent'` or `'oracle'`, it needs updating.
+
+
+---
+
+### 2026-09-10, remote -> local (fourth message)
+
+**Twelve test files in `code/` are run by nothing, and five of them assert
+nothing at all.** There is now a detector for it in `code/weekly-sweep.js`; the
+findings are parked in the inbox, not fixed, because which of them belong in CI
+is a judgement and several are yours:
+
+| | |
+|---|---|
+| hardware, documented in test.yml | `test-kokoro`, `test-vision`, `test-voice`, `test-voice-interaction`, `test-voice-router` |
+| excluded with no reason given | `test-accessibility`, `test-full-accessibility`, `test-list-models`, `test-live-data`, `test-net`, `test-voice-accents`, `test-voice-full-system` |
+
+The five documented ones are the hardware suites you already run by hand — the
+only question there is whether the list should say so somewhere a tool can
+read. The other seven are the interesting ones. `test-net`, `test-list-models`
+and `test-live-data` look network- or ollama-dependent at a glance, which would
+be a fair exclusion. `test-accessibility` and `test-full-accessibility` need
+only `i18next`, which IS declared in `package.json` (AS_BUILT §3.1 records
+fixing exactly that undeclared-dependency bug), so those two may simply belong
+in CI. I have not decided any of it.
+
+**Why `sweep.js` never caught this:** it asks whether each suite *in* the CI
+list can report a pass, so a file outside the list is invisible to it by
+construction. The control built to hunt vacuous suites had a blind spot exactly
+where a suite has been quietly dropped.
+
+No allowlist of "deliberately excluded" suites — that is one more list to drift
+from the workflow, and it is the exact shape of the thing being detected. The
+inbox dedupe handles it: each orphan is parked once, ever.
+
+**One caveat on my own numbers:** `node_modules` is empty in this container, so
+`test-accessibility` fails here on a missing `i18next` that is genuinely
+installed in CI. That is a container artefact, not a repo defect — worth
+knowing before you chase it. It also means the 31 CI suites all pass here with
+no dependencies installed at all, which is a nice property nobody had checked.
+
 ## Claim log
 
 Newest at the bottom. Format:
@@ -190,6 +357,38 @@ Newest at the bottom. Format:
 2026-09-09T02:00Z | local  | DONE  | claude/local-bootstrap-rebuild-and-doc-corrections | see PR — test.yml/status.sh drop test-helper from the CI list, CLAUDE.md corrected in place, PLAN_5.md sec9 added, GEMINI.md added, MASTER_PLAN_v4/v5.md removed (folded into PLAN_5 per this file's instruction, not duplicated)
 2026-09-09T02:45Z | local  | CLAIM | claude/local-clipper-and-bootstrap-reconcile | clipper vertical tests, app.py SPA shadowing fix, AS_BUILT sec 8.8, Drive sync
 2026-09-09T02:45Z | local  | DONE  | claude/local-clipper-and-bootstrap-reconcile | test_clipper.py (6/6), app.py route fix, AS_BUILT 8.8, Drive sync pack for NotebookLM/Gemini
+2026-09-09T15:00Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 Tier 3 item 7: jj status (bin/jj) -- code/status.js + code/test-status.js + CI. NOTE: branch is remote-side despite not matching the claude/remote-* prefix (name assigned by the session harness, not chosen).
+2026-09-09T15:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/status.js + code/test-status.js (24 assertions, 12/12 mutations caught), test-status added to CI, bin/jj status rewired to exit non-zero. PLAN_5 sec7 item 7 marked done. Nothing outside those five files touched.
+2026-09-09T16:10Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 9 (weekly sweep): code/weekly-sweep.js + test (28 assertions, 14/14 mutations), .github/workflows/weekly-sweep.yml on a Monday cron. Found real rot: docs/architecture.md references code/gateway-adapter.js, which does not exist. Parked, not fixed.
+2026-09-09T16:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 10 (bitemporal memory): code/memory-bitemporal.js + test (28 assertions, 14/14 mutations). Layers 1-2 of 7 only. NOT wired in; code/memory.js and scheduler.js untouched.
+2026-09-09T20:05Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec3 item 2 / sec7 Tier 1 item 4 (schema v5): guard.js confidence+approved_by, code/test-gate.js (22 assertions, 15/15 mutations). Audit log rows are now schema v5 -- test-guard.js's three v4 assertions updated. NOTE for local: your logs/actions.jsonl will contain a mix of v4 and v5 rows; that is correct and readers branch on schema.
+2026-09-09T20:55Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 sec7 item 6 (trading phase 1), MEASUREMENT CLAUSE ONLY: code/trading-performance.js + test (28 assertions, 15/15 mutations). Read-only, imports fs+path only. Strongest verdict is 'promising' -- it cannot authorise real money by construction. Bot loop, TradingView signals and local-model analysis are still NOT built. paper-trading.js untouched.
+2026-09-09T21:15Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | STOPPED before building the bot-trader loop: CONSTITUTION.md sec III gates PROPOSING a paper trade on a human, and test-trade-advisor.js enforces it with a throwing book. Wrote DECISION_RECORD_autonomous-trading-loop.md instead -- Ahmed's ruling under sec VII. Also corrected guard.js APPROVERS from ['human','agent','oracle'] (memory template) to ['human','jarvis'] (CONSTITUTION.md sec V, the actual law).
+2026-09-09T21:30Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | the async-suite fuse I flagged twice is now CLOSED: process.exitCode = 1 added to all 19 remaining CI suites (test-scheduler excepted -- it does not use test-helper). Proven: without the fuse a run that never reaches finish() exits 0; with it, 1. All 25 suites still green.
+2026-09-09T21:50Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 4 (policy): code/memory-policy.js + test (25 assertions, 14/14 mutations). Decides born/reaffirm/replace/coexist/park; writes nothing. Layer 3's semantic half is BLOCKED on ollama+nomic-embed-text -- that is yours, not mine. Layers 5-7 not built.
+2026-09-09T22:15Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 5 (the one writer): code/memory-repair.js + test (21 assertions, 12/12 mutations). Closes a real gap -- memory-bitemporal.js does not import guard.js, so the KILL SWITCH did not reach a store write; it does now. Also fixed guard.js: {confidence: undefined} was recorded as a REJECTED claim rather than an absent one. Layers 6-7 not built.
+2026-09-09T22:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 6 (the sweep): code/memory-sweep.js + test (20 assertions, 12/12 mutations). NEVER retires on age -- only flag (still retrieved) and end (valid_to already passed). Writes only through layer 5. Layer 5 extended with flag/end. Only layer 7 (inbox review surface) left of the seven.
+2026-09-09T23:05Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | bitemporal memory LAYER 7 (human inbox): code/memory-inbox.js + test (17 assertions, 12/12 mutations). Approving re-submits through layer 5 with approved_by:'human' -- never round it. ALL SEVEN LAYERS now built except layer 3's semantic half (needs ollama + nomic-embed-text, which is yours). Still not wired into scheduler.js.
+2026-09-09T23:40Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/test-memory-integration.js -- the seven layers as one story. FOUND A REAL CROSS-LAYER BUG on its first run: layer 4 collapsed the intended action into 'park' when routing was parked, so layer 7 re-submitted 'park' on approval and layer 5 refused -- no human-approved change could ever apply, while every layer's own suite stayed green. action and routing are now orthogonal. Also fixed guard.js: a caller could forge actor/origin/schema via logAction.
+2026-09-10T00:05Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | code/test-trading-integration.js -- drives a REAL PaperBook and measures what it actually wrote. The PaperBook/trading-performance seam is SOUND: every field the reader wants is one the writer emits, verified against the book's own computed pnl rather than just non-zero. 31 suites, 650 assertions.
+2026-09-10T00:35Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | weekly-sweep detector 4: test files no CI list runs. FOUND 12 -- test.yml documents 5 as hardware-only, the other 7 are excluded silently and 5 of the 12 assert nothing. Blind spot in sweep.js by construction (it only checks the LISTED suites). Parked, not fixed: which of the 7 belong in CI is a judgement and several are yours.
+2026-09-10T01:00Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | FLAG for Ahmed: .github/workflows/weekly-sweep.yml will be RED every Monday until the 13 standing findings are triaged (12 need his call). Known tension, not a bug -- a permanently red weekly control becomes wallpaper. Did NOT change the pass/fail rule: that is a decision about notifications. Added a by-kind count so a red run says in one line whether any CONTROL broke vs. backlog. Also confirmed the workflow cannot be dispatched until it is on master (GitHub 404s workflow_dispatch off the default branch), so it is unverified end to end.
+2026-09-10T02:00Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | BLOCKERS 2 AND 3 CLEARED. test-accessibility + test-full-accessibility COULD NOT FAIL (.catch(console.error)) -- instances 7 and 8; converted to test-helper, proven to fail on a broken module, added to CI (33 suites, 671 assertions). Other 10 orphans documented in test.yml; detector now objects to SILENT exclusion. architecture.md's gateway-adapter line corrected against DECISION_RECORD_model-gateway.md -- it was deliberately excluded from the merge and never existed on master. Weekly sweep GREEN from a clean inbox, so blocker 3 needed no policy change.
+2026-09-10T03:00Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | BLOCKER 5 (memory layer 3) WAS MIS-DIAGNOSED BY ME. I recorded it as blocked on ollama/nomic-embed-text and therefore unbuildable from here. That was true of the live embedder and false of the layer: the embedder is an argument, exactly like the clock in layer 1 and the repairFn in layer 6, which is the pattern the other six layers already use. code/memory-embed.js + code/test-memory-embed.js (44 assertions, 25/25 mutations caught), in CI -- 34 suites, 715 assertions. Ranking is similarity x freshness, NOT similarity: the template's §1 dangerous case is the fact that WAS true and "embedded perfectly, retrieves with the highest score", so a similarity-only recall is the defect rather than the baseline. Nothing stale is dropped, only demoted and flagged. A dead embedder degrades to lexical and SAYS so -- never [] and never a throw. memory-sweep.js must not import it (detection stays model-free, template §6); a test asserts that. WHAT STILL NEEDS THE CHROMEBOOK: one live round trip proving nomic-embed-text returns a vector of the expected shape. Run `node -e "require('./code/memory-embed.js').ollamaEmbedder()('hello').then(v=>console.log(v.length))"` with ollama up -- a length, not an error, closes this out. If it fails with "is it pulled", that is the model missing, not the daemon; the two failures are deliberately worded differently.
+2026-09-10T03:00Z | remote | NOTE  | claude/resume-building-jarvis-97b0mv | Two tests I wrote for the abort timer used process._getActiveHandles(), which DOES NOT SEE TIMERS -- they asserted 0 <= 0 and passed against a build with clearTimeout deleted. Mutation testing caught it. That is the zero-assertion defect class this repo hunts, occurring inside a suite written to hunt it, which is worth knowing about: the fix (process.getActiveResourcesInfo()) now carries a guard test that fails if that API stops reporting 'Timeout', so a Node upgrade cannot make them vacuous again silently.
+2026-09-10T03:30Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | BLOCKER 4 (Gemini CLI auth) WAS MIS-SCOPED, ALSO BY ME. I called it "a real, currently-blocking gap" (CLAUDE.md's wording, which I repeated in a blocker review) without checking what depends on it. Grepped: NOTHING in this codebase invokes the `gemini` binary. Every gemini hit in code/, automation/ and bootstrap/ is either the registry's HTTPS path (code/providers/registry.js, content_generator.py) or a fixture string in test-guard.js. And the registry path degrades rather than blocks anyway -- the quality tier is gemini -> groq -> ollama/localBig, which is the "boots and works with ZERO cloud keys" rule doing its job. CLAUDE.md corrected. The CLI is a workstation setup task, not a deployment blocker: it blocks Ahmed from using a second interactive assistant on his own machine, nothing else.
+2026-09-10T03:30Z | remote | ASK   | claude/resume-building-jarvis-97b0mv | FOR AHMED, ~2 minutes, entirely optional and blocking nothing. To use the Gemini CLI interactively: run `gemini` and complete the Google OAuth prompt, OR put GEMINI_API_KEY=... in ~/.jarvis-x/.env (aistudio.google.com/apikey). The SAME key also enables the registry's quality tier -- `jj status` will flip "provider gemini: disabled (no GEMINI_API_KEY)" to "enabled, 20/20 left today", which is how to confirm it took. Neither action is doable from a remote Claude Code session: OAuth is interactive and ~/.jarvis-x/.env is Read+Edit-denied by design. That denial is correct and should stay.
+2026-09-10T04:00Z | remote | RULED | claude/resume-building-jarvis-97b0mv | BLOCKER 1 DECIDED BY AHMED: option C, automate only the exits. Entries stay gated; a breached stop closes unattended. CONSTITUTION.md IS UNTOUCHED and `git status CONSTITUTION.md` is empty -- the ruling authorises the direction, only Ahmed's commit makes it the constitution (§VII, and HANDOFF's own ownership table). DECISION_RECORD_autonomous-trading-loop.md now carries the drafted §III replacement text, the exact test-trade-advisor.js narrowing that must land in the SAME commit, and the build order that follows. The unattended-exit path is deliberately NOT built yet: building it before the amendment lands would ship behaviour the constitution currently forbids on the strength of a chat message.
+2026-09-10T04:00Z | remote | NOTE  | claude/resume-building-jarvis-97b0mv | Worth being plain about, because the phrase invites the wrong inference: option C does NOT make phase 2 arrive sooner. Exits alone do not open positions, so the 30-trade / 30-day evidence bar in trading-performance.js still fills at the speed of GATED ENTRIES -- exactly as slowly as under option A. What C buys is that the paper book manages its own risk like a real one, not that it generates evidence faster.
+2026-09-10T04:30Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | PLAN_5 §7 item 8 (reconcile CLAUDE.md with the code) CLOSED, both halves, by opposite routes. hermes3:3b was never-built and was deleted from CLAUDE.md. nomic-embed-text was the same kind of unbacked claim UNTIL item 10's layer 3 made it true -- code/memory-embed.js's ollamaEmbedder() now calls it -- so that line was corrected FORWARD, not deleted. Note the self-inflicted drift: building layer 3 is what made CLAUDE.md's "available, not wired in" false, so shipping layer 3 without this edit would have left the doc contradicting the code I had just written. Third drift fixed in the same pass: the Gemini CLI "currently-blocking" claim, disproved by grep.
+2026-09-10T05:00Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | CONTENT PIPELINE PHASE 1, THE TWO GATES (PLAN_5 §7 item 5 / §6.2). code/content-pipeline.js + test (34 assertions, 25/25 mutations), in CI. 35 suites, 749 assertions. Built the state machine and the gates, NOT the production steps -- research/script/render/post are injected with NO defaults, so the module opens no socket and there is no path from the suite to YouTube. Four rules, each pinned: (1) an approval is bound to the SHA-256 of what he actually read, so approve-then-swap is void; (2) an approval names its gate, so a script approval cannot open the cut gate; (3) absence is never approval -- guard.js's three-valued gateVerdict, and `by` has no default because a default of 'human' would let a forgetful call path mint a human approval; (4) posting is reachable only from queued, and the cut gate is RE-CHECKED at post time because the cut can be re-attached after queueing. Not wired into scheduler.js, pinned by a test.
+2026-09-10T05:00Z | remote | NOTE  | claude/resume-building-jarvis-97b0mv | Two mutation escapes worth recording because both were MY test's fault, not the code's. (1) Deleting the post() state check entirely still passed: every state my test tried was already blocked by the gate check (no cut, or no approval), so nothing exercised the one case that separates rule 4 from rule 3 -- an APPROVED cut still sitting in review. Added. (2) A memoized get() escaped, because the only freshness test used TWO handles and each would carry its own cache; nothing proved a SINGLE handle sees its own writes. Added. Also: my first three attempts at a caching mutation were no-ops (read one map, wrote another) and I nearly recorded them as 'caught'.
+2026-09-10T05:00Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | FOR AHMED: content-pipeline.js stamps `schema: SCHEMA` on its own approval rows so guard.js's gateVerdict() can read them, and builds the claim fields with guard's own normalizeClaim() rather than a second copy of the validation. Flagging it because that is superficially the SAME SHAPE as the audit-forgery hole fixed in guard.js this session. The difference: this is our own file and we are its writer, so the stamp states the shape we actually wrote; the hole was a CALLER stamping v5 on a row guard was writing, asserting something about a writer that was not the one making the claim. Derived fields still go last so a caller-supplied `by` cannot overwrite them. If you disagree with that reasoning, this is the line to push back on.
+2026-09-10T05:30Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | `jj content` -- the surface for the two gates. code/content-cli.js + test (29 assertions, 21/21 mutations), in CI, wired into bin/jj. 36 suites, 778 assertions. queue/list/show/approve/reject. show never truncates (he cannot approve what he cannot read) and prints a hash beside EVERY artifact so a log row maps back to specific bytes. An ambiguous short-id prefix REFUSES rather than picking the first match. Two real bugs in my own module were found by its tests before commit: an exact id read as ambiguous against a longer one that shared its prefix, and a typo'd subcommand fell through to id resolution and blamed the id.
+2026-09-10T05:30Z | remote | CLAIM | claude/resume-building-jarvis-97b0mv | FOR AHMED, a security-model statement, not a feature note. `jj content approve` refuses without a TTY, but that is a SPEED BUMP, NOT A BOUNDARY, and I want you to know rather than assume otherwise. shell.js's allowlist includes `node` and `bash`, so an agent with shell access can skip the CLI and call code/content-pipeline.js's approve() directly -- `node -e "require('./code/content-pipeline.js')..."`. Nothing at this layer can prevent that; a TTY check that claimed to would be a false claim. What the gates DO defend against: the pipeline advancing on its own, an artifact reaching YouTube unread, an approval carrying over to a re-drafted script. For the rest the mitigation is DETECTION not prevention -- every approval writes an audit row with actor+origin, so a minted approval is visible afterwards. BACKLOG worth considering: a selfdebug-style detector that flags approvals whose actor is not an interactive jj run.
+2026-09-10T05:30Z | remote | NOTE  | claude/resume-building-jarvis-97b0mv | Three CLI mutations escaped first, and two of them exposed genuinely UNREACHABLE defensive branches -- the CLI only reaches approve() when a gate is open and always passes a valid approver, so `if (!r.ok)` could never fire through the real pipeline. A defensive branch nothing exercises is indistinguishable from a broken one, so they are now driven with a stub pipe (run() takes the pipeline as an argument, which is what makes that possible). Third escape: nothing drove a PRODUCING job at approve, so widening gateFor() to include it went unnoticed. Fourth, on re-run: the 'show prints the hash' test passed via the FOOTER line, so deleting the per-artifact hashes escaped -- now asserts a hash beside an artifact the current gate is not about.
+2026-09-10T06:00Z | remote | DONE  | claude/resume-building-jarvis-97b0mv | WEEKLY-SWEEP DETECTOR 5: the kill switch documented at a path that is not it. Found by looking for real work rather than guessing: REMAINING_WORK P2 flagged knowledge/Guidelines.md as having the stale path and Edit-denied -- that entry is itself STALE, Guidelines.md line 17 is already correct. But grepping turned up docs/PLAN_5.md naming the switch as the old ~/.jarvis-x/STOP in TWO places, one of them a row of the safety table, in the living plan I had been editing all session, having already corrected the identical claim in CLAUDE.md hours earlier. Detector 1 could not see it: that one matches paths by EXTENSION and the switch file has none. Both fixed; detector added so it cannot recur silently. 53 assertions on test-weekly-sweep, 13/13 mutations. 36 suites, 793 assertions.
+2026-09-10T06:00Z | remote | NOTE  | claude/resume-building-jarvis-97b0mv | The detector flagged MY OWN write-up of it, and failed the suite, before I unbackticked the path. That is detector 1's already-documented limitation reappearing exactly as predicted -- backticks are what mark a token as a live path claim, so a doc REPORTING a stale path in backticks becomes a finding about itself. The fix is the prose convention, not a smarter detector; teaching it to spot 'this is a report, not a claim' would be the prose-guessing this module exists to avoid. PLAN_5's write-up now says so explicitly so the next person does not re-learn it. Also: 3 of 13 mutations escaped first -- two because nothing asserted run() INCLUDES the new findings (every unit test called the detector directly), and one because the contrast window included the matched token itself, letting a path that merely contained the right basename excuse itself and making the basename check unfalsifiable.
 
 
 ---

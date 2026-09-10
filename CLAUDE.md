@@ -30,9 +30,18 @@ and why, or `AS_BUILT.md`'s 2026-09-09 entry for the fuller session record.
      layer), not an Ollama model of that name. Don't pull one expecting
      it to be load-bearing here.
    - Vision & Multimodal: `moondream`.
-   - Memory Embeddings: `nomic-embed-text` — pulled and present, but as
-     of 2026-09-09 nothing in `code/` or `hermes.py` actually calls it
-     yet (no ChromaDB integration found). Available, not wired in.
+   - Memory Embeddings: `nomic-embed-text` — **wired in as of
+     2026-09-09**, correcting this line's own earlier "available, not
+     wired in". `code/memory-embed.js`'s `ollamaEmbedder()` calls it at
+     `127.0.0.1:11434/api/embeddings`; it is bitemporal memory's layer 3
+     (semantic recall). Still no ChromaDB, and none is planned — the
+     store is the append-only `memory/facts.jsonl` and similarity is
+     computed in-process, which is why nothing needed a vector database.
+     **Not yet verified against a live daemon**: the embedder is an
+     injected argument, so all 44 assertions in
+     `code/test-memory-embed.js` run without one. One round trip on this
+     machine closes that out — `HANDOFF.md`'s 2026-09-10T03:00Z row has
+     the command.
    - `llmfit` (`pip install llmfit` into `venv-ai`, installed 2026-09-09)
      — right-sizes model choices against this hardware's real RAM/CPU
      profile. Run `llmfit --ram 14G fit --json` or `llmfit doctor` before
@@ -56,8 +65,18 @@ and why, or `AS_BUILT.md`'s 2026-09-09 entry for the fuller session record.
      OAuth login or a `GEMINI_API_KEY`/`GOOGLE_API_KEY` env var, neither
      of which a Claude Code session can do on Ahmed's behalf (OAuth is
      interactive; the key lives in `~/.jarvis-x/.env`, which is
-     Read+Edit-denied to Claude Code by design). This is a real,
-     currently-blocking gap, not a formality.
+     Read+Edit-denied to Claude Code by design). All of that is still
+     true. **What was overstated, and is corrected here 2026-09-09: this
+     is not "currently-blocking".** Grepped — *nothing in this codebase
+     invokes the `gemini` binary*. Every `gemini` hit in `code/`,
+     `automation/` and `bootstrap/` is either the registry's HTTPS path
+     (next bullet) or a test fixture string in `code/test-guard.js`. So
+     an unauthenticated CLI blocks Ahmed from using a second interactive
+     assistant on his own machine — real, and worth two minutes of his
+     time — and blocks no build, test, or runtime path in Jarvis. It is
+     a workstation setup task, not a deployment blocker, and it was
+     listed as the latter in a blocker review before anyone checked what
+     depended on it.
    - **`code/gemini.js` / `code/providers/registry.js`** — the
      always-has-been remote-tier path used *inside* Jarvis's own JS
      agent-autonomy loop (`code/agent.js`, `code/scheduler.js`,

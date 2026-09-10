@@ -22,6 +22,13 @@
 const fs = require('fs');
 const path = require('path');
 const { test, finish, assert } = require('./test-helper.js');
+// FUSE. A hung await drains the event loop and exits 0 having printed no
+// tally -- a vacuous pass that reads as green, and the exact shape sweep.js
+// exists to catch. finish() calls process.exit() explicitly, so this default
+// only survives when finish() was never reached. Found by mutation-testing
+// code/status.js; see code/test-status.js for the full account.
+process.exitCode = 1;
+
 const { guard, isStopped, logAction, STOP_FILE, LOG_FILE,
         ORIGIN, detectOrigin, ACTOR, detectActor,
         setLogFile, currentLogFile } = require('./guard.js');
@@ -291,7 +298,7 @@ await test('a non-Error rejection still produces a readable log line', async () 
 await test('every row carries the fields a reader needs to interpret it', () => {
   const { rows } = rowsWritten(() => guard('shaped', 'quick', () => null));
   const r = rows[0];
-  assert.strictEqual(r.schema, 'v4', 'readers branch on schema; older rows lack a verdict');
+  assert.strictEqual(r.schema, 'v5', 'readers branch on schema; older rows lack a verdict');
   assert.strictEqual(r.pid, process.pid);
   assert.ok(!Number.isNaN(Date.parse(r.timestamp)), r.timestamp);
   assert.strictEqual(r.level, 'quick');
@@ -402,7 +409,7 @@ await test('the origin is fixed at load, so it cannot change mid-run', () => {
 await test('logAction records origin too, not only guard', () => {
   const { rows } = rowsWritten(() => logAction('la-origin', 'quick', { allowed: true }));
   assert.strictEqual(rows[0].origin, 'test');
-  assert.strictEqual(rows[0].schema, 'v4');
+  assert.strictEqual(rows[0].schema, 'v5');
 });
 
 await test('a killswitch row is attributed like any other', () => {
@@ -534,7 +541,7 @@ await test('an error row names its actor, because that is the row worth reading'
     () => guard('actor-boom', 'quick', () => { throw new Error('x'); }));
   assert.strictEqual(rows[0].outcome, 'error');
   assert.strictEqual(rows[0].actor, 'test-guard');
-  assert.strictEqual(rows[0].schema, 'v4');
+  assert.strictEqual(rows[0].schema, 'v5');
 });
 
 finish();

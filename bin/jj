@@ -31,14 +31,40 @@ const rest = args.slice(1);
         console.log('Plan:', JSON.stringify(plan, null, 2));
         break;
         
-      case 'status':
-        console.log('✅ Jarvis X ready');
-        console.log('   Available tiers: local | fast | smart | long');
-        console.log('   Usage: jj ask "<q>" --tier smart');
-        break;
-        
+      case 'status': {
+        // Was three unconditional console.log calls that inspected nothing and
+        // always exited 0 -- it reported "ready" with the daemon down and the
+        // kill switch pulled. See code/status.js for what it checks now.
+        // It also advertised a tier named "long", which no tier table has ever
+        // defined; the tiers below are read out of the router.
+        const status = require(path.join(__dirname, '../code/status.js'));
+        const report = await status.collect();
+        console.log(rest.includes('--json')
+          ? JSON.stringify(report, null, 2)
+          : status.format(report));
+        process.exit(status.exitCode(report));
+      }
+
+      case 'content': {
+        // The two gates from PLAN_5 §6.2. All logic lives in
+        // code/content-cli.js so it is testable without a terminal; this
+        // supplies the real pipeline and the one thing only the shim knows.
+        //
+        // `interactive` is computed HERE rather than read inside the module,
+        // so a test can drive both answers. It is a speed bump against
+        // approving from a script, not a security boundary — an agent with
+        // shell access can call code/content-pipeline.js directly. The
+        // module's header says so and a test pins that it keeps saying so.
+        const { openPipeline } = require(path.join(__dirname, '../code/content-pipeline.js'));
+        const contentCli = require(path.join(__dirname, '../code/content-cli.js'));
+        const out = contentCli.run(openPipeline(), rest,
+          { interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY) });
+        console.log(out.text);
+        process.exit(out.exitCode);
+      }
+
       default:
-        console.log('Commands: ask, plan, status');
+        console.log('Commands: ask, plan, status, content');
         process.exit(1);
     }
   } catch (err) {

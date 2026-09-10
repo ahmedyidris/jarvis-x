@@ -83,6 +83,61 @@ jobs:
       # "verbatim CI run, exit 0" was cited as evidence it could not support.
       # The explicit exit below makes the script honest under plain `bash`
       # too.
+      #
+      # THE SUITES STILL EXCLUDED, and why — recorded 2026-09-09 because until
+      # then seven were excluded with no reason written anywhere, which is how
+      # code/weekly-sweep.js's orphan detector found them:
+      #   test-kokoro, test-vision, test-voice, test-voice-interaction,
+      #   test-voice-router, test-voice-accents, test-voice-full-system
+      #                       need local Piper/Kokoro/Ollama and real audio
+      #   test-list-models    talks to ollama on 127.0.0.1:11434
+      #   test-live-data      shells out to scripts that reach live APIs
+      #   test-net            is a GATE for network tests, not a suite at all —
+      #                       misnamed test-*, like test-helper was
+      # test-accessibility and test-full-accessibility were in that list and
+      # should not have been: both are offline, need only i18next (declared),
+      # and are now in the run above. Both ALSO could not fail until this
+      # commit — they ended in `.catch(console.error)`, the same line test.yml
+      # already documents in test-data-layer.js.
+      #
+      # test-content-pipeline covers code/content-pipeline.js -- content phase
+      # 1's two human gates (PLAN_5 §6.2: Ahmed owns the idea and the
+      # narrative, Jarvis owns everything downstream). Offline by
+      # construction and then some: research, rendering and POSTING are
+      # injected functions with no defaults, so there is no code path from
+      # this suite to YouTube even if a test tried to take one. A test greps
+      # the module for a socket and finds none.
+      #
+      # test-content-cli covers code/content-cli.js -- `jj content`, the
+      # surface Ahmed operates the two gates through. Split from bin/jj the
+      # same way status.js is: run() returns { text, exitCode } and never
+      # touches the console or process.exit, so both are assertable. The
+      # `interactive` flag is an ARGUMENT rather than a process.stdin.isTTY
+      # read, which is what lets a test drive both answers -- a module that
+      # reads the environment cannot be tested against both.
+      #
+      # test-memory-embed covers code/memory-embed.js, bitemporal memory's
+      # layer 3. The layer needs an embedding model (`nomic-embed-text` via
+      # ollama), which is exactly why it was the last layer built and was
+      # recorded as blocked -- but the MODEL is an argument, like the clock and
+      # the repairFn before it, so the layer is offline here for the same
+      # reason the rest are. Every embedder in the suite is a plain function
+      # over a lookup table, and `ollamaEmbedder` is exercised with an injected
+      # fetchFn, so no socket opens and the run is identical with or without a
+      # daemon. What still needs the Chromebook is the live round trip, not
+      # this suite.
+      #
+      # test-status covers code/status.js, which is what `jj status` reports.
+      # Offline like the rest: collect() takes its registry, its fetch, its
+      # stop-file path and its log path as arguments, so nothing in it opens a
+      # socket or reads the real ~/.jarvis-x/.env. It carries a
+      # `process.exitCode = 1` fuse -- a hung await drains the event loop and
+      # exits 0, printing no tally, which is a vacuous pass that reads as
+      # green. As of 2026-09-09 EVERY suite in this list carries that fuse
+      # except test-scheduler, which does not use test-helper and reports in
+      # its own `8/8 passed` format. Demonstrated rather than assumed: with
+      # the fuse, a run that never reaches finish() exits 1; without it, the
+      # same run exits 0.
       - name: Run portable test suite (excludes voice/vision tests needing local Ollama/Piper/Kokoro)
         run: |
           failed=""
@@ -91,7 +146,14 @@ jobs:
                    test-market-analyst test-market-collect test-trade-advisor \
                    test-market-brief test-supervisor test-stooq-provider \
                    test-eval-agent test-agent test-data-layer test-lib \
-                   test-selfdebug test-agent-data-integration test-sweep; do
+                   test-selfdebug test-agent-data-integration test-sweep \
+                   test-status test-weekly-sweep test-memory-bitemporal \
+                   test-gate test-trading-performance test-memory-policy \
+                   test-memory-repair test-memory-sweep test-memory-inbox \
+                   test-memory-integration test-trading-integration \
+                   test-accessibility test-full-accessibility \
+                   test-memory-embed test-content-pipeline \
+                   test-content-cli; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
