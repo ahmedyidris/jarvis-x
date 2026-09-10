@@ -383,8 +383,15 @@ as much as possible so the metered tier is spent only where it earns its keep.
    one test that can hang. Run against this container, where no ollama exists,
    it correctly reports four dead tiers and exits 1 where the old command said
    "ready".
-8. Reconcile `CLAUDE.md` with the code: `hermes3:3b` and `nomic-embed-text` are
-   documented architecture that appears nowhere in `code/` or `config/` (§5).
+8. ~~Reconcile `CLAUDE.md` with the code~~ — **DONE 2026-09-09/10.** Both
+   halves closed, by opposite routes. `hermes3:3b` was documented architecture
+   that appeared nowhere in the code, and was removed from `CLAUDE.md` as
+   never-built. `nomic-embed-text` was the same kind of claim until item 10's
+   layer 3 made it true: `code/memory-embed.js` now calls it, so that line was
+   corrected *forward* rather than deleted. A third drift was found in the
+   same pass and fixed with a grep as evidence — `CLAUDE.md` called the
+   unauthenticated Gemini CLI "a real, currently-blocking gap" when nothing in
+   this codebase invokes the `gemini` binary at all.
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
    `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (38 assertions), in CI,
    plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Four
