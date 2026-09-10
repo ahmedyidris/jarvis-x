@@ -359,10 +359,35 @@ as much as possible so the metered tier is spent only where it earns its keep.
    generated text arriving with no gate at all. Automating production while
    gating the narrative fixes that; the reverse is what caused it.
 
+   **`jj content` is the surface he operates them through** —
+   `code/content-cli.js` + `code/test-content-cli.js` (29 assertions, 21/21
+   mutations caught), in CI, wired into `bin/jj`. Without it the gates were a
+   library nobody could reach. Commands: `queue` (what is on his desk),
+   `list`, `show <id>` (the artifact in full, never truncated — he cannot
+   approve what he cannot read, with a hash beside each artifact so a log row
+   can be matched back to specific bytes by eye), `approve`, `reject`. A short
+   id prefix resolves, but an **ambiguous** one refuses rather than picking
+   the first match, since approving the wrong job is exactly the mistake a
+   convenience feature must not cause.
+
+   **The honest boundary, stated because "gate" implies more than it
+   delivers.** `approve` refuses without an interactive terminal — but that is
+   a **speed bump, not a security boundary**, and the code says so in the
+   refusal text itself, with a test that fails if someone rewrites it into a
+   confident one. `code/shell.js`'s allowlist includes `node` and `bash`, so
+   an agent with shell access can bypass the CLI entirely and call
+   `content-pipeline.js` directly; no check at this layer can stop that. What
+   the gates *do* defend against is the pipeline advancing on its own, an
+   artifact reaching YouTube unread, and an approval carrying over to a
+   re-drafted script. The mitigation for the rest is that every approval
+   writes an audit row carrying `actor` and `origin`, so a minted one is
+   **detectable afterwards rather than prevented beforehand** — detection, not
+   prevention, and named as such.
+
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
    the research/outline/script steps, the Higgsfield render call, and the
-   poster — all of which now plug into an enforced machine rather than
-   inventing their own control flow.
+   poster — all of which now plug into an enforced machine with a working
+   review surface, rather than inventing their own control flow.
 6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
    The clause that gates phase 2 is built: **the honest performance
    measurement**, `code/trading-performance.js` +

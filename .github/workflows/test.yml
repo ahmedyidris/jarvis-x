@@ -108,6 +108,14 @@ jobs:
       # this suite to YouTube even if a test tried to take one. A test greps
       # the module for a socket and finds none.
       #
+      # test-content-cli covers code/content-cli.js -- `jj content`, the
+      # surface Ahmed operates the two gates through. Split from bin/jj the
+      # same way status.js is: run() returns { text, exitCode } and never
+      # touches the console or process.exit, so both are assertable. The
+      # `interactive` flag is an ARGUMENT rather than a process.stdin.isTTY
+      # read, which is what lets a test drive both answers -- a module that
+      # reads the environment cannot be tested against both.
+      #
       # test-memory-embed covers code/memory-embed.js, bitemporal memory's
       # layer 3. The layer needs an embedding model (`nomic-embed-text` via
       # ollama), which is exactly why it was the last layer built and was
@@ -144,7 +152,8 @@ jobs:
                    test-memory-repair test-memory-sweep test-memory-inbox \
                    test-memory-integration test-trading-integration \
                    test-accessibility test-full-accessibility \
-                   test-memory-embed test-content-pipeline; do
+                   test-memory-embed test-content-pipeline \
+                   test-content-cli; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
