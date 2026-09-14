@@ -431,7 +431,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
 **Tier 3 — real gaps, no ruling needed.**
 
 7. ~~**`jj status` prints `✅ Jarvis X ready` unconditionally**~~ — **DONE
-   2026-09-09.** `code/status.js`, `code/test-status.js` (24 assertions), in
+   2026-09-09.** `code/status.js`, `code/test-status.js` (30 assertions), in
    CI. It now reports the kill switch, the ollama daemon, the models the tier
    table actually routes to, each remote provider's key and remaining quota,
    the audit log, and per-tier answerability — and **exits non-zero** when any
@@ -460,13 +460,44 @@ as much as possible so the metered tier is spent only where it earns its keep.
    unauthenticated Gemini CLI "a real, currently-blocking gap" when nothing in
    this codebase invokes the `gemini` binary at all.
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
-   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (53 assertions), in CI,
+   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (65 assertions), in CI,
    plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Five
    detectors, all pure lookups, no model calls: suite health (delegated to
    `sweep.js`, so the two cannot disagree about the CI list), doc references to
    files that no longer exist, assertion-count claims re-checked against what
    the suites now report, **test files no CI list runs**, and **the kill
    switch documented at a path that is not it**.
+
+   **It also has a heartbeat now (2026-09-14), because it could not report
+   that it had stopped.** `park()` writes only when there are findings — a
+   deliberate choice, pinned by a test — so a clean run left an empty `logs/`,
+   byte-identical to a run that never happened. The control built to find rot
+   nobody reported had no proof-of-life of its own. `beat()` now appends one
+   row per run, always, recording counts rather than findings so it stays small
+   and never becomes a second copy of the inbox. `jj status` reads its age: a
+   sweep older than `SWEEP_STALE_DAYS` (10 — one missed week plus slack, so a
+   single late cron is not an alarm and two missed weeks always is) warns, and
+   **never having run reads `info`, never `ok`**.
+
+   What prompted it: the Monday 07:00 UTC cron's first scheduled firing was due
+   at 2026-09-14T07:00Z and, checked at 09:26Z, the only run on record was a
+   manual dispatch. That may simply have been GitHub delaying a best-effort
+   schedule — but nothing here could tell "delayed" from "never fired" from
+   "ran and was clean", and that was the part worth fixing.
+
+   **What the heartbeat does NOT cover**, stated because the obvious reading is
+   broader: a missed GitHub run. Runners are ephemeral and `logs/` is
+   gitignored, so a CI heartbeat dies with the job. This reads the cadence on
+   the Chromebook. GitHub's Actions page is the only record of whether a
+   scheduled run fired, and no file in this repo can stand in for it.
+
+   The first version of it reintroduced a defect this repo had already paid
+   for: nine of the run()-level tests did not inject a heartbeat path and wrote
+   fixture rows straight into the machine's real one — the same shape as the
+   audit-log pollution `code/test-helper.js` exists to prevent, four days
+   later, in a new log. Fixed with a `setHeartbeatFile()` seam (guard.js's
+   `setLogFile()` pattern) plus a test asserting the real path stays untouched,
+   so a future leak fails rather than quietly poisoning a control's input.
 
    **The fifth detector was added 2026-09-10 because this document was
    wrong about the kill switch, in two places, while being edited all

@@ -35,6 +35,20 @@ process.exitCode = 1;
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'jx-weekly-'));
 process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch { /* fine */ } });
 
+// EVERY HEARTBEAT THIS SUITE WRITES GOES TO A TEMP FILE, NOT THE MACHINE'S.
+//
+// Done here rather than in each test for the reason code/test-helper.js gives
+// about the audit log: it needs no cooperation from whoever writes the next
+// test. It is not hypothetical — nine of the run() tests below did not pass
+// `heartbeatFile`, and wrote fixture rows (suite counts of 0 and 1, 2026-03-01
+// timestamps) into the real logs/sweep-heartbeat.jsonl, which is exactly what
+// `jj status` reads to decide whether the sweep has stopped running. A control
+// whose input its own tests poison is worse than no control.
+const REAL_HEARTBEAT = W.HEARTBEAT;
+W.setHeartbeatFile(path.join(TMP, 'heartbeat-default.jsonl'));
+const realHeartbeatBefore = fs.existsSync(REAL_HEARTBEAT)
+  ? fs.statSync(REAL_HEARTBEAT).mtimeMs : null;
+
 let seq = 0;
 /** A throwaway repo root containing the named docs. */
 function fakeRepo(files = {}) {
@@ -443,6 +457,133 @@ test('parking creates logs/ only when there is something to write', () => {
     'an empty run must not leave a directory behind as its only trace');
 });
 
+// --- the heartbeat: proof the sweep ran at all ------------------------------
+//
+// park() writes only when there are findings — pinned by the test above. The
+// consequence went unnoticed until 2026-09-14: a sweep that found NOTHING is
+// byte-identical to a sweep that never ran. Both leave an empty logs/. So the
+// control built to find rot nobody reported could not report that it had
+// itself stopped running.
+
+const beatPath = () => path.join(TMP, `beat-${seq++}`, 'heartbeat.jsonl');
+const fakeResult = (over = {}) => ({
+  suite: { total: 36, assertions: 793 }, findings: [], parked: [], ...over,
+});
+
+test('a CLEAN run still writes a heartbeat — the whole point', () => {
+  const file = beatPath();
+  W.beat(fakeResult(), { file, now: CLOCK });
+  const rows = fs.readFileSync(file, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.strictEqual(rows.length, 1);
+  assert.strictEqual(rows[0].findings, 0);
+  assert.strictEqual(rows[0].at, CLOCK.toISOString());
+});
+
+test('the heartbeat records counts, not the findings themselves', () => {
+  // It must stay small forever and must not become a second copy of the
+  // inbox to keep in sync with the first.
+  const file = beatPath();
+  const row = W.beat(fakeResult({ findings: [{ kind: 'stale-ref' }, { kind: 'stale-ref' }], parked: [{}] }),
+    { file, now: CLOCK });
+  assert.strictEqual(row.findings, 2);
+  assert.strictEqual(row.parked, 1);
+  assert.ok(!('kind' in row), 'a finding leaked into the heartbeat row');
+  assert.ok(!JSON.stringify(row).includes('stale-ref'));
+});
+
+test('it appends — every run is kept, none overwritten', () => {
+  const file = beatPath();
+  W.beat(fakeResult(), { file, now: new Date('2026-09-07T07:00:00Z') });
+  W.beat(fakeResult(), { file, now: new Date('2026-09-14T07:00:00Z') });
+  assert.strictEqual(fs.readFileSync(file, 'utf8').trim().split('\n').length, 2);
+});
+
+test('lastBeat returns the most recent row', () => {
+  const file = beatPath();
+  W.beat(fakeResult({ findings: [{ kind: 'a' }] }), { file, now: new Date('2026-09-07T07:00:00Z') });
+  W.beat(fakeResult(), { file, now: new Date('2026-09-14T07:00:00Z') });
+  const last = W.lastBeat({ file });
+  assert.strictEqual(last.at, '2026-09-14T07:00:00.000Z');
+  assert.strictEqual(last.findings, 0);
+});
+
+test('lastBeat returns null when nothing has ever run', () => {
+  // Not a throw and not a fabricated row: code/status.js reads null as
+  // `info`/never-run, and any stand-in value would read as a real sweep.
+  assert.strictEqual(W.lastBeat({ file: beatPath() }), null);
+});
+
+test('a corrupt heartbeat line is skipped, not fatal', () => {
+  const file = beatPath();
+  W.beat(fakeResult(), { file, now: CLOCK });
+  fs.appendFileSync(file, '{not json\n');
+  assert.strictEqual(W.lastBeat({ file }).at, CLOCK.toISOString());
+});
+
+test('a row without a timestamp is not a heartbeat', () => {
+  // The staleness check divides by `at`; a row missing it would produce NaN
+  // days and read as fresh.
+  const file = beatPath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify({ suites: 36 })}\n`);
+  assert.strictEqual(W.lastBeat({ file }), null);
+});
+
+test('an unwritable heartbeat path does not take the sweep down', () => {
+  // Losing the proof-of-life is strictly better than losing the answer. The
+  // staleness check reads a missing heartbeat as unknown, so the failure
+  // surfaces there rather than being swallowed.
+  //
+  // The unwritable path is a directory component that is actually a FILE, so
+  // mkdirSync fails ENOTDIR immediately. The first version of this test used
+  // a path under /proc, where mkdirSync neither succeeds nor throws — it
+  // HANGS, which would have hung CI rather than failed it.
+  const blocker = path.join(TMP, `blocker-${seq++}`);
+  fs.writeFileSync(blocker, 'I am a file, not a directory');
+  const row = W.beat(fakeResult(), { file: path.join(blocker, 'h.jsonl'), now: CLOCK });
+  assert.strictEqual(row.findings, 0, 'beat() threw or returned nothing on an unwritable path');
+  assert.strictEqual(row.at, CLOCK.toISOString(), 'the row must still describe the run');
+});
+
+test('run() writes a heartbeat even when it finds nothing', () => {
+  const root = fakeRepo({ 'D.md': 'nothing to see' });
+  const file = beatPath();
+  const r = W.run({
+    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    heartbeatFile: file, isIgnored: NEVER_IGNORED,
+    runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 5 }] }),
+  });
+  assert.deepStrictEqual(r.findings, [], 'fixture broken: this run must be clean');
+  assert.ok(fs.existsSync(file), 'a clean run left no proof it ran');
+  assert.strictEqual(W.lastBeat({ file }).assertions, 5);
+  assert.strictEqual(r.heartbeat.findings, 0);
+});
+
+test('run() writes the heartbeat for a dirty run too', () => {
+  const root = fakeRepo({ 'D.md': 'see `code/gone.js`' });
+  const file = beatPath();
+  W.run({
+    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    heartbeatFile: file, isIgnored: NEVER_IGNORED,
+    runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 5 }] }),
+  });
+  assert.strictEqual(W.lastBeat({ file }).findings, 1);
+});
+
+test('the heartbeat is written after the detectors, so it means "completed"', () => {
+  // A row written up front would record a run that STARTED. If a detector
+  // throws, there must be no heartbeat, or the staleness check would report a
+  // crashed sweep as a healthy one.
+  const root = fakeRepo({ 'D.md': 'x' });
+  const file = beatPath();
+  assert.throws(() => W.run({
+    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    heartbeatFile: file, isIgnored: NEVER_IGNORED,
+    runSweep: () => { throw new Error('detector exploded'); },
+  }), /detector exploded/);
+  assert.ok(!fs.existsSync(file), 'a crashed sweep still claimed a heartbeat');
+});
+
 // --- the whole run ----------------------------------------------------------
 
 test('suite findings and failures both surface as findings', () => {
@@ -617,6 +758,17 @@ test('REAL docs: the default doc list exists and parses without inventing findin
     assert.strictEqual(W.gitIgnored(f.ref, repoRoot), false,
       `reported ${f.ref}, which git ignores`);
   }
+});
+
+test('this suite never writes to the REAL heartbeat', () => {
+  // The backstop for the redirect above. A test added later that bypasses it
+  // — by passing an explicit path, or by a future default changing — fails
+  // here rather than quietly feeding fixture rows to `jj status`.
+  const after = fs.existsSync(REAL_HEARTBEAT) ? fs.statSync(REAL_HEARTBEAT).mtimeMs : null;
+  assert.strictEqual(after, realHeartbeatBefore,
+    `${REAL_HEARTBEAT} was written by this suite — fixture rows are now in the sweep's own cadence signal`);
+  assert.notStrictEqual(W.currentHeartbeatFile(), REAL_HEARTBEAT,
+    'the redirect is not in place');
 });
 
 finish();

@@ -45,6 +45,15 @@ jobs:
       # apply and a parked finding notifies once. Two different jobs for the
       # same module: CI answers "is there rot", the local cron answers "is
       # there anything NEW". Both are wanted; neither is a bug.
+      # THE HEARTBEAT IS WRITTEN HERE AND DIES HERE, and that is not a bug.
+      # logs/ is gitignored and the runner is ephemeral, so this job's
+      # proof-of-life vanishes with it. The heartbeat exists for the
+      # CHROMEBOOK, where logs/ persists and `jj status` reads its age.
+      #
+      # Which means: nothing in this repo can tell you whether a SCHEDULED run
+      # fired. GitHub's Actions page is the only record of that, and no file
+      # here can stand in for it. Said plainly because the obvious reading of
+      # "we added a sweep watchdog" is broader than what it actually covers.
       - name: Weekly sweep (detects only — never fixes, never rewrites a doc)
         run: node code/weekly-sweep.js
 
