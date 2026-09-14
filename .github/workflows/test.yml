@@ -108,6 +108,17 @@ jobs:
       # this suite to YouTube even if a test tried to take one. A test greps
       # the module for a socket and finds none.
       #
+      # test-content-fidelity covers code/content-fidelity.js -- a PORT of
+      # automation/phase-b/content_generator.py's check_numeric_fidelity(),
+      # whose every rule documents a false positive that once made the enforcer
+      # refuse to ship correct content (REMAINING_WORK.md P4, four confirmed
+      # invention defects). Two copies of one rule in two languages drift, so
+      # both are held to fixtures/numeric-fidelity-cases.json, generated FROM
+      # the Python by scripts/gen-fidelity-fixture.py. BOTH SUITES MUST STAY IN
+      # CI: the Python's side is in the portable-Python step below, and it is
+      # only the pair running together that stops a Python change plus a
+      # regenerated fixture from moving the goalposts past the port unnoticed.
+      #
       # test-content-cli covers code/content-cli.js -- `jj content`, the
       # surface Ahmed operates the two gates through. Split from bin/jj the
       # same way status.js is: run() returns { text, exitCode } and never
@@ -153,7 +164,7 @@ jobs:
                    test-memory-integration test-trading-integration \
                    test-accessibility test-full-accessibility \
                    test-memory-embed test-content-pipeline \
-                   test-content-cli; do
+                   test-content-cli test-content-fidelity; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
