@@ -108,6 +108,18 @@ jobs:
       # this suite to YouTube even if a test tried to take one. A test greps
       # the module for a socket and finds none.
       #
+      # test-content-draft covers code/content-draft.js -- §6.2's research ->
+      # outline -> script steps. Offline: `ask` and `research` are injected
+      # with NO defaults, so the module calls no model and opens no socket, and
+      # every `ask` in the suite is a lookup table.
+      #
+      # It REFUSES to draft while config/writing-voice.md carries its
+      # <!-- UNFILLED --> marker, which it does on master and should keep doing
+      # until Ahmed writes it. §6.2 rules "Your words, Jarvis assists" -- a
+      # draft in a voice Jarvis invented would invert that ruling while looking
+      # like it satisfied it. So a CI run where that suite passes is a run where
+      # the refusal works, not one where drafting was exercised end to end.
+      #
       # test-content-fidelity covers code/content-fidelity.js -- a PORT of
       # automation/phase-b/content_generator.py's check_numeric_fidelity(),
       # whose every rule documents a false positive that once made the enforcer
@@ -164,7 +176,8 @@ jobs:
                    test-memory-integration test-trading-integration \
                    test-accessibility test-full-accessibility \
                    test-memory-embed test-content-pipeline \
-                   test-content-cli test-content-fidelity; do
+                   test-content-cli test-content-fidelity \
+                   test-content-draft; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

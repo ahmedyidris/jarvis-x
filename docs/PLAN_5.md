@@ -384,10 +384,48 @@ as much as possible so the metered tier is spent only where it earns its keep.
    **detectable afterwards rather than prevented beforehand** — detection, not
    prevention, and named as such.
 
+   **The drafting steps landed 2026-09-15**: `code/content-draft.js` +
+   `code/test-content-draft.js` (22 assertions, 17/18 mutations caught — the
+   eighteenth was `const`→`let` with no reassignment, a no-op, so escaping is
+   the correct verdict rather than a gap). research → outline → script, with
+   `ask` and `research` injected and no defaults, so the module calls no model
+   and opens no socket.
+
+   **It refuses to draft without a voice profile, and that is the feature.**
+   §6.2 rules "Your words, Jarvis assists". A draft in a voice Jarvis invented
+   would invert that ruling *while appearing to satisfy it* — generic LLM prose
+   reads as competent, so the gate downstream would be reviewing "is this
+   passable" instead of "is this mine". `config/writing-voice.md` carries an
+   `<!-- UNFILLED -->` marker on its first line and the module refuses while it
+   is there: no fallback register, no inferred voice, no shipped default. The
+   marker is the whole mechanism deliberately — a heuristic for "does this look
+   filled in" is one more rule to be subtly wrong about, and being wrong in the
+   permissive direction means drafting in an invented voice. A test asserts the
+   live file is still unfilled, and the refusal happens before `research` or
+   `ask` is called.
+
+   **Fidelity is enforced, not just checked**: on an invented number it
+   re-prompts ONCE with the offending figures named, then refuses rather than
+   shipping a known invention — the behaviour `content_generator.py`'s
+   `enforce_numeric_fidelity()` settled on. A draft that is quietly wrong is
+   worse than no draft, because the human at the gate is reading for voice, not
+   auditing arithmetic against sources he may not have.
+
+   Both the outline and the script are checked against brief + research, never
+   against the step before them. **Being precise about which check does the
+   work**, since the obvious framing overstates it: what actually closes the
+   laundering path is checking the OUTLINE against the sources — by the time
+   the script runs, every outline number is provably sourced, so "checked
+   against the outline" and "checked against the sources" would agree, and a
+   mutation swapping them is invisible through `draft()`. The script's check is
+   defence in depth, and the invariant that both receive the same `sourceText`
+   is pinned structurally rather than by a scenario that cannot exist while both
+   checks are intact.
+
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
-   the research/outline/script steps, the Higgsfield render call, and the
-   poster — all of which now plug into an enforced machine with a working
-   review surface, rather than inventing their own control flow.
+   the Higgsfield render call and the poster — both of which now plug into an
+   enforced machine with a working review surface and a drafter that cannot
+   invent figures, rather than inventing their own control flow.
 6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
    The clause that gates phase 2 is built: **the honest performance
    measurement**, `code/trading-performance.js` +
