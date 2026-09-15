@@ -245,6 +245,18 @@ def _numeric_tokens(text: str) -> set:
     # The token regex below only recognizes '%', so spelled-out "percent"
     # tokenizes bare and cannot match a source that wrote '%'. Normalize the
     # word to the symbol first, before range expansion.
+    # A LIST MARKER IS NOT A CLAIM. "1) the number  2) what it means" tokenizes
+    # as {1, 2} and every one of them reads as invented, so a well-formed
+    # numbered outline is refused outright. Found 2026-09-15 by the first real
+    # end-to-end run of the JS content path, whose outline step produced exactly
+    # that and burned both its retries on it.
+    #
+    # Deliberately narrow: start of a line only, and one or two digits. A year
+    # ("2021. It was...") keeps its token because four digits do not match, and
+    # nothing mid-sentence is touched, so "(2.4%)" and "costs 24.00." are
+    # unaffected. Over-stripping here would hide a genuine invention, which is
+    # the failure this whole check exists to prevent.
+    text = re.sub(r"^[ \t]*\d{1,2}[.)]\s", " ", text, flags=re.MULTILINE)
     text = re.sub(r"(\d)\s*(?:percentage points?|percent|pct)\b", r"\1%", text, flags=re.IGNORECASE)
     ranged = re.sub(
         r"(\d[\d,]*(?:\.\d+)?)(\s*(?:-|--|to|and)\s*)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|percent))",

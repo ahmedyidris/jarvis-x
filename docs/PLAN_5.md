@@ -385,7 +385,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    prevention, and named as such.
 
    **The drafting steps landed 2026-09-15**: `code/content-draft.js` +
-   `code/test-content-draft.js` (22 assertions, 17/18 mutations caught — the
+   `code/test-content-draft.js` (23 assertions, 17/18 mutations caught — the
    eighteenth was `const`→`let` with no reassignment, a no-op, so escaping is
    the correct verdict rather than a gap). research → outline → script, with
    `ask` and `research` injected and no defaults, so the module calls no model
@@ -444,6 +444,33 @@ as much as possible so the metered tier is spent only where it earns its keep.
    gate still refused downstream — `submit()` treats a falsy artifact as nothing
    to review, so defence in depth held — but the caller's mistake was silent.
    Empty attaches now throw.
+
+   **Ahmed wrote `config/writing-voice.md` on 2026-09-15**, so the drafter
+   runs. Two things about that file are load-bearing. His sample paragraph is
+   stored **verbatim** — typos, run-on sentence and all — because that is the
+   only real data in it; a tidied sample is a description of his voice rather
+   than an instance of it. And the file must never name the placeholder marker
+   in prose: `loadVoiceProfile()` looks for that literal string anywhere in the
+   file, so the first attempt at writing it explained the marker and thereby
+   un-filled the profile. Same shape as the kill-switch detector flagging its
+   own write-up — the check cannot tell a mention from a claim, and the fix
+   belongs in the prose.
+
+   **The first real end-to-end run then found a bug that would have refused
+   almost every outline.** A numbered outline — "1) the number 2) what it
+   means" — tokenizes as `{1, 2}`, neither of which is in the sources, so the
+   outline step burned both retries and refused. Exactly the false-positive
+   class `content_generator.py`'s own comments warn about: the ones that make
+   the enforcer refuse to ship correct content.
+
+   Fixed in **both** implementations, because fixing only the JS would have
+   broken the drift pin: a list marker at the start of a line is structure, not
+   a claim. Deliberately narrow — one or two digits, start of line only — so a
+   year (`2021. was the last time…`) keeps its token and nothing mid-sentence
+   is touched. Over-stripping would hide a genuine invention, which is the
+   failure the check exists to prevent, and four new fixture cases pin both
+   directions. The fixture was regenerated from the Python, as its generator's
+   docstring requires.
 
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
    the Higgsfield render call and the poster — both of which now plug into an

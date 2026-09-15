@@ -137,6 +137,42 @@
       "suspects": [
         "2400.5"
       ]
+    },
+    {
+      "name": "numbered list markers are structure, not claims",
+      "source": "CPI rose 2.4% in August.",
+      "generated": [
+        "1) the number 2.4%\n2) what it means"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "markdown-style numbered markers too",
+      "source": "CPI rose 2.4% in August.",
+      "generated": [
+        "1. the number 2.4%\n2. what it means"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "a YEAR at the start of a line is still a claim, not a marker",
+      "source": "CPI rose 2.4% in August.",
+      "generated": [
+        "2021. was the last time it was this low"
+      ],
+      "suspects": [
+        "2021"
+      ]
+    },
+    {
+      "name": "a number mid-sentence is untouched by the list rule",
+      "source": "CPI rose 2.4% in August.",
+      "generated": [
+        "it rose 2.4% (the 3rd month running)"
+      ],
+      "suspects": [
+        "3"
+      ]
     }
   ]
 }

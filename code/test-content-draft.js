@@ -97,12 +97,28 @@ await test('refusing happens BEFORE any work is done — no model call, no resea
   assert.strictEqual(researched, 0, 'research ran for a draft that was going to be refused');
 });
 
-await test('the real config/writing-voice.md is still unfilled, and the module says so', () => {
-  // If this ever fails, Ahmed has written it — delete this test rather than
-  // "fixing" it, and do NOT let anything auto-populate that file.
+await test('the real config/writing-voice.md is written, and the module accepts it', () => {
+  // This test used to assert the OPPOSITE — that the live file was still
+  // unfilled — with a comment saying to delete it rather than "fix" it if it
+  // ever failed, because a failure would mean Ahmed had written the file.
+  // He wrote it 2026-09-15, so that is what happened, and this is the
+  // replacement: the live profile must stay usable, and nothing may quietly
+  // put the placeholder marker back.
   const live = D.loadVoiceProfile();
-  assert.strictEqual(live.ok, false);
-  assert.strictEqual(live.reason, 'unfilled');
+  assert.strictEqual(live.ok, true, live.why);
+  assert.ok(live.text.includes('me myself and I'),
+    "the live profile no longer carries Ahmed's own sample — it must not be paraphrased away");
+});
+
+await test('the live profile does not mention the placeholder marker in prose', () => {
+  // loadVoiceProfile() looks for the literal marker ANYWHERE in the file, so a
+  // sentence explaining the marker puts the profile back into the unfilled
+  // state. That is exactly what happened on the first attempt at writing this
+  // file, and it is the same shape as the kill-switch detector flagging its own
+  // write-up: the check cannot tell a mention from a claim.
+  const raw = fs.readFileSync(D.VOICE_PROFILE, 'utf8');
+  assert.ok(!raw.includes(D.UNFILLED),
+    'the profile names the placeholder marker in prose, which un-fills it');
 });
 
 await test('a filled profile is actually injected into both prompts', async () => {
