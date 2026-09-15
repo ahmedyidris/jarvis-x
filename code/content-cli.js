@@ -117,6 +117,102 @@ function resolveId(pipe, prefix) {
  * The whole command surface. Returns `{ text, exitCode }` and never calls
  * console or process.exit, so a test can assert on both.
  */
+/**
+ * `jj content new "<brief>" --source "..."` — the entry point that was missing.
+ *
+ * WHY IT DID NOT EXIST UNTIL NOW, recorded because the gap is instructive:
+ * `content-draft.js`, `content-pipeline.js` and this CLI were each built and
+ * tested, an integration suite drove all three together, and none of that
+ * required a way for AHMED to start a job. He could queue, show, approve and
+ * reject jobs that no command could create. The advice "run one real brief"
+ * was, for several days, not actually runnable — it needed hand-written Node.
+ *
+ * IT IS SEPARATE FROM run() AND ASYNC, deliberately. Every other command is a
+ * pure read or a local append; this one calls a model. Folding it into run()
+ * would make that function return a promise for one subcommand and a value for
+ * the rest — a contract with a hole in it — or force every caller and every
+ * existing test to await something that never waits. The asymmetry is real, so
+ * it is visible in the signature rather than smuggled through a return shape.
+ *
+ * SOURCES ARE SUPPLIED, NOT FETCHED. There is no research step: `--source`
+ * takes his material directly. That is not a placeholder for web research, it
+ * is §6.2's division of labour — the idea and its material are his, everything
+ * downstream is Jarvis's. A research step choosing for itself what counts as a
+ * source would be Jarvis selecting the evidence for a claim it then asks him to
+ * approve.
+ *
+ * It submits to the SCRIPT GATE and stops: no approving, no advancing. Drafting
+ * and gating stay separate acts, so "Jarvis wrote something" never implies "the
+ * something may move".
+ */
+function parseNewArgs(rest) {
+  const sources = [];
+  const words = [];
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === '--source') { sources.push(rest[++i]); continue; }
+    words.push(rest[i]);
+  }
+  return { brief: words.join(' ').trim(), sources };
+}
+
+async function runNew(pipe, rest, { draftFn, interactive = false } = {}) {
+  const { brief, sources } = parseNewArgs(rest);
+
+  if (!brief) {
+    return { text: 'jj content new needs a brief: jj content new "<your idea>" --source "..."', exitCode: 1 };
+  }
+  if (!sources.length || sources.some((x) => !x || !String(x).trim())) {
+    return {
+      exitCode: 1,
+      text: [
+        'jj content new needs at least one --source.',
+        '',
+        'Every number in the draft has to appear in the material you supply, or the',
+        'draft is refused. With no sources there is nothing to check against, so a',
+        'draft would be unverifiable by construction.',
+        '',
+        '  jj content new "explain the CPI print" --source "CPI rose 2.4% in August."',
+      ].join('\n'),
+    };
+  }
+  if (typeof draftFn !== 'function') {
+    // No default: a CLI that could reach a model on its own would make this
+    // module untestable offline — the same rule the drafter itself follows.
+    return { text: 'jj content new is not wired to a drafter in this context', exitCode: 1 };
+  }
+
+  const drafted = await draftFn({ brief, sources });
+  if (!drafted || !drafted.ok) {
+    // The refusal reasons are the drafter's and are already written for a
+    // human; repeating them here in other words would let the two drift.
+    return {
+      exitCode: 1,
+      text: [`Refused at the ${drafted?.stage || 'draft'} stage: ${drafted?.why || 'no reason given'}`,
+        drafted?.suspects?.length ? `Numbers with no source: ${drafted.suspects.join(', ')}` : null,
+        '', 'Nothing was queued.'].filter(Boolean).join('\n'),
+    };
+  }
+
+  const job = pipe.start({ brief });
+  pipe.attach(job.id, 'sources', drafted.sources);
+  pipe.attach(job.id, 'script', drafted.script);
+  const submitted = pipe.submit(job.id, GATES.SCRIPT);
+  if (!submitted.ok) return { text: `drafted, but could not queue it: ${submitted.why}`, exitCode: 1 };
+
+  return {
+    exitCode: 0,
+    text: [
+      `Drafted and waiting on you — ${job.id.slice(0, 8)}`,
+      '',
+      `  jj content show ${job.id.slice(0, 8)}      read it, with the sources it came from`,
+      `  jj content approve ${job.id.slice(0, 8)}   if it sounds like you`,
+      `  jj content reject ${job.id.slice(0, 8)} "<why>"`,
+      '',
+      interactive ? '' : '(non-interactive: approving will refuse — run this from a terminal)',
+    ].filter((l) => l !== '').join('\n'),
+  };
+}
+
 function run(pipe, argv, { interactive = false } = {}) {
   const [sub, ...rest] = argv;
 
@@ -126,11 +222,18 @@ function run(pipe, argv, { interactive = false } = {}) {
       text: [
         'Usage: jj content <command>',
         '',
+        '  new "<brief>" --source "<text>" [--source "<more>"]',
+        '                           draft a script from your idea and your sources,',
+        '                           then put it on your desk for approval',
         '  queue                    what is waiting on you',
         '  list                     every job and its state',
         '  show <id>                read a job in full',
         '  approve <id>             open the gate it is waiting on',
         '  reject <id> "<why>"      send it back',
+        '',
+        'The brief is YOUR idea and the sources are YOUR material — Jarvis',
+        'supplies neither. Every number in the draft must appear in a source,',
+        'or the draft is refused rather than shipped.',
       ].join('\n'),
     };
   }
@@ -149,6 +252,12 @@ function run(pipe, argv, { interactive = false } = {}) {
   // Validate the SUBCOMMAND before touching the id. Falling through meant a
   // typo'd command was reported as "no job matches <id>", which blames the
   // argument the user got right.
+  // `new` is handled by runNew(), not here — see its header for why it is
+  // separate. Naming it explicitly keeps the error message honest: it is a
+  // real command, just not one this function serves.
+  if (sub === 'new') {
+    return { text: '`jj content new` is async — bin/jj routes it to runNew()', exitCode: 1 };
+  }
   if (!['show', 'approve', 'reject'].includes(sub)) {
     return { text: `unknown command "${sub}" — try: jj content help`, exitCode: 1 };
   }
@@ -203,4 +312,4 @@ function run(pipe, argv, { interactive = false } = {}) {
   return { text: `unknown command "${sub}" — try: jj content help`, exitCode: 1 };
 }
 
-module.exports = { run, gateFor, renderQueue, renderShow, resolveId };
+module.exports = { run, runNew, parseNewArgs, gateFor, renderQueue, renderShow, resolveId };

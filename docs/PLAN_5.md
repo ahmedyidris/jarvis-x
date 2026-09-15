@@ -360,9 +360,12 @@ as much as possible so the metered tier is spent only where it earns its keep.
    gating the narrative fixes that; the reverse is what caused it.
 
    **`jj content` is the surface he operates them through** —
-   `code/content-cli.js` + `code/test-content-cli.js` (30 assertions, 21/21
-   mutations caught), in CI, wired into `bin/jj`. Without it the gates were a
-   library nobody could reach. Commands: `queue` (what is on his desk),
+   `code/content-cli.js` + `code/test-content-cli.js` (42 assertions, 13/14
+   mutations caught on the `new` command — the fourteenth approved a job before
+   submitting it, which `approve()` refuses by state, so it was a no-op and
+   escaping is correct; the valid ordering IS caught), in CI, wired into
+   `bin/jj`. Without it the gates were a library nobody could reach.
+   Commands: `new` (see below), `queue` (what is on his desk),
    `list`, `show <id>` (the artifact in full, never truncated — he cannot
    approve what he cannot read, with a hash beside each artifact so a log row
    can be matched back to specific bytes by eye), `approve`, `reject`. A short
@@ -444,6 +447,33 @@ as much as possible so the metered tier is spent only where it earns its keep.
    gate still refused downstream — `submit()` treats a falsy artifact as nothing
    to review, so defence in depth held — but the caller's mistake was silent.
    Empty attaches now throw.
+
+   **`jj content new` was missing until 2026-09-15, and that is the whole gap
+   in miniature.** `content-draft.js`, `content-pipeline.js`, the CLI and an
+   integration suite driving all three were built, tested and merged — and none
+   of it required a way for Ahmed to START a job. He could queue, show, approve
+   and reject jobs that no command could create. The advice "run one real
+   brief", repeated to him across several days, was not runnable without
+   hand-written Node.
+
+       jj content new "<brief>" --source "<text>" [--source "<more>"]
+
+   **Sources are supplied, not fetched.** There is no research step and
+   `--source` is not a placeholder for one: it is §6.2's division of labour. A
+   research step deciding for itself what counts as a source would be Jarvis
+   selecting the evidence for a claim it then asks him to approve. With no
+   sources every number is unverifiable by construction, so the command refuses
+   rather than drafting something that cannot be checked.
+
+   It is **async and separate from `run()`**, which stays synchronous. Folding
+   it in would have made one function return a promise for a single subcommand
+   and a value for the rest — a contract with a hole in it. The asymmetry is
+   real (this is the only command that calls a model), so it is visible in the
+   signature. `run()` names `new` explicitly rather than reporting it as an
+   unknown command, so nobody hunts for a typo in a real one.
+
+   It submits to the script gate and stops: no approving, no advancing.
+   Drafting and gating stay separate acts.
 
    **Ahmed wrote `config/writing-voice.md` on 2026-09-15**, so the drafter
    runs. Two things about that file are load-bearing. His sample paragraph is

@@ -57,8 +57,27 @@ const rest = args.slice(1);
         // module's header says so and a test pins that it keeps saying so.
         const { openPipeline } = require(path.join(__dirname, '../code/content-pipeline.js'));
         const contentCli = require(path.join(__dirname, '../code/content-cli.js'));
-        const out = contentCli.run(openPipeline(), rest,
-          { interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY) });
+        const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+        const pipe = openPipeline();
+
+        // `new` is the one subcommand that calls a model, so it is the one
+        // async path. Everything the shim supplies is a real dependency the
+        // module refuses to default: the router for `ask`, and a `research`
+        // that returns the sources HE typed rather than fetching any. See
+        // code/content-cli.js's runNew() header — Jarvis choosing the evidence
+        // for a claim it then asks him to approve is the thing that division
+        // of labour exists to prevent.
+        const out = rest[0] === 'new'
+          ? await contentCli.runNew(pipe, rest.slice(1), {
+            interactive,
+            draftFn: ({ brief, sources }) => require(path.join(__dirname, '../code/content-draft.js'))
+              .draft({
+                brief,
+                ask: (prompt) => universal.ask(prompt, 'smart'),
+                research: async () => sources,
+              }),
+          })
+          : contentCli.run(pipe, rest, { interactive });
         console.log(out.text);
         process.exit(out.exitCode);
       }
