@@ -319,7 +319,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
 
 5. **Content pipeline, phase 1** (§6.2) — **the two gates are built,
    2026-09-10; the production steps are not.** `code/content-pipeline.js` +
-   `code/test-content-pipeline.js` (34 assertions, 25/25 mutations caught),
+   `code/test-content-pipeline.js` (37 assertions, 25/25 mutations caught),
    in CI. The flow is prompt/link → research → outline → script draft in his
    voice → *his edit* → Higgsfield render → thumbnail, title, description →
    queue, with posting automated and publishing gated on his approval of the
@@ -360,7 +360,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    gating the narrative fixes that; the reverse is what caused it.
 
    **`jj content` is the surface he operates them through** —
-   `code/content-cli.js` + `code/test-content-cli.js` (29 assertions, 21/21
+   `code/content-cli.js` + `code/test-content-cli.js` (30 assertions, 21/21
    mutations caught), in CI, wired into `bin/jj`. Without it the gates were a
    library nobody could reach. Commands: `queue` (what is on his desk),
    `list`, `show <id>` (the artifact in full, never truncated — he cannot
@@ -421,6 +421,29 @@ as much as possible so the metered tier is spent only where it earns its keep.
    defence in depth, and the invariant that both receive the same `sourceText`
    is pinned structurally rather than by a scenario that cannot exist while both
    checks are intact.
+
+   **The four modules were then driven as ONE story** —
+   `code/test-content-integration.js` (7 assertions, 9/9 mutations on the fixes
+   it prompted). Each module's own suite was green and none of them could see a
+   gap BETWEEN them, which is the same shape as the bitemporal memory stack's
+   five green layer suites while no human-approved change could ever be applied.
+
+   **It found two real gaps on its first run.** First, `draft()` returns the
+   `sources` it drafted from — its own docstring calls that "what makes 'is this
+   true' answerable at all" — and the pipeline had nowhere to put them while
+   `jj content show` had nothing to display, so **the script gate presented
+   prose with no provenance and asked a human to approve a claim he could not
+   check**. `sources` is now an attachable artifact, shown at the gate BEFORE
+   the script (a reader scrolling past 400 words to reach the evidence will not
+   go back for it), and deliberately NOT gated: it is evidence for the human,
+   not a thing he approves, and a gate binding to it would void a script
+   approval every time research re-ran.
+
+   Second, `attach()` accepted `undefined`, so a caller that skipped a
+   refusal's `ok` flag wrote a meaningless row rather than being stopped. The
+   gate still refused downstream — `submit()` treats a falsy artifact as nothing
+   to review, so defence in depth held — but the caller's mistake was silent.
+   Empty attaches now throw.
 
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
    the Higgsfield render call and the poster — both of which now plug into an

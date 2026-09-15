@@ -108,6 +108,22 @@ await test('show prints a hash beside EVERY artifact, not just the gated one', (
   assert.ok(text.includes(P.hash('cut bytes').slice(0, 8)), 'no hash for the cut — only the gated artifact was hashed');
 });
 
+await test('show displays the sources, BEFORE the script', () => {
+  // The gate asks "is this mine and is it true". The second half is
+  // unanswerable without the material it was drafted from — and a reader
+  // scrolling past 400 words of script to reach the evidence will not go back
+  // for it. Found missing entirely by test-content-integration.js.
+  const pipe = fresh();
+  const id = pipe.start({ brief: 'b' }).id;
+  pipe.attach(id, 'sources', ['CPI rose 2.4% in August']);
+  pipe.attach(id, 'script', 'A'.repeat(300));
+  pipe.submit(id, GATES.SCRIPT);
+  const text = CLI.run(pipe, ['show', id]).text;
+  assert.ok(text.includes('CPI rose 2.4% in August'), 'the sources are not shown at the gate');
+  assert.ok(text.indexOf('sources') < text.indexOf('── script'),
+    'the script is shown before the sources it was drafted from');
+});
+
 await test('show says when a job is not waiting on him', () => {
   const pipe = fresh();
   const id = pipe.start({ brief: 'x' }).id;

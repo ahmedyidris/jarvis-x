@@ -108,6 +108,17 @@ jobs:
       # this suite to YouTube even if a test tried to take one. A test greps
       # the module for a socket and finds none.
       #
+      # test-content-integration drives the four content modules as ONE story:
+      # draft -> gate -> produce -> gate -> post. Each has its own green suite,
+      # and none of those can see a gap BETWEEN them -- the bitemporal memory
+      # stack had five green layer suites while no human-approved change could
+      # ever be applied. This one found two real gaps on its first run: the
+      # drafter returned `sources` that the pipeline had nowhere to put and the
+      # CLI never showed, so the script gate asked a human to approve a claim he
+      # could not check; and attach() accepted `undefined`, so a caller that
+      # skipped a refusal's `ok` flag wrote a meaningless row instead of being
+      # stopped.
+      #
       # test-content-draft covers code/content-draft.js -- §6.2's research ->
       # outline -> script steps. Offline: `ask` and `research` are injected
       # with NO defaults, so the module calls no model and opens no socket, and
@@ -177,7 +188,7 @@ jobs:
                    test-accessibility test-full-accessibility \
                    test-memory-embed test-content-pipeline \
                    test-content-cli test-content-fidelity \
-                   test-content-draft; do
+                   test-content-draft test-content-integration; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

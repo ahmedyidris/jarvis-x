@@ -87,6 +87,23 @@ const DEFAULT_FILE = path.join(REPO, 'logs', 'content-jobs.jsonl');
 const GATES = Object.freeze({ SCRIPT: 'script', CUT: 'cut' });
 
 /**
+ * What can be attached to a job.
+ *
+ * `sources` is here because of test-content-integration.js. `content-draft.js`
+ * returns the material it drafted from, and its own docstring calls that "what
+ * makes 'is this true' answerable at all" — but the pipeline had nowhere to put
+ * it and `jj content show` had nothing to display, so the script gate presented
+ * prose with no provenance and asked a human to approve a claim he could not
+ * check. Every module's own suite passed in that state, which is exactly the
+ * kind of gap only a seam test sees.
+ *
+ * It is NOT a gated artifact: nothing in GATE_ARTIFACT points at it, so no
+ * approval binds to it. Sources are evidence for the human, not a thing he
+ * approves.
+ */
+const ARTIFACTS = Object.freeze(['script', 'cut', 'metadata', 'sources']);
+
+/**
  * States. The two REVIEW states are the only ones a human acts on; everything
  * else is Jarvis's to advance.
  */
@@ -149,7 +166,7 @@ function openPipeline({ file = DEFAULT_FILE, clock = { iso: () => new Date().toI
     if (!rows.length) return null;
     const job = {
       id: jobId, state: STATES.DRAFTING, brief: null,
-      script: null, cut: null, metadata: null,
+      script: null, cut: null, metadata: null, sources: null,
       approvals: [], rejections: [], history: rows,
     };
     for (const r of rows) {
@@ -192,8 +209,20 @@ function openPipeline({ file = DEFAULT_FILE, clock = { iso: () => new Date().toI
   function attach(jobId, field, value) {
     const job = get(jobId);
     if (!job) throw new Error(`no such job: ${jobId}`);
-    if (!['script', 'cut', 'metadata'].includes(field)) {
-      throw new Error(`unknown artifact "${field}"`);
+    if (!ARTIFACTS.includes(field)) {
+      throw new Error(`unknown artifact "${field}" (expected one of: ${ARTIFACTS.join(', ')})`);
+    }
+    // A NOTHING IS NOT AN ARTIFACT. Found by test-content-integration.js:
+    // code/content-draft.js returns `{ok:false}` with no `script` when it
+    // refuses, and a caller that skipped the `ok` check would attach
+    // `undefined` here. The gate still refused downstream — submit() treats a
+    // falsy artifact as nothing to review — but the append-only log gained a
+    // meaningless row and the caller got no signal that it had ignored a
+    // refusal. Defence in depth held; the caller's mistake was still silent.
+    if (value === null || value === undefined
+        || (typeof value === 'string' && !value.trim())
+        || (Array.isArray(value) && !value.length)) {
+      throw new Error(`refusing to attach an empty ${field} — if a draft was refused, do not attach its result`);
     }
     return guard('content-attach', `${jobId}/${field}`,
       () => { append({ job_id: jobId, kind: 'attach', field, value }); return get(jobId); });
@@ -368,5 +397,5 @@ function openPipeline({ file = DEFAULT_FILE, clock = { iso: () => new Date().toI
 }
 
 module.exports = {
-  openPipeline, GATES, STATES, GATE_ARTIFACT, GATE_STATE, DEFAULT_FILE, hash,
+  openPipeline, GATES, STATES, GATE_ARTIFACT, GATE_STATE, ARTIFACTS, DEFAULT_FILE, hash,
 };
