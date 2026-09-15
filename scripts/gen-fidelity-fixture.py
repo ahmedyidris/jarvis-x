@@ -57,6 +57,16 @@ CASES = [
      "Rates rose 2 percentage points", ["Rates rose 2%"]),
     ("a decimal invented from a whole number is flagged",
      "Gold hit 2400", ["Gold hit 2400.5"]),
+    # Added 2026-09-15 after the first real end-to-end run: a numbered outline
+    # was refused because its list markers tokenized as invented numbers.
+    ("numbered list markers are structure, not claims",
+     "CPI rose 2.4% in August.", ["1) the number 2.4%\n2) what it means"]),
+    ("markdown-style numbered markers too",
+     "CPI rose 2.4% in August.", ["1. the number 2.4%\n2. what it means"]),
+    ("a YEAR at the start of a line is still a claim, not a marker",
+     "CPI rose 2.4% in August.", ["2021. was the last time it was this low"]),
+    ("a number mid-sentence is untouched by the list rule",
+     "CPI rose 2.4% in August.", ["it rose 2.4% (the 3rd month running)"]),
 ]
 
 WHY = (

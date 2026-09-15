@@ -175,8 +175,30 @@ In order, each with tests and mutation coverage before the next:
 2. Its wiring into `code/scheduler.js`, behind `guard()` and the kill switch
    (`.jarvis-x-STOP`), so the halt path covers it like every other agent
    action.
-3. The remaining three of trading phase 1's five clauses, which were blocked
-   only by this ruling.
+3. The scheduled paper execution that would populate
+   `logs/trading-journal.jsonl`, insofar as it means UNATTENDED proposals —
+   executing proposals Ahmed has already tapped never needed a ruling.
+
+**HOW MUCH THIS ACTUALLY UNBLOCKS, corrected 2026-09-15.** This section
+previously said "the remaining three of trading phase 1's five clauses, which
+were blocked only by this ruling", and the same overstatement reached the PR
+description and several status messages as "four of five". Both are wrong, and
+they do not even agree with each other.
+
+Checked against §III's actual words — it gates *proposing a paper trade* — the
+four unbuilt clauses divide like this:
+
+| Clause | Blocked by §III? |
+|---|---|
+| The bot-trader loop | **Yes.** It generates and executes its own proposals. |
+| Scheduled paper execution | **Partly.** Unattended *generation* is gated; executing an already-tapped proposal is not. |
+| TradingView signals | **No.** A data feed is not a proposal. |
+| Local models on analysis | **No.** Analysis is not a proposal. |
+
+So the ruling clears **one clause outright and part of a second**. The other
+two were never blocked by anything except nobody having built them. That
+matters for deciding: the amendment is worth making on its own merits, but it
+is not the thing standing between this repo and a working trading leg.
 
 `code/trading-performance.js` needs no change: it measures whatever reaches
 the journal, and its strongest verdict stays `promising`. The 30-trade /

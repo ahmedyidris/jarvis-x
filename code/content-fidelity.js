@@ -115,7 +115,15 @@ function normalizeNumber(raw) {
  *      survives: a standalone 24% still will not match a bare 24.
  */
 function numericTokens(text) {
-  const withSymbol = String(text).replace(
+  // A LIST MARKER IS NOT A CLAIM. "1) the number  2) what it means" tokenizes
+  // as {1, 2} and both read as invented, so a well-formed numbered outline is
+  // refused outright. Found by the first real end-to-end run of the content
+  // path, whose outline step produced exactly that and burned both retries.
+  // Narrow on purpose: start of line, one or two digits — a year keeps its
+  // token and nothing mid-sentence is touched. Over-stripping would hide a
+  // genuine invention, which is the failure this check exists to prevent.
+  const delisted = String(text).replace(/^[ \t]*\d{1,2}[.)]\s/gm, ' ');
+  const withSymbol = delisted.replace(
     /(\d)\s*(?:percentage points?|percent|pct)\b/gi, '$1%');
   const ranged = withSymbol.replace(
     /(\d[\d,]*(?:\.\d+)?)(\s*(?:--|-|to|and)\s*)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|percent))/gi,
