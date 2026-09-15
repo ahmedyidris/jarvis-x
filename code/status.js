@@ -42,6 +42,15 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * The sweep runs weekly, so "stale" needs slack for a late cron and for a
+ * machine that was simply off on Monday. Ten days is one missed week plus
+ * three days — long enough that a single delayed run is not an alarm, short
+ * enough that two missed weeks always is. A control that cries wolf gets
+ * ignored, which costs more than not having it.
+ */
+const SWEEP_STALE_DAYS = 10;
+
 // Levels, worst last. A check's level decides the exit code via worstOf().
 const LEVELS = ['ok', 'info', 'warn', 'fail'];
 
@@ -161,6 +170,11 @@ async function collect(opts = {}) {
   const timeout = opts.timeout ?? 3000;
   const stopFile = opts.stopFile || guard().STOP_FILE;
   const logFile = opts.logFile || guard().LOG_FILE;
+  // Injected like everything else here, so a test drives both "never swept"
+  // and "swept last Tuesday" without a real logs/ and without the wall clock.
+  const heartbeatFile = opts.heartbeatFile || require('./weekly-sweep.js').HEARTBEAT;
+  const sweepBeat = opts.sweepBeat || require('./weekly-sweep.js').lastBeat;
+  const now = opts.now ?? Date.now();
 
   const checks = [];
 
@@ -228,7 +242,39 @@ async function collect(opts = {}) {
     checks.push({ name: 'audit log', level: 'fail', detail: `${probeDir} not writable — ${e.message}` });
   }
 
-  // 6. Tiers, derived last because they depend on the probe above.
+  // 6. HAS THE SWEEP RUN? The weekly sweep is the control that finds rot
+  //    nobody reported, and until 2026-09-14 nothing could tell whether it had
+  //    run at all: park() writes only when there are findings, so a clean run
+  //    left an empty logs/ — byte-identical to a run that never happened. A
+  //    control with no proof-of-life is one whose silence you cannot read.
+  //
+  //    ABSENCE IS `unknown`, NEVER `ok`. "Never swept" and "swept, all clean"
+  //    are different facts and must not collapse into the reassuring one —
+  //    the rule this whole subsystem is built on.
+  //
+  //    WHAT IT DOES NOT COVER, said plainly: a missed GitHub scheduled run.
+  //    Runners are ephemeral and logs/ is gitignored, so a CI heartbeat dies
+  //    with the job. This reads the sweep's cadence ON THIS MACHINE. GitHub's
+  //    Actions page is the only record of whether the cron fired.
+  const beat = sweepBeat({ file: heartbeatFile });
+  if (!beat) {
+    checks.push({ name: 'weekly sweep', level: 'info',
+      detail: 'never run on this machine — `node code/weekly-sweep.js` (normal on a fresh box)' });
+  } else {
+    const ageDays = (now - Date.parse(beat.at)) / 86400000;
+    if (!Number.isFinite(ageDays)) {
+      checks.push({ name: 'weekly sweep', level: 'warn',
+        detail: `heartbeat has an unreadable timestamp (${beat.at})` });
+    } else if (ageDays > SWEEP_STALE_DAYS) {
+      checks.push({ name: 'weekly sweep', level: 'warn',
+        detail: `last ran ${ageDays.toFixed(1)} days ago — the cadence is weekly; it may have stopped firing` });
+    } else {
+      checks.push({ name: 'weekly sweep', level: 'ok',
+        detail: `last ran ${ageDays.toFixed(1)} days ago, ${beat.findings} finding(s)` });
+    }
+  }
+
+  // 7. Tiers, derived last because they depend on the probe above.
   const tiers = evaluateTiers(registry, ollama);
   for (const t of tiers) {
     checks.push(t.ok
@@ -263,5 +309,5 @@ function exitCode(report) {
 module.exports = {
   collect, format, exitCode, worstOf,
   requiredOllamaModels, ollamaTagsUrl, evaluateTiers, probeOllama, hasModel,
-  nearestExisting, LEVELS,
+  nearestExisting, LEVELS, SWEEP_STALE_DAYS,
 };

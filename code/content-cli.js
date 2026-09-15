@@ -74,7 +74,11 @@ function renderShow(job) {
     `brief   ${job.brief}`,
     '',
   ];
-  for (const field of ['script', 'cut', 'metadata']) {
+  // SOURCES FIRST, and before the script. The gate asks Ahmed "is this mine
+  // and is it true"; the second half is unanswerable without the material it
+  // was drafted from, and a reader scrolling past 400 words of script to reach
+  // the evidence will not go back for it.
+  for (const field of ['sources', 'script', 'cut', 'metadata']) {
     if (job[field] == null) continue;
     const value = typeof job[field] === 'string' ? job[field] : JSON.stringify(job[field], null, 2);
     lines.push(`── ${field} ── (${short(hash(value))})`, value, '');

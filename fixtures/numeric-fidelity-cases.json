@@ -1,0 +1,142 @@
+{
+  "_why": "Ground truth for numeric fidelity, shared by TWO implementations so they cannot drift apart. Generated from automation/phase-b/content_generator.py's check_numeric_fidelity() — the original, whose every rule documents a false positive that once made the enforcer refuse to ship correct content. code/content-fidelity.js is a port and must agree on every case here. Regenerate with scripts/gen-fidelity-fixture.py, never by hand: hand-editing an expectation turns a spec into a rationalisation of whatever the code now does.",
+  "cases": [
+    {
+      "name": "a genuinely invented number is flagged",
+      "source": "Inflation cooled to 2.4% in August.",
+      "generated": [
+        "Inflation cooled to 2.4%, the lowest in 40 months."
+      ],
+      "suspects": [
+        "40"
+      ]
+    },
+    {
+      "name": "a faithful restatement is clean",
+      "source": "Inflation cooled to 2.4% in August.",
+      "generated": [
+        "August inflation came in at 2.4%."
+      ],
+      "suspects": []
+    },
+    {
+      "name": "trailing sentence punctuation is not a new number",
+      "source": "A loaf costs EGP 24.00",
+      "generated": [
+        "A loaf costs EGP 24.00."
+      ],
+      "suspects": []
+    },
+    {
+      "name": "insignificant trailing zeros match",
+      "source": "A loaf costs EGP 24.00",
+      "generated": [
+        "A loaf costs EGP 24."
+      ],
+      "suspects": []
+    },
+    {
+      "name": "thousands separators match",
+      "source": "Output reached 1200 barrels",
+      "generated": [
+        "Output reached 1,200 barrels"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "percent is significant: bare 40 does not satisfy 40%",
+      "source": "Shipping fell 40 vessels",
+      "generated": [
+        "Shipping fell 40%"
+      ],
+      "suspects": [
+        "40%"
+      ]
+    },
+    {
+      "name": "a range written with the unit once",
+      "source": "The band is 3.5% to 3.75%",
+      "generated": [
+        "The band is 3.5-3.75%"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "percent spelled out matches the symbol",
+      "source": "The band is 3.5% to 3.75%",
+      "generated": [
+        "The band is 3.5 to 3.75 percent"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "a number word matches its digit",
+      "source": "Three ships were hit",
+      "generated": [
+        "3 ships were hit"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "a digit matches its number word",
+      "source": "3 ships were hit",
+      "generated": [
+        "Three ships were hit"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "multiple generated texts are all checked",
+      "source": "Gold hit 2400",
+      "generated": [
+        "Gold hit 2400",
+        "Gold hit 2500"
+      ],
+      "suspects": [
+        "2500"
+      ]
+    },
+    {
+      "name": "THE KNOWN LIMIT: a garbled restatement of a real number is NOT caught",
+      "source": "A 90-day pause prevents tariffs rising to 125%",
+      "generated": [
+        "A 90-day pause on tariffs from 125% to 125%"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "no numbers anywhere is clean",
+      "source": "Shipping attacks continued",
+      "generated": [
+        "Shipping attacks continued in the region"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "a number in the source but absent from the text is not a suspect",
+      "source": "Gold hit 2400 and silver 30",
+      "generated": [
+        "Gold hit 2400"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "percentage points spelled out",
+      "source": "Rates rose 2 percentage points",
+      "generated": [
+        "Rates rose 2%"
+      ],
+      "suspects": []
+    },
+    {
+      "name": "a decimal invented from a whole number is flagged",
+      "source": "Gold hit 2400",
+      "generated": [
+        "Gold hit 2400.5"
+      ],
+      "suspects": [
+        "2400.5"
+      ]
+    }
+  ]
+}

@@ -315,3 +315,45 @@ def test_the_guard_makes_no_network_call_of_its_own():
     enforce_src = inspect.getsource(cg.enforce_numeric_fidelity)
     assert "requests" not in enforce_src
     assert "call_ollama" in enforce_src
+
+
+# --- the shared fixture: this implementation and the JS port must agree -----
+#
+# code/content-fidelity.js is a port of check_numeric_fidelity(). Two copies of
+# one rule in two languages will drift — the same failure as two staleness
+# thresholds for one word. fixtures/numeric-fidelity-cases.json is generated
+# FROM this module by scripts/gen-fidelity-fixture.py and is read by BOTH
+# suites, so a disagreement fails both rather than quietly favouring one.
+#
+# This side asserts the fixture still describes THIS module. If a change here
+# alters a case, this fails and the fixture wants regenerating deliberately —
+# which is the moment to check the JS port still agrees, rather than finding
+# out weeks later.
+
+def _fixture_cases():
+    import os
+    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    with open(os.path.join(repo, 'fixtures', 'numeric-fidelity-cases.json')) as f:
+        return json.load(f)['cases']
+
+
+def test_shared_fixture_still_describes_this_module():
+    cases = _fixture_cases()
+    assert len(cases) >= 10, f"only {len(cases)} shared cases — the pin is too thin"
+    for c in cases:
+        got = cg.check_numeric_fidelity(c['source'], *c['generated'])
+        assert got == c['suspects'], (
+            f"{c['name']}: this module now returns {got}, but "
+            f"fixtures/numeric-fidelity-cases.json records {c['suspects']}. "
+            "If the change is intended, regenerate with "
+            "scripts/gen-fidelity-fixture.py AND re-run code/test-content-fidelity.js "
+            "so the JS port is held to the new behaviour too."
+        )
+
+
+def test_shared_fixture_is_not_vacuous():
+    # A fixture where nothing expects a suspect would pass against a checker
+    # that always returns [], and vice versa.
+    cases = _fixture_cases()
+    assert any(c['suspects'] for c in cases), "no case expects a suspect"
+    assert any(not c['suspects'] for c in cases), "no case expects a clean result"

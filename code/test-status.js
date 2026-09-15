@@ -107,6 +107,14 @@ const NO_STOP = path.join(TMP, 'absent-STOP');
 const LOG = path.join(TMP, 'logs', 'actions.jsonl');
 
 /** A healthy call, with any one thing overridden. */
+// A fixed "now" and a heartbeat two days old: the default fixture is a box
+// that HAS swept recently, because that is what a healthy box looks like.
+// Leaving it out would make every test below run against a box with an
+// unknown sweep state, which is a different baseline than the one these
+// assertions describe.
+const NOW = Date.parse('2026-09-14T12:00:00.000Z');
+const SWEPT_RECENTLY = { at: '2026-09-12T07:00:00.000Z', suites: 36, assertions: 793, findings: 0, parked: 0 };
+
 function collectWith(over = {}) {
   return S.collect({
     registry: fakeRegistry(over.reg || {}),
@@ -114,6 +122,8 @@ function collectWith(over = {}) {
     stopFile: over.stopFile || NO_STOP,
     logFile: over.logFile || LOG,
     timeout: over.timeout ?? 50,
+    now: over.now ?? NOW,
+    sweepBeat: over.sweepBeat || (() => (over.beat === undefined ? SWEPT_RECENTLY : over.beat)),
   });
 }
 
@@ -372,6 +382,58 @@ await test('bin/jj wires status through this module and exits on its code', asyn
   assert.ok(/status\.exitCode\(/.test(jj), 'bin/jj must exit on the report, not always 0');
   assert.ok(!/console\.log\('✅ Jarvis X ready'\)/.test(jj),
     'the unconditional success line is back in bin/jj');
+});
+
+// --- has the sweep run? (added 2026-09-14) --------------------------------
+//
+// park() writes only when there are findings, so a clean sweep left an empty
+// logs/ — byte-identical to a sweep that never ran. The control that finds
+// rot nobody reported had no way to report that IT had stopped.
+
+await test('a recent sweep reads ok and names its age', async () => {
+  const r = await collectWith();
+  const c = byName(r, 'weekly sweep');
+  assert.strictEqual(c.level, 'ok');
+  assert.match(c.detail, /2\.\d days ago/);
+});
+
+await test('NEVER swept reads info, never ok — absence is not health', async () => {
+  const c = byName(await collectWith({ beat: null }), 'weekly sweep');
+  assert.notStrictEqual(c.level, 'ok', 'a box that never swept reported as healthy');
+  assert.strictEqual(c.level, 'info');
+  assert.match(c.detail, /never run/);
+});
+
+await test('a sweep older than the threshold warns', async () => {
+  const old = { ...SWEPT_RECENTLY, at: '2026-09-01T07:00:00.000Z' };  // 13 days
+  const c = byName(await collectWith({ beat: old }), 'weekly sweep');
+  assert.strictEqual(c.level, 'warn');
+  assert.match(c.detail, /may have stopped firing/);
+});
+
+await test('one delayed week is not an alarm, two missed weeks is', async () => {
+  // The threshold has to tolerate a late cron or a machine that was off on
+  // Monday. A control that cries wolf gets ignored.
+  const days = (n) => ({ ...SWEPT_RECENTLY, at: new Date(NOW - n * 86400000).toISOString() });
+  assert.strictEqual(byName(await collectWith({ beat: days(9) }), 'weekly sweep').level, 'ok');
+  assert.strictEqual(byName(await collectWith({ beat: days(11) }), 'weekly sweep').level, 'warn');
+  assert.strictEqual(S.SWEEP_STALE_DAYS, 10, 'the threshold moved without these cases moving with it');
+});
+
+await test('an unreadable heartbeat timestamp warns rather than reading as fresh', async () => {
+  // Date.parse of junk is NaN, and NaN > threshold is false — which would
+  // have silently reported a corrupt heartbeat as a healthy one.
+  const c = byName(await collectWith({ beat: { ...SWEPT_RECENTLY, at: 'not a date' } }), 'weekly sweep');
+  assert.strictEqual(c.level, 'warn');
+  assert.match(c.detail, /unreadable timestamp/);
+});
+
+await test('a stale sweep does not by itself fail the exit code', async () => {
+  // It is a warning, not an incident: the sweep not having run does not mean
+  // Jarvis cannot answer, which is what the exit code is for.
+  const r = await collectWith({ beat: { ...SWEPT_RECENTLY, at: '2026-08-01T07:00:00.000Z' } });
+  assert.strictEqual(S.exitCode(r), 0);
+  assert.strictEqual(r.ok, true);
 });
 
 finish();

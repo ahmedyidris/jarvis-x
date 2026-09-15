@@ -42,6 +42,66 @@ const sweepMod = require('./sweep.js');
 const REPO = path.join(__dirname, '..');
 const INBOX = path.join(REPO, 'logs', 'sweep-inbox.jsonl');
 
+/**
+ * THE HEARTBEAT, and the hole it closes.
+ *
+ * `park()` writes only when there are findings — deliberately, and a test
+ * pins it ("an empty run must not leave a directory behind as its only
+ * trace"). The consequence went unnoticed until 2026-09-14: **a sweep that
+ * found nothing is byte-identical to a sweep that never ran.** Both leave an
+ * empty logs/. So the control that exists to find rot nobody reported had no
+ * way to report that IT had stopped running, which is the same blind spot one
+ * level up.
+ *
+ * Noticed the hard way: the Monday 07:00 UTC cron's first scheduled firing was
+ * due at 2026-09-14T07:00Z and, checked at 09:26Z, the only run on record was
+ * a manual dispatch. GitHub documents scheduled workflows as best-effort, so
+ * that may simply have been a delay — but nothing in this repo could tell the
+ * difference between "delayed", "never fired" and "ran and was clean", and
+ * that is the part worth fixing.
+ *
+ * WHAT THIS CAN AND CANNOT SEE, stated precisely because the useful half is
+ * narrower than "we now detect missed sweeps":
+ *   - It CAN see that no sweep has run ON THIS MACHINE in N days. That is the
+ *     case that matters for Ahmed noticing, because the Chromebook's logs/
+ *     persists.
+ *   - It CANNOT see a missed GitHub run. Runners are ephemeral and logs/ is
+ *     gitignored, so a CI heartbeat dies with the job. GitHub's own Actions
+ *     page is the only record of whether a scheduled run fired, and no file in
+ *     this repo can stand in for it.
+ * Writing it anyway on CI costs nothing and keeps one code path.
+ */
+const HEARTBEAT = path.join(REPO, 'logs', 'sweep-heartbeat.jsonl');
+
+/**
+ * The path `beat()` and `lastBeat()` default to, and the seam that keeps tests
+ * off the real one.
+ *
+ * WHY THIS EXISTS, and it is not hypothetical: the first version of the
+ * heartbeat took `heartbeatFile` as an option only, and nine of this module's
+ * twelve run()-level tests did not pass it. They wrote fixture rows — suite
+ * counts of 0 and 1, timestamps from 2026-03-01 — straight into the machine's
+ * real heartbeat, where `jj status` reads them as the sweep's actual cadence.
+ * That is precisely the defect code/test-helper.js was written to stop for the
+ * audit log, reappearing in a new log four days later.
+ *
+ * Same shape of fix as guard.js's setLogFile(), for the same stated reason:
+ * done once, at the top of the suite, so it needs no cooperation from whoever
+ * writes the NEXT test. A test below asserts the real path stays untouched, so
+ * a future leak fails rather than silently poisoning a control's input.
+ */
+let heartbeatFilePath = HEARTBEAT;
+
+/** Tests only. Returns the previous path so a caller can restore it. */
+function setHeartbeatFile(p) {
+  const previous = heartbeatFilePath;
+  heartbeatFilePath = p;
+  return previous;
+}
+
+/** The path beat() will actually write to. */
+function currentHeartbeatFile() { return heartbeatFilePath; }
+
 // The docs whose claims are worth checking: evidence and plan files. Not every
 // markdown file in the repo -- a DECISION_RECORD_* is a record of what was
 // believed at the time and is SUPPOSED to age.
@@ -311,6 +371,47 @@ function killSwitchDrift({ repoRoot = REPO, docs = DEFAULT_DOCS, stopFile = null
   return out;
 }
 
+// --- the heartbeat: proof the sweep ran at all ------------------------------
+
+/**
+ * One line per run, ALWAYS — clean or not. That is the whole point: the
+ * interesting case is the run that found nothing, because that is the one
+ * indistinguishable from no run at all.
+ *
+ * Append-only like every other log here, and it records the counts rather
+ * than the findings, so it stays small forever and never becomes a second
+ * copy of the inbox to keep in sync.
+ */
+function beat(result, { file = heartbeatFilePath, now } = {}) {
+  const row = {
+    at: now.toISOString(),
+    suites: result.suite.total,
+    assertions: result.suite.assertions,
+    findings: result.findings.length,
+    parked: result.parked.length,
+  };
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, `${JSON.stringify(row)}\n`);
+  } catch (_e) {
+    // A sweep that cannot write its heartbeat must still report its findings.
+    // Losing the proof-of-life is strictly better than losing the answer, and
+    // the staleness check reads a missing heartbeat as `unknown` rather than
+    // as healthy, so the failure surfaces there instead of being swallowed.
+  }
+  return row;
+}
+
+/** The most recent run's row, or null. Used by code/status.js. */
+function lastBeat({ file = heartbeatFilePath } = {}) {
+  if (!fs.existsSync(file)) return null;
+  const rows = fs.readFileSync(file, 'utf8').split('\n')
+    .filter((l) => l.trim())
+    .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+    .filter((r) => r && typeof r.at === 'string');
+  return rows.length ? rows[rows.length - 1] : null;
+}
+
 // --- the inbox: park, never fix --------------------------------------------
 
 /** Stable across runs, so a finding parked last week is not parked again. */
@@ -354,6 +455,7 @@ function park(findings, { file = INBOX, now } = {}) {
 function run({
   repoRoot = REPO, docs = DEFAULT_DOCS, now = new Date(),
   runSweep = () => sweepMod.sweep(), inboxFile = INBOX, isIgnored = gitIgnored,
+  heartbeatFile = heartbeatFilePath,
 } = {}) {
   const suite = runSweep();
 
@@ -380,7 +482,7 @@ function run({
   const findings = [...suiteFindings, ...refs, ...orphans, ...drift, ...killSwitch];
   const parked = park(findings, { file: inboxFile, now });
 
-  return {
+  const result = {
     now: now.toISOString(),
     suite: { total: suite.total, assertions: suite.assertions },
     findings,
@@ -388,6 +490,11 @@ function run({
     repeat: parked.repeat,
     coverage: { claimsChecked: claims.length, claimsUnchecked: unchecked, docs: docs.length },
   };
+  // Written LAST and unconditionally, so the heartbeat records a run that
+  // completed rather than one that started. A row here means every detector
+  // above returned.
+  result.heartbeat = beat(result, { file: heartbeatFile, now });
+  return result;
 }
 
 function format(r) {
@@ -446,7 +553,8 @@ function format(r) {
 function exitCode(r) { return r.parked.length ? 1 : 0; }
 
 module.exports = {
-  killSwitchDrift,
+  killSwitchDrift, beat, lastBeat, HEARTBEAT,
+  setHeartbeatFile, currentHeartbeatFile,
   run, format, exitCode, staleRefs, assertionClaims, assertionDrift, orphanSuites,
   sentences, park, readInbox, fingerprint, gitIgnored,
   DEFAULT_DOCS, INBOX, PATH_RE, SUITE_RE, COUNT_RE,

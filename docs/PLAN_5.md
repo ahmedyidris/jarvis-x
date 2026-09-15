@@ -319,7 +319,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
 
 5. **Content pipeline, phase 1** (§6.2) — **the two gates are built,
    2026-09-10; the production steps are not.** `code/content-pipeline.js` +
-   `code/test-content-pipeline.js` (34 assertions, 25/25 mutations caught),
+   `code/test-content-pipeline.js` (37 assertions, 25/25 mutations caught),
    in CI. The flow is prompt/link → research → outline → script draft in his
    voice → *his edit* → Higgsfield render → thumbnail, title, description →
    queue, with posting automated and publishing gated on his approval of the
@@ -360,7 +360,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    gating the narrative fixes that; the reverse is what caused it.
 
    **`jj content` is the surface he operates them through** —
-   `code/content-cli.js` + `code/test-content-cli.js` (29 assertions, 21/21
+   `code/content-cli.js` + `code/test-content-cli.js` (30 assertions, 21/21
    mutations caught), in CI, wired into `bin/jj`. Without it the gates were a
    library nobody could reach. Commands: `queue` (what is on his desk),
    `list`, `show <id>` (the artifact in full, never truncated — he cannot
@@ -384,10 +384,71 @@ as much as possible so the metered tier is spent only where it earns its keep.
    **detectable afterwards rather than prevented beforehand** — detection, not
    prevention, and named as such.
 
+   **The drafting steps landed 2026-09-15**: `code/content-draft.js` +
+   `code/test-content-draft.js` (22 assertions, 17/18 mutations caught — the
+   eighteenth was `const`→`let` with no reassignment, a no-op, so escaping is
+   the correct verdict rather than a gap). research → outline → script, with
+   `ask` and `research` injected and no defaults, so the module calls no model
+   and opens no socket.
+
+   **It refuses to draft without a voice profile, and that is the feature.**
+   §6.2 rules "Your words, Jarvis assists". A draft in a voice Jarvis invented
+   would invert that ruling *while appearing to satisfy it* — generic LLM prose
+   reads as competent, so the gate downstream would be reviewing "is this
+   passable" instead of "is this mine". `config/writing-voice.md` carries an
+   `<!-- UNFILLED -->` marker on its first line and the module refuses while it
+   is there: no fallback register, no inferred voice, no shipped default. The
+   marker is the whole mechanism deliberately — a heuristic for "does this look
+   filled in" is one more rule to be subtly wrong about, and being wrong in the
+   permissive direction means drafting in an invented voice. A test asserts the
+   live file is still unfilled, and the refusal happens before `research` or
+   `ask` is called.
+
+   **Fidelity is enforced, not just checked**: on an invented number it
+   re-prompts ONCE with the offending figures named, then refuses rather than
+   shipping a known invention — the behaviour `content_generator.py`'s
+   `enforce_numeric_fidelity()` settled on. A draft that is quietly wrong is
+   worse than no draft, because the human at the gate is reading for voice, not
+   auditing arithmetic against sources he may not have.
+
+   Both the outline and the script are checked against brief + research, never
+   against the step before them. **Being precise about which check does the
+   work**, since the obvious framing overstates it: what actually closes the
+   laundering path is checking the OUTLINE against the sources — by the time
+   the script runs, every outline number is provably sourced, so "checked
+   against the outline" and "checked against the sources" would agree, and a
+   mutation swapping them is invisible through `draft()`. The script's check is
+   defence in depth, and the invariant that both receive the same `sourceText`
+   is pinned structurally rather than by a scenario that cannot exist while both
+   checks are intact.
+
+   **The four modules were then driven as ONE story** —
+   `code/test-content-integration.js` (7 assertions, 9/9 mutations on the fixes
+   it prompted). Each module's own suite was green and none of them could see a
+   gap BETWEEN them, which is the same shape as the bitemporal memory stack's
+   five green layer suites while no human-approved change could ever be applied.
+
+   **It found two real gaps on its first run.** First, `draft()` returns the
+   `sources` it drafted from — its own docstring calls that "what makes 'is this
+   true' answerable at all" — and the pipeline had nowhere to put them while
+   `jj content show` had nothing to display, so **the script gate presented
+   prose with no provenance and asked a human to approve a claim he could not
+   check**. `sources` is now an attachable artifact, shown at the gate BEFORE
+   the script (a reader scrolling past 400 words to reach the evidence will not
+   go back for it), and deliberately NOT gated: it is evidence for the human,
+   not a thing he approves, and a gate binding to it would void a script
+   approval every time research re-ran.
+
+   Second, `attach()` accepted `undefined`, so a caller that skipped a
+   refusal's `ok` flag wrote a meaningless row rather than being stopped. The
+   gate still refused downstream — `submit()` treats a falsy artifact as nothing
+   to review, so defence in depth held — but the caller's mistake was silent.
+   Empty attaches now throw.
+
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
-   the research/outline/script steps, the Higgsfield render call, and the
-   poster — all of which now plug into an enforced machine with a working
-   review surface, rather than inventing their own control flow.
+   the Higgsfield render call and the poster — both of which now plug into an
+   enforced machine with a working review surface and a drafter that cannot
+   invent figures, rather than inventing their own control flow.
 6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
    The clause that gates phase 2 is built: **the honest performance
    measurement**, `code/trading-performance.js` +
@@ -431,7 +492,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
 **Tier 3 — real gaps, no ruling needed.**
 
 7. ~~**`jj status` prints `✅ Jarvis X ready` unconditionally**~~ — **DONE
-   2026-09-09.** `code/status.js`, `code/test-status.js` (24 assertions), in
+   2026-09-09.** `code/status.js`, `code/test-status.js` (30 assertions), in
    CI. It now reports the kill switch, the ollama daemon, the models the tier
    table actually routes to, each remote provider's key and remaining quota,
    the audit log, and per-tier answerability — and **exits non-zero** when any
@@ -460,13 +521,44 @@ as much as possible so the metered tier is spent only where it earns its keep.
    unauthenticated Gemini CLI "a real, currently-blocking gap" when nothing in
    this codebase invokes the `gemini` binary at all.
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
-   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (53 assertions), in CI,
+   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (65 assertions), in CI,
    plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Five
    detectors, all pure lookups, no model calls: suite health (delegated to
    `sweep.js`, so the two cannot disagree about the CI list), doc references to
    files that no longer exist, assertion-count claims re-checked against what
    the suites now report, **test files no CI list runs**, and **the kill
    switch documented at a path that is not it**.
+
+   **It also has a heartbeat now (2026-09-14), because it could not report
+   that it had stopped.** `park()` writes only when there are findings — a
+   deliberate choice, pinned by a test — so a clean run left an empty `logs/`,
+   byte-identical to a run that never happened. The control built to find rot
+   nobody reported had no proof-of-life of its own. `beat()` now appends one
+   row per run, always, recording counts rather than findings so it stays small
+   and never becomes a second copy of the inbox. `jj status` reads its age: a
+   sweep older than `SWEEP_STALE_DAYS` (10 — one missed week plus slack, so a
+   single late cron is not an alarm and two missed weeks always is) warns, and
+   **never having run reads `info`, never `ok`**.
+
+   What prompted it: the Monday 07:00 UTC cron's first scheduled firing was due
+   at 2026-09-14T07:00Z and, checked at 09:26Z, the only run on record was a
+   manual dispatch. That may simply have been GitHub delaying a best-effort
+   schedule — but nothing here could tell "delayed" from "never fired" from
+   "ran and was clean", and that was the part worth fixing.
+
+   **What the heartbeat does NOT cover**, stated because the obvious reading is
+   broader: a missed GitHub run. Runners are ephemeral and `logs/` is
+   gitignored, so a CI heartbeat dies with the job. This reads the cadence on
+   the Chromebook. GitHub's Actions page is the only record of whether a
+   scheduled run fired, and no file in this repo can stand in for it.
+
+   The first version of it reintroduced a defect this repo had already paid
+   for: nine of the run()-level tests did not inject a heartbeat path and wrote
+   fixture rows straight into the machine's real one — the same shape as the
+   audit-log pollution `code/test-helper.js` exists to prevent, four days
+   later, in a new log. Fixed with a `setHeartbeatFile()` seam (guard.js's
+   `setLogFile()` pattern) plus a test asserting the real path stays untouched,
+   so a future leak fails rather than quietly poisoning a control's input.
 
    **The fifth detector was added 2026-09-10 because this document was
    wrong about the kill switch, in two places, while being edited all

@@ -389,6 +389,50 @@ await test('an unknown job id throws rather than answering about nothing', () =>
   assert.throws(() => pipe.attach('nope', 'script', 'x'), /no such job/);
 });
 
+await test('a nothing is not an artifact — empty attaches are refused', () => {
+  // Found by test-content-integration.js: content-draft.js returns {ok:false}
+  // with no `script` when it refuses, and a caller skipping the ok check would
+  // attach `undefined`. The gate still refused downstream, but the log gained
+  // a meaningless row and the caller got no signal it had ignored a refusal.
+  const pipe = fresh();
+  const id = pipe.start({ brief: 'x' }).id;
+  for (const nothing of [undefined, null, '', '   ', []]) {
+    assert.throws(() => pipe.attach(id, 'script', nothing),
+      /refusing to attach an empty script/, `attach accepted ${JSON.stringify(nothing)}`);
+  }
+  assert.strictEqual(pipe.get(id).history.filter((r) => r.kind === 'attach').length, 0,
+    'a refused attach still wrote a row');
+});
+
+await test('a fresh job declares every artifact, so the shape is uniform', () => {
+  // Each attachable artifact starts as an explicit null rather than being
+  // absent. The fold sets them dynamically, so omitting one is ALMOST a no-op
+  // — `undefined == null` is true, so `== null` consumers cannot tell. It
+  // still matters: `'sources' in job` and Object.keys() differ, and a contract
+  // where some fields are declared and others appear on first write is one
+  // where "has this been attached" has two different answers.
+  const pipe = fresh();
+  const job = pipe.get(pipe.start({ brief: 'x' }).id);
+  for (const field of P.ARTIFACTS) {
+    assert.ok(field in job, `a fresh job does not declare "${field}"`);
+    assert.strictEqual(job[field], null, `"${field}" starts as ${job[field]}, not null`);
+  }
+});
+
+await test('sources can be attached, and are NOT a gated artifact', () => {
+  // Sources are evidence for the human at the gate, not a thing he approves.
+  // If a gate ever bound to them, re-running research would void an approval
+  // of a script that had not changed.
+  const pipe = fresh();
+  const id = pipe.start({ brief: 'x' }).id;
+  pipe.attach(id, 'sources', ['CPI rose 2.4%']);
+  assert.deepStrictEqual(pipe.get(id).sources, ['CPI rose 2.4%']);
+  assert.ok(!Object.values(P.GATE_ARTIFACT).includes('sources'),
+    'a gate binds to sources — re-running research would void an unrelated approval');
+  // And attaching them alone does not make a job reviewable.
+  assert.strictEqual(pipe.submit(id, GATES.SCRIPT).ok, false);
+});
+
 await test('an unknown artifact field is rejected', () => {
   const pipe = fresh();
   const id = pipe.start({ brief: 'x' }).id;
