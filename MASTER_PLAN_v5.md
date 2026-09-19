@@ -341,8 +341,8 @@ template itself specifies: no model calls in the detection path).
 9. Real broker/exchange integration and auto-execution (§3) — gated on Ahmed's own
    `CONSTITUTION.md` §IV amendment, named broker, named jurisdiction, hard position
    limits.
-10. Full YouTube/social auto-posting pipeline (§4) — gated on Tier-1 task 3's policy
-    check coming back clean.
+~~10. Full YouTube/social auto-posting pipeline (§4) — gated on Tier-1 task 3's policy
+    check coming back clean.~~ (BLOCKED: Tier 1 Task 3 revealed strict monetization policies requiring human originality. Cannot build fully automated posting)
 11. PWA-first mobile rollout (§6.2) — gated on nothing technical, sequenced here because
     it's genuinely lower priority than 1-8, not because it's blocked.
 12. Native iOS/Android/Electron ports (§6.3-6.4) — gated on Tier 3 task 11 revealing a
