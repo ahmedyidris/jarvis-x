@@ -719,3 +719,7 @@ Checked current YouTube policies regarding AI-generated content (Sept 2026).
 Ran `llmfit fit` and `llmfit search text-to-video` to evaluate local generative video models.
 **Finding:** Zero generative text-to-video models fit this hardware's constraints (14GB RAM, no dedicated GPU VRAM).
 **Verdict:** Local generative video is not viable on this machine without burning disk/memory. We must rely exclusively on Higgsfield or other API-based renderers for the Phase B video generation pipeline. This explicitly closes the door on attempting to clone free local models for video.
+
+### PWA-First Mobile Rollout (2026-09-20)
+*Tier 3 Task 11 completed.*
+Enabled and built `vite-plugin-pwa` in the `web` frontend. The application now compiles with a full `manifest.webmanifest`, `sw.js` ServiceWorker, and offline precaching capabilities for mobile PWA installation.
