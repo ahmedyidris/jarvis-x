@@ -2,6 +2,7 @@
   "_note": "Paper trading only. CONSTITUTION.md section IV forbids real-money trading of any kind; this file describes a simulation and there is no code path from it to a broker. Every limit here is ENFORCED in code/paper-trading.js and covered by code/test-paper-trading.js -- the previous version of these rules lived only in knowledge/Guidelines.md as 'intended but not enforced', which is exactly the failure this replaces.",
 
   "mode": "paper",
+  "executionMode": "advisory",
   "startingCapital": 10000,
 
   "riskPerTrade": 0.006,

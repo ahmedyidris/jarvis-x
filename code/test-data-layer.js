@@ -206,8 +206,8 @@ await test('past 80% of its TTL an entry reads stale while still usable', async 
   // The threshold is the point of the field: a caller can prefer a refresh
   // before the entry actually dies.
   const c = new CacheLayer();
-  await c.set('k', 'v', 60);
-  await sleep(55);
+  await c.set('k', 'v', 1000);
+  await sleep(850);
   const got = await c.get('k');
   assert.ok(got, 'it must not have expired yet');
   assert.strictEqual(got.staleness, 'stale');

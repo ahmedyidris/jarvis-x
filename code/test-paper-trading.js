@@ -51,6 +51,12 @@ await test('a non-paper mode is refused outright', () => {
   assert.throws(() => loadConfig(f), /must be "paper"/);
 });
 
+await test('an auto executionMode is refused outright', () => {
+  const f = tmp();
+  fs.writeFileSync(f, JSON.stringify({ ...CFG, mode: 'paper', executionMode: 'auto' }));
+  assert.throws(() => loadConfig(f), /auto execution path is unimplemented/);
+});
+
 // ── sizing derives from one risk budget ───────────────────────────────────
 await test('every instrument risks the same fraction of capital', () => {
   const b = book();

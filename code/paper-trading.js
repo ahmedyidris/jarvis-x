@@ -27,6 +27,9 @@ function loadConfig(file = CONFIG) {
     // an attempt to point the simulation at something real; both stop here.
     throw new Error(`REFUSED: trading mode must be "paper", got ${JSON.stringify(cfg.mode)}`);
   }
+  if (cfg.executionMode === 'auto') {
+    throw new Error('REFUSED: auto execution path is unimplemented. Only "advisory" executionMode is allowed.');
+  }
   return cfg;
 }
 
