@@ -713,3 +713,9 @@ Checked current YouTube policies regarding AI-generated content (Sept 2026).
 - Zero tolerance for AI personas giving sensitive advice (finance/medical).
 - Must use the "altered content" disclosure checkbox for realistic synthetic media.
 **Verdict:** The Phase B architecture (Ahmed's outline/editing -> AI rendering) aligns perfectly with YouTube's requirement for human "creative vision." Tier 3 Task 10 (Full YouTube/social auto-posting pipeline) is now officially UNBLOCKED.
+
+### Local Video Model Viability Check (2026-09-20)
+*Tier 1 Task 4 completed.*
+Ran `llmfit fit` and `llmfit search text-to-video` to evaluate local generative video models.
+**Finding:** Zero generative text-to-video models fit this hardware's constraints (14GB RAM, no dedicated GPU VRAM).
+**Verdict:** Local generative video is not viable on this machine without burning disk/memory. We must rely exclusively on Higgsfield or other API-based renderers for the Phase B video generation pipeline. This explicitly closes the door on attempting to clone free local models for video.
