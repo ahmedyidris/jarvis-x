@@ -322,20 +322,20 @@ template itself specifies: no model calls in the detection path).
 2. Fill `~/.jarvis-x/.env` (unchanged from v4 — still blocks Gemini CLI, live P4
    verification, and now also blocks any real TradingView/broker research that needs a
    key).
-3. Check current YouTube/major-platform monetization policy on AI-generated/automated
-   content specifically, before treating §4 as an income plan rather than a build plan.
-4. `llmfit fit`/`search` against video-generation models — get a real answer on local
-   viability before any "clone the best free model" attempt.
+~~3. Check current YouTube/major-platform monetization policy on AI-generated/automated
+   content specifically, before treating §4 as an income plan rather than a build plan.~~ (DONE: YouTube policy requires human value/originality, mass-produced automated templates face demonetization. Treat §4 as a build plan or keep the human review gate)
+~~4. `llmfit fit`/`search` against video-generation models — get a real answer on local
+   viability before any "clone the best free model" attempt.~~ (DONE: No dedicated GPU and only 14GB RAM makes local video generation unviable)
 
 ### Tier 2 — the two new tracks' safe halves
-5. Build the advisory/backtest trading layer (§3) — TradingView data integration,
-   `code/paper-trading.js` as the backtest engine, no broker, no auto-execution.
-6. Build the switchable advisory/auto config flag (§3) — architecture only, auto path
-   unimplemented, clearly marked.
-7. Wire Higgsfield into one Phase B vertical as a proof of concept (§4) — pick the
+~~5. Build the advisory/backtest trading layer (§3) — TradingView data integration,
+   `code/paper-trading.js` as the backtest engine, no broker, no auto-execution.~~ (DONE: TradingView webhook receiver built into app.py, paper-trading.js handles backtests/advisory bounds)
+~~6. Build the switchable advisory/auto config flag (§3) — architecture only, auto path
+   unimplemented, clearly marked.~~ (DONE: paper-trading.js configured to reject "auto")
+~~7. Wire Higgsfield into one Phase B vertical as a proof of concept (§4) — pick the
    lowest-stakes vertical (`letters`) first, since it has no sourced-fact-fidelity gate
-   to also satisfy.
-8. Build the Agentic OS sweep script, read-only detection only (§5, §6's build order).
+   to also satisfy.~~ (DONE: integrated in video_renderer.py)
+~~8. Build the Agentic OS sweep script, read-only detection only (§5, §6's build order).~~ (DONE: weekly-sweep.js and test-data-layer fixed)
 
 ### Tier 3 — everything gated behind Tier 1/2 evidence or Ahmed's direct action
 9. Real broker/exchange integration and auto-execution (§3) — gated on Ahmed's own

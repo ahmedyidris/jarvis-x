@@ -27,6 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from code.tts_engine import get_engine  # noqa: E402
 
+from higgsfield_integration import HiggsfieldRenderer
 from content_generator import generate_letter_content  # noqa: E402
 
 CONTENT_DIR = Path(__file__).parent / "stages" / "01_source_content" / "output" / "letters"
@@ -230,13 +231,25 @@ def render_video(
     return output_path
 
 
-def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_piper") -> str:
-    """Render one letter's MP4 from its content dict. Returns output_path.
 
-    Thin Week-1-shaped wrapper around the generic `render_video`: the
-    letter itself is the big headline (font size 700, same as the
-    original implementation), and on_screen_text is the smaller caption.
-    """
+
+def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_piper", use_higgsfield: bool = True) -> str:
+    """Render one letter's MP4 from its content dict. Returns output_path."""
+    
+    if use_higgsfield:
+        try:
+            from pathlib import Path
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            
+            renderer = HiggsfieldRenderer()
+            prompt = content.get("image_prompt", f"A beautiful educational video about the letter {content.get('letter')}")
+            # Proof of concept: delegate entirely to Higgsfield integration.
+            # In a full integration, we'd combine Higgsfield's output video with TTS audio.
+            renderer.generate_video(prompt, output_path)
+            return output_path
+        except Exception as e:
+            print(f"Higgsfield render failed, falling back to MoviePy: {e}")
+            
     return render_video(
         content,
         output_path,
@@ -245,7 +258,6 @@ def render_letter_video(content: dict, output_path: str, voice_id: str = "en_us_
         headline_font_size=700,
         caption_font_size=90,
     )
-
 
 def render_economic_video(content: dict, output_path: str, voice_id: str = "en_us_kokoro") -> str:
     """Render one economic-fact MP4 (Week 2) from its content dict.

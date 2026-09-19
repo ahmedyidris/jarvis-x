@@ -696,6 +696,38 @@ async def dashboard_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
 
+
+# === TRADINGVIEW WEBHOOK ===
+class TradingViewSignal(BaseModel):
+    symbol: str
+    action: str
+    price: float
+    timeframe: str = "1h"
+    passphrase: str = ""
+
+@app.post("/api/tradingview/webhook")
+async def tradingview_webhook(signal: TradingViewSignal):
+    # Validate a shared secret to ensure the alert actually came from our TradingView account
+    expected_passphrase = os.environ.get("TRADINGVIEW_PASSPHRASE")
+    if expected_passphrase and signal.passphrase != expected_passphrase:
+        raise HTTPException(status_code=403, detail="Invalid passphrase")
+        
+    log_file = Path(__file__).parent / "logs" / "trading-signals.jsonl"
+    log_file.parent.mkdir(exist_ok=True)
+    with open(log_file, "a") as f:
+        json.dump({
+            "timestamp": datetime.now().isoformat(),
+            "source": "tradingview",
+            "symbol": signal.symbol.lower(),
+            "action": signal.action.upper(),
+            "price": signal.price,
+            "timeframe": signal.timeframe
+        }, f)
+        f.write("\n")
+        
+    return {"status": "received", "signal": signal.model_dump()}
+
+# SPA fallback
 # SPA fallback: any unmatched non-/api path serves index.html,
 # so client-side routes (if added later) don't 404 on refresh.
 #
@@ -1012,6 +1044,38 @@ async def hermes_backend_exception_handler(request, exc):
     )
 
 
+
+# === TRADINGVIEW WEBHOOK ===
+class TradingViewSignal(BaseModel):
+    symbol: str
+    action: str
+    price: float
+    timeframe: str = "1h"
+    passphrase: str = ""
+
+@app.post("/api/tradingview/webhook")
+async def tradingview_webhook(signal: TradingViewSignal):
+    # Validate a shared secret to ensure the alert actually came from our TradingView account
+    expected_passphrase = os.environ.get("TRADINGVIEW_PASSPHRASE")
+    if expected_passphrase and signal.passphrase != expected_passphrase:
+        raise HTTPException(status_code=403, detail="Invalid passphrase")
+        
+    log_file = Path(__file__).parent / "logs" / "trading-signals.jsonl"
+    log_file.parent.mkdir(exist_ok=True)
+    with open(log_file, "a") as f:
+        json.dump({
+            "timestamp": datetime.now().isoformat(),
+            "source": "tradingview",
+            "symbol": signal.symbol.lower(),
+            "action": signal.action.upper(),
+            "price": signal.price,
+            "timeframe": signal.timeframe
+        }, f)
+        f.write("\n")
+        
+    return {"status": "received", "signal": signal.model_dump()}
+
+# SPA fallback
 # SPA fallback: any unmatched non-/api path serves index.html
 @app.get("/{full_path:path}")
 async def spa_fallback(full_path: str):

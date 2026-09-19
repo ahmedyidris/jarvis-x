@@ -2,5 +2,9 @@
   {
     "goal": "echo $(date) > /home/ahmedyidris/jarvis-x/logs/test.log",
     "everyMinutes": 1
+  },
+  {
+    "goal": "Process pending content pipeline jobs. Read code/content-pipeline.js then run node code/process-content.js using the shell tool.",
+    "everyMinutes": 30
   }
 ]

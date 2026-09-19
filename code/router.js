@@ -1,5 +1,11 @@
 // Tier routing. Rules, not a model — a model deciding routing is one more
 // thing that can be confidently wrong.
+const fs = require('fs');
+const path = require('path');
+
+const CONFIG_PATH = path.join(__dirname, '..', 'config', 'routing.json');
+const ROUTING = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+
 const CONSEQUENTIAL = new Set(['write', 'shell', 'trade']);
 const HARD_HINTS = /\b(plan|design|debug|why|analyz|strateg|refactor|architect|compare)\b/i;
 
@@ -14,12 +20,7 @@ function classify({ action = null, prompt = '', level = null } = {}) {
 // AND still hits the human gate. Degrading to a weaker model must never
 // silently skip the gate.
 // Ordered fallback chains. Best first, degrade rightward.
-const ROUTE = {
-  quick:        { via: 'gemini', chain: ['flash'] },
-  hard:         { via: 'gemini', chain: ['pro', 'flash'] },
-  consequential:{ via: 'gemini', chain: ['max', 'pro', 'flash'],
-                  gate: true, wanted: 'claude-opus' },
-};
+const ROUTE = ROUTING.js_routes;
 
 function route(input) {
   const level = classify(input);
