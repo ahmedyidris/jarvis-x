@@ -20,7 +20,7 @@ skip is `test-agent-data-integration.js`, gated behind `JX_NET` (§4). It passes
 not run without the network. `npm run test:net` runs all 20.
 
 **The suite is now 21 files.** `code/test-paper-trading.js` was added later the same evening
-with the rebuilt paper module (§6.2) — **22 assertions, all passing**, verified in the build
+with the rebuilt paper module (§6.2) — **23 assertions, all passing**, verified in the build
 container, which is sufficient because that suite is fully offline by construction. The
 21-file run has not been repeated on Ahmed's machine; the five files that need local Piper,
 Kokoro and Ollama are unaffected by this change, so 21/21 there is expected but unmeasured.
@@ -379,7 +379,7 @@ Deleted rather than archived, as instructed — git history retains both files.
 **Then re-opened, same evening.** Both filenames exist again, rebuilt from scratch rather
 than restored: `config/trading.json` names six permitted instruments (gold, S&P 500, Nasdaq,
 oil, BTC, ETH) and `code/paper-trading.js` enforces every limit in it, with
-`code/test-paper-trading.js` proving each one — **22 assertions, fully offline**. §IV now
+`code/test-paper-trading.js` proving each one — **23 assertions, fully offline**. §IV now
 forbids real-money trading and any instrument outside the six; §III gates paper-trade
 proposals. `PaperBook` takes prices as arguments and opens no sockets, so no code path to a
 broker exists.

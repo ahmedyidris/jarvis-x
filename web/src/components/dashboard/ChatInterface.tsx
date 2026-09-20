@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react"
-import { Send, Mic, Volume2, Square, Loader2 } from "lucide-react"
+import { Send, Mic, Volume2, Square, Loader2, Bot, Paperclip } from "lucide-react"
 
 type Msg = { id: string; role: "user" | "jarvis"; text: string; audio?: string | null }
 
 function loadSettings() {
-  try {
-    return JSON.parse(localStorage.getItem("jarvisx.settings") || "{}")
-  } catch { return {} }
+  try { return JSON.parse(localStorage.getItem("jarvisx.settings") || "{}") }
+  catch { return {} }
 }
 
 export function ChatInterface() {
@@ -16,8 +15,17 @@ export function ChatInterface() {
   const [recording, setRecording] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const recRef = useRef<MediaRecorder | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [msgs])
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto"
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
+    }
+  }, [input])
 
   async function send(text: string) {
     if (!text.trim() || busy) return
@@ -29,11 +37,7 @@ export function ChatInterface() {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: text,
-          tier: s.tier || "quality",
-          speak: true,
-        }),
+        body: JSON.stringify({ question: text, tier: s.tier || "quality", speak: true }),
       })
       const data = await res.json()
       setMsgs(m => [...m, {
@@ -78,64 +82,97 @@ export function ChatInterface() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-black">
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+    <div className="flex h-full flex-col items-center">
+      <div className="w-full max-w-4xl flex-1 space-y-6 overflow-y-auto px-6 py-8">
         {msgs.length === 0 && (
-          <div className="flex h-full items-center justify-center text-center">
-            <div>
-              <div className="text-2xl font-bold text-red-600">JARVIS X</div>
-              <div className="mt-1 text-sm text-zinc-500">
-                اسألني أي حاجة &middot; Ask me anything
-              </div>
+          <div className="mt-20 flex flex-col items-center justify-center text-center">
+            <div className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-orange-700/10 text-orange-700 dark:bg-orange-700/20">
+              <Bot className="size-8" />
             </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">
+              Good morning.
+            </h1>
+            <p className="mt-2 text-zinc-500">How can I help you today?</p>
           </div>
         )}
+
         {msgs.map(m => (
-          <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-            <div className={`max-w-[75%] rounded-lg px-4 py-2 text-sm ${
-              m.role === "user"
-                ? "bg-red-700 text-white"
-                : "border border-red-900/60 bg-zinc-950 text-zinc-100"}`}>
+          <div key={m.id} className={`flex gap-4 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            {m.role === "jarvis" && (
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-orange-700 text-white">
+                <Bot className="size-5" />
+              </div>
+            )}
+            
+            <div className={`max-w-[85%] text-base leading-relaxed ${
+              m.role === "user" 
+                ? "rounded-2xl bg-[#f4f4f4] px-5 py-3 text-zinc-900 dark:bg-[#2d2d2d] dark:text-zinc-100" 
+                : "pt-1 text-zinc-800 dark:text-zinc-200"
+            }`}>
               <div dir="auto" className="whitespace-pre-wrap">{m.text}</div>
               {m.audio && (
                 <button onClick={() => new Audio(m.audio!).play()}
-                        className="mt-2 flex items-center gap-1 text-xs text-red-400 hover:text-red-300">
-                  <Volume2 className="size-3.5" /> play
+                        className="mt-3 flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700">
+                  <Volume2 className="size-3.5" /> Play Response
                 </button>
               )}
             </div>
           </div>
         ))}
+
         {busy && (
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
-            <Loader2 className="size-4 animate-spin" /> thinking&hellip;
+          <div className="flex gap-4 justify-start">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-orange-700/50 text-white">
+              <Bot className="size-5" />
+            </div>
+            <div className="flex items-center pt-1 text-sm font-medium text-zinc-500">
+              <Loader2 className="mr-2 size-4 animate-spin" /> Thinking...
+            </div>
           </div>
         )}
-        <div ref={endRef} />
+        <div ref={endRef} className="h-4" />
       </div>
 
-      <div className="border-t border-red-900/60 p-3">
-        <div className="flex gap-2">
-          <button onClick={toggleMic} disabled={busy && !recording}
-            className={`rounded px-3 ${recording ? "bg-red-700 text-white" : "bg-zinc-900 text-zinc-400 hover:text-red-400"}`}
-            title={recording ? "Stop and send" : "Speak"}>
-            {recording ? <Square className="size-4" /> : <Mic className="size-4" />}
-          </button>
-          <input
+      <div className="w-full max-w-4xl p-6 pt-0">
+        <div className="relative flex flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 dark:border-zinc-700 dark:bg-[#2d2d2d] dark:focus-within:border-zinc-600 dark:focus-within:ring-zinc-600">
+          <textarea
+            ref={textareaRef}
             dir="auto"
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") send(input) }}
-            placeholder="اكتب هنا..."
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                send(input)
+              }
+            }}
+            placeholder="Message Jarvis..."
             disabled={busy}
-            className="flex-1 rounded border border-zinc-800 bg-zinc-950 px-3 py-2
-                       text-sm text-zinc-100 placeholder-zinc-600 outline-none
-                       focus:border-red-700"
+            className="max-h-[200px] min-h-[56px] w-full resize-none rounded-2xl bg-transparent px-4 py-4 text-base text-zinc-900 placeholder:text-zinc-500 focus:outline-none dark:text-zinc-100"
           />
-          <button onClick={() => send(input)} disabled={busy || !input.trim()}
-            className="rounded bg-red-700 px-4 text-white disabled:opacity-40">
-            <Send className="size-4" />
-          </button>
+          <div className="flex items-center justify-between px-3 pb-3">
+            <div className="flex items-center gap-1">
+              <button className="flex size-8 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300">
+                <Paperclip className="size-5" />
+              </button>
+              <button onClick={toggleMic} disabled={busy && !recording}
+                className={`flex size-8 items-center justify-center rounded-lg transition ${
+                  recording 
+                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" 
+                    : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
+                }`}
+                title={recording ? "Stop and send" : "Speak"}>
+                {recording ? <Square className="size-4" /> : <Mic className="size-5" />}
+              </button>
+            </div>
+            <button onClick={() => send(input)} disabled={busy || !input.trim()}
+              className="flex size-8 items-center justify-center rounded-lg bg-black text-white transition hover:bg-zinc-800 disabled:opacity-30 dark:bg-white dark:text-black dark:hover:bg-zinc-200">
+              <Send className="size-4" />
+            </button>
+          </div>
+        </div>
+        <div className="mt-3 text-center text-xs text-zinc-400">
+          Jarvis X can execute local scripts and process audio. AI models can make mistakes.
         </div>
       </div>
     </div>

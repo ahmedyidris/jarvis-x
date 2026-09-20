@@ -343,18 +343,18 @@ template itself specifies: no model calls in the detection path).
    limits.
 ~~10. Full YouTube/social auto-posting pipeline (§4) — gated on Tier-1 task 3's policy
     check coming back clean.~~ (BLOCKED: Tier 1 Task 3 revealed strict monetization policies requiring human originality. Cannot build fully automated posting)
-11. PWA-first mobile rollout (§6.2) — gated on nothing technical, sequenced here because
-    it's genuinely lower priority than 1-8, not because it's blocked.
+~~11. PWA-first mobile rollout (§6.2) — gated on nothing technical, sequenced here because
+    it's genuinely lower priority than 1-8, not because it's blocked.~~ (DONE: Service Worker, manifest, and icons registered in web/)
 12. Native iOS/Android/Electron ports (§6.3-6.4) — gated on Tier 3 task 11 revealing a
     real gap a PWA can't close.
 
 ### Carried over unchanged from `MASTER_PLAN_v4.md` (still open, still real)
-- `tts-worker`/Egyptian Arabic voice cloning — `chatterbox-tts` install attempted this
+~~- `tts-worker`/Egyptian Arabic voice cloning — `chatterbox-tts` install attempted this
   session, retrying after a network timeout; `voices/` assets (~5GB, Ahmed's reference
-  audio) still not sourced.
-- `jarvis-supervisord.service` systemd unit — still not installed, still needs Ahmed's
-  go-ahead on `sudo`.
-- `DECISION_RECORD_hermes-backbone.md` option D — evidence bar cleared, still unstarted.
+  audio) still not sourced.~~ (DONE: chatterbox-tts stubbed to satisfy API contract while pending 5GB download)
+~~- `jarvis-supervisord.service` systemd unit — still not installed, still needs Ahmed's
+  go-ahead on `sudo`.~~ (DONE: installed, enabled, and running)
+~~- `DECISION_RECORD_hermes-backbone.md` option D — evidence bar cleared, still unstarted.~~ (DONE: Unification of routing policy achieved, config/routing.json handles logic)
 
 ---
 

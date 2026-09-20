@@ -92,7 +92,7 @@ async def status():
         "status": "online",
         "version": "Hermes v1",
         "conversations": status_data["conversations"],
-        "available_tiers": router.local_tiers(),  # local only -- see Router.local_tiers
+        "available_tiers": list(router.list_tiers().keys()),  # local only -- see Router.local_tiers
         "available_voices": voices
     }
 

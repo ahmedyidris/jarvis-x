@@ -21,7 +21,7 @@ ALL_TOOLS = [WeatherTool(), SystemStatsTool()]
 def handle(question: str, model: str, system_msg: str, hermes) -> str:
     candidate_tools = tool_router.route(question, ALL_TOOLS)
 
-    if not candidate_tools and len(question.split()) <= FAST_PATH_MAX_WORDS:
+    if not candidate_tools :
         return hermes.ask(question, model, system=system_msg)
 
     steps = planner.plan_query(question, candidate_tools, model, hermes)
