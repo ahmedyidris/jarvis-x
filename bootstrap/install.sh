@@ -96,8 +96,9 @@ if ! curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
 fi
 echo "  ollama API is answering"
 # supervisord (below) owns the ollama process on this box, not ollama's own
-# systemd unit — stop/disable it if the installer enabled one.
-sudo systemctl disable --now ollama 2>/dev/null || true
+# systemd unit. Do NOT stop it here — the pulls below need the server up;
+# it is disabled right after the pull loop (2026-09-21 rebuild fix: stopping
+# it here made every pull fail with "could not connect to ollama server").
 export OLLAMA_MODELS=/usr/share/ollama/.ollama/models
 PULL_FAILED=""
 for m in qwen2.5:3b qwen2.5:7b moondream nomic-embed-text; do
@@ -112,6 +113,9 @@ if [ -n "$PULL_FAILED" ]; then
     *qwen2.5:3b*) echo "  NOTE: qwen2.5:3b is the one code/eval-agent.js needs." ;;
   esac
 fi
+# pulls are done — hand the ollama process to supervisord (step 9) by
+# stopping ollama's own systemd unit now.
+sudo systemctl disable --now ollama 2>/dev/null || true
 
 echo "==> [3b/9] Claude Code CLI (user-owned npm prefix)"
 # Installed to a prefix this user owns, NOT with `sudo npm install -g`.
