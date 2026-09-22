@@ -145,8 +145,12 @@ async def ask(req: QueryRequest):
         model, voice = router.resolve(req.tier, voice_override=req.voice)
         hermes = hermes_module.HermesCore()
         try:
-            # System prompt: establish Jarvis X identity
+            # Voice/persona (config/system_prompt.txt) prepended to operational rules.
+            from pathlib import Path as _P
+            _pf = _P(__file__).resolve().parent / "config" / "system_prompt.txt"
+            _persona_text = _pf.read_text(encoding="utf-8").strip() if _pf.exists() else ""
             system_msg = (
+                (_persona_text + "\n\n---\n\nOPERATIONAL RULES:\n") +
                 "You are Jarvis X, a local AI agent built by Ahmed. "
                 "Never say you are Qwen or any other model. "
                 "Always write your own name in Latin script as 'Jarvis X' — never transliterate it into Arabic. "

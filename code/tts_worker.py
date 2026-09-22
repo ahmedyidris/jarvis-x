@@ -69,5 +69,8 @@ def synthesize(req: SynthRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    get_model()  # warm before accepting traffic
+    try:
+        get_model()  # warm before accepting traffic
+    except Exception as e:
+        print(f"[tts_worker] degraded — model unavailable: {e}", flush=True)
     uvicorn.run(app, host="127.0.0.1", port=8001)
