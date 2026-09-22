@@ -354,9 +354,17 @@ class HermesCore:
                 # Hermes already shells out for Ollama, so one more
                 # subprocess is consistent and avoids a second Python
                 # implementation that would drift.
+                #
+                # NOTE: system prompt MUST be prepended here, same as the
+                # curl path above. Before 2026-09-22 this branch dropped
+                # `system` entirely, so every fast/smart/frontier call went
+                # out with no persona and no operational rules -- the model
+                # answered "I am Qwen" despite the prompt saying never to.
+                _reg_prompt = (((system + "\n\n") if system else "")
+                               + (self.build_context(question, turns) if context else question))
                 cmd = ["node", str(Path(__file__).parent / "code" / "providers" / "cli.js"),
                        model.split(":", 1)[1],
-                       self.build_context(question, turns) if context else question]
+                       _reg_prompt]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             latency_ms = int((datetime.now() - start).total_seconds() * 1000)
