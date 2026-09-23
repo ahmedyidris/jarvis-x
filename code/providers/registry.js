@@ -51,7 +51,7 @@ const PROVIDERS = {
   groq: {
     key: 'GROQ_API_KEY',
     url: 'https://api.groq.com/openai/v1/chat/completions',
-    models: { fast: 'groq/compound-mini', smart: 'openai/gpt-oss-120b' },
+    models: { fast: 'openai/gpt-oss-20b', smart: 'openai/gpt-oss-120b' },
     dailyLimit: 1000,
   },
   openrouter: {
