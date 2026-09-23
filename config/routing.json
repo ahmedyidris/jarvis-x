@@ -1,15 +1,54 @@
 {
   "js_routes": {
-    "quick": { "via": "gemini", "chain": ["flash"] },
-    "hard": { "via": "gemini", "chain": ["pro", "flash"] },
-    "consequential": { "via": "gemini", "chain": ["max", "pro", "flash"], "gate": true, "wanted": "claude-opus" }
+    "quick": {
+      "via": "gemini",
+      "chain": [
+        "flash"
+      ]
+    },
+    "hard": {
+      "via": "gemini",
+      "chain": [
+        "pro",
+        "flash"
+      ]
+    },
+    "consequential": {
+      "via": "gemini",
+      "chain": [
+        "max",
+        "pro",
+        "flash"
+      ],
+      "gate": true,
+      "wanted": "claude-opus"
+    }
   },
   "py_tiers": {
-    "local": { "model": "qwen2.5:3b", "voice": "en_us_piper" },
-    "quality": { "model": "hf.co/bartowski/SILMA-9B-Instruct-v1.0-GGUF:Q4_K_M", "voice": "en_us_kokoro" },
-    "fast": { "model": "registry:fast", "voice": "en_us_piper", "remote": true },
-    "smart": { "model": "registry:smart", "voice": "en_us_piper", "remote": true },
-    "frontier": { "model": "registry:quality", "voice": "en_us_piper", "remote": true }
+    "local": {
+      "model": "qwen2.5:3b",
+      "voice": "en_us_piper"
+    },
+    "quality": {
+      "model": "registry:quality",
+      "voice": "en_us_kokoro",
+      "remote": true
+    },
+    "fast": {
+      "model": "registry:fast",
+      "voice": "en_us_piper",
+      "remote": true
+    },
+    "smart": {
+      "model": "registry:smart",
+      "voice": "en_us_piper",
+      "remote": true
+    },
+    "frontier": {
+      "model": "registry:quality",
+      "voice": "en_us_piper",
+      "remote": true
+    }
   },
   "py_fallbacks": {
     "en_us_kokoro": "en_us_piper",
