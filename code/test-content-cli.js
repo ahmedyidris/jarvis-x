@@ -309,6 +309,130 @@ await test('approve reports failure rather than success when advance refuses', (
   assert.strictEqual(out.exitCode, 1);
 });
 
+// ── `jj content new`: the entry point that did not exist ─────────────────
+//
+// content-draft.js, content-pipeline.js and this CLI were each built and
+// tested, and an integration suite drove all three together — and none of that
+// needed a way for AHMED to start a job. He could queue, show, approve and
+// reject jobs that no command could create. "Run one real brief" was, for
+// several days, advice that could not be followed without hand-written Node.
+
+const draftOK = async ({ brief, sources }) => ({
+  ok: true, brief, sources, outline: 'Outline: 2.4%', script: 'CPI rose 2.4% in August.',
+});
+
+await test('new drafts, attaches the script AND its sources, and queues it', async () => {
+  const pipe = fresh();
+  const out = await CLI.runNew(pipe, ['explain', 'the', 'CPI', 'print', '--source', 'CPI rose 2.4%.'],
+    { draftFn: draftOK, interactive: true });
+  assert.strictEqual(out.exitCode, 0, out.text);
+  const job = pipe.pending()[0];
+  assert.ok(job, 'nothing reached the queue');
+  assert.strictEqual(job.brief, 'explain the CPI print');
+  assert.strictEqual(job.script, 'CPI rose 2.4% in August.');
+  assert.deepStrictEqual(job.sources, ['CPI rose 2.4%.'],
+    'the sources did not follow the script to the gate');
+  assert.strictEqual(job.state, STATES.SCRIPT_REVIEW);
+});
+
+await test('it stops at the gate — it does not approve or advance its own work', async () => {
+  // "Jarvis wrote something" must never imply "the something may move".
+  const pipe = fresh();
+  await CLI.runNew(pipe, ['b', '--source', 's'], { draftFn: draftOK, interactive: true });
+  const job = pipe.pending()[0];
+  assert.strictEqual(job.approvals.length, 0, 'it approved its own draft');
+  assert.strictEqual(job.state, STATES.SCRIPT_REVIEW);
+});
+
+await test('the output tells him the exact next commands', async () => {
+  const pipe = fresh();
+  const out = await CLI.runNew(pipe, ['b', '--source', 's'], { draftFn: draftOK, interactive: true });
+  const id = pipe.pending()[0].id.slice(0, 8);
+  for (const cmd of [`jj content show ${id}`, `jj content approve ${id}`, `jj content reject ${id}`]) {
+    assert.ok(out.text.includes(cmd), `the output does not offer: ${cmd}`);
+  }
+});
+
+await test('multiple --source flags all reach the draft', async () => {
+  const pipe = fresh();
+  let seen = null;
+  await CLI.runNew(pipe, ['b', '--source', 'one', '--source', 'two'],
+    { draftFn: async (a) => { seen = a.sources; return draftOK(a); }, interactive: true });
+  assert.deepStrictEqual(seen, ['one', 'two']);
+  assert.deepStrictEqual(pipe.pending()[0].sources, ['one', 'two']);
+});
+
+await test('--source anywhere in the line parses, and is not eaten by the brief', () => {
+  const a = CLI.parseNewArgs(['--source', 's', 'my', 'idea']);
+  assert.strictEqual(a.brief, 'my idea');
+  assert.deepStrictEqual(a.sources, ['s']);
+  const b = CLI.parseNewArgs(['my', '--source', 's', 'idea']);
+  assert.strictEqual(b.brief, 'my idea');
+});
+
+await test('no brief is refused', async () => {
+  const out = await CLI.runNew(fresh(), ['--source', 's'], { draftFn: draftOK, interactive: true });
+  assert.strictEqual(out.exitCode, 1);
+  assert.match(out.text, /needs a brief/);
+});
+
+await test('no source is refused, and says why that matters', async () => {
+  // Not an arbitrary requirement: with nothing to check against, every number
+  // in the draft is unverifiable by construction.
+  const out = await CLI.runNew(fresh(), ['my idea'], { draftFn: draftOK, interactive: true });
+  assert.strictEqual(out.exitCode, 1);
+  assert.match(out.text, /at least one --source/);
+  assert.match(out.text, /unverifiable by construction/);
+});
+
+await test('an empty --source value is refused, not passed through', async () => {
+  for (const bad of ['', '   ']) {
+    const out = await CLI.runNew(fresh(), ['idea', '--source', bad], { draftFn: draftOK, interactive: true });
+    assert.strictEqual(out.exitCode, 1, `accepted an empty source: ${JSON.stringify(bad)}`);
+  }
+});
+
+await test('a REFUSED draft queues nothing and surfaces the drafter own reason', async () => {
+  const pipe = fresh();
+  const refused = async () => ({ ok: false, stage: 'script', reason: 'fidelity',
+    why: 'the script still invents 40 after one correction', suspects: ['40'] });
+  const out = await CLI.runNew(pipe, ['idea', '--source', 's'], { draftFn: refused, interactive: true });
+  assert.strictEqual(out.exitCode, 1);
+  assert.match(out.text, /the script still invents 40/);
+  assert.match(out.text, /Nothing was queued/);
+  assert.deepStrictEqual(pipe.list(), [], 'a refused draft still created a job');
+});
+
+await test('a malformed draft result is refused, not crashed on', async () => {
+  // `if (drafted && !drafted.ok)` would let a null result fall through to
+  // pipe.start() and then throw reading .sources off it — a stack trace where
+  // a refusal belongs. A drafter returning nothing is a bug somewhere, and the
+  // CLI's job is to say so rather than to explode.
+  for (const bad of [null, undefined, {}, 'not an object']) {
+    const pipe = fresh();
+    const out = await CLI.runNew(pipe, ['idea', '--source', 's'],
+      { draftFn: async () => bad, interactive: true });
+    assert.strictEqual(out.exitCode, 1, `accepted a draft result of ${JSON.stringify(bad)}`);
+    assert.deepStrictEqual(pipe.list(), [], 'a malformed draft still created a job');
+  }
+});
+
+await test('it has no default drafter — the CLI cannot reach a model on its own', async () => {
+  const out = await CLI.runNew(fresh(), ['idea', '--source', 's'], { interactive: true });
+  assert.strictEqual(out.exitCode, 1);
+  assert.match(out.text, /not wired to a drafter/);
+});
+
+await test('run() does not silently swallow `new` as an unknown command', () => {
+  // It is a real command, just not one run() serves. Reporting it as unknown
+  // would send someone hunting for a typo.
+  const out = CLI.run(fresh(), ['new', 'idea']);
+  assert.strictEqual(out.exitCode, 1);
+  assert.ok(!/unknown command/.test(out.text), 'a real command was reported as unknown');
+  assert.match(out.text, /runNew/);
+});
+
+
 // ── help and unknown commands ────────────────────────────────────────────
 
 await test('no subcommand prints usage and exits non-zero', () => {
