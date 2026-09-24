@@ -85,6 +85,51 @@ skipping everything. And the fifth, found 2026-09-09 by running the sweep by
 hand: **`test-helper.js` is in CI's list of 20, emits 0 bytes, has 0 assertions,
 and exits 0 unconditionally.** It is a library, not a test.
 
+**Sixth and seventh, found 2026-09-24: `test-voice-accents.js` and
+`test-voice-full-system.js`.** Both ended in `.catch(console.error)` — the same
+line as `test-data-layer.js` and the two accessibility suites — so both exited
+0 on any failure. Demonstrated before fixing: with a deliberately false
+assertion each still exited 0, one of them while printing `=== ALL VOICE
+SYSTEM TESTS PASSED ===`. Both now use `test-helper.js`, and a failing
+assertion exits 1, checked in both directions.
+
+**What let them sit: a wrong exclusion reason, which is worse than none.**
+`test.yml` grouped both with the suites needing "local Piper/Kokoro/Ollama and
+real audio". Neither needs any of it — `test-voice-accents.js` imported
+nothing at all, and `test-voice-full-system.js` only called `listVoices()` on
+hardcoded arrays and read a JSON manifest. Both run offline and are in CI now.
+`weekly-sweep.js`'s orphan detector could not catch this by design: it treats
+a suite named anywhere in `test.yml` as a documented decision, and it cannot
+tell a documented decision from a documented mistake. That limit is the price
+of not having it flag every deliberate exclusion, and it is the right trade —
+but it means an exclusion REASON is only ever as good as the last human who
+read it.
+
+**And an unfalsifiable reason hides more than the suite.** Once those two
+could fail, they showed that `code/voice-layer-manager.js`, the three
+providers under `code/providers/` and those two suites form a **second voice
+stack that no product code imports** — the real path is `voice-router.js` →
+`voice.js`/`kokoro.js`, and `app.py` → `tts_worker.py`. The two stacks
+disagree, and they disagree about Egyptian Arabic specifically: `voice-router`
+lists `ar-eg` under `UNSUPPORTED` and throws, with its own comment saying it
+must fail loudly rather than be "silently misrouted to a different dialect",
+while the manifest advertises `ar-eg-male-coqui` at quality `high` and
+`ar-eg-male-cloned` at quality `ultimate` with `yourVoice: true`. Ahmed's
+cloned Egyptian voice is a carried-over open item waiting on a ~5GB checkpoint
+he has not sourced. The contradiction is now **pinned by tests on both sides**
+rather than reconciled, because which stack survives is his call; the pins
+fail if either side moves.
+
+Three smaller repairs went with it, all the same class — a success shape for
+work that did not happen. `piper-provider.js` and `coqui-provider.js` logged
+`[Piper] Speaking: en-us-amy` and returned `{ status: 'ready' }` with no
+`source: 'mock'` tag, unlike every honest provider in that directory.
+`tortoise-provider.js` accepted any `modelPath` without looking at the
+filesystem and then reported `cloned: true` — the old suite registered a
+nonexistent `./voices/my-voice/model.pt` and printed "✓ PASS" for it. All
+three now tag their returns, and Tortoise refuses a clone whose model file is
+absent. 24 assertions across the two suites, 14/14 mutations caught.
+
 ### What already exists
 
 | Piece | State |
