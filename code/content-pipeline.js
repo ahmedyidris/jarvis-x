@@ -385,6 +385,17 @@ function openPipeline({ file = DEFAULT_FILE, clock = { iso: () => new Date().toI
 
     const result = await guard('content-post', jobId, () => poster(job),
       { approved_by: 'human', confidence: 1 });
+    // A POSTER THAT REFUSED DID NOT POST. Found while rewriting
+    // process-content.js: this used to append POSTED on whatever came back,
+    // so a poster returning `{ok:false}` — the shape every other module here
+    // uses to refuse — minted a `posted` row for a video nobody uploaded, in
+    // the log that IS the record of what was published. A poster should throw
+    // (code/content-distribute.js does, and says why there), but the last step
+    // before "published" is the wrong place to rely on every future caller
+    // getting that right.
+    if (result && typeof result === 'object' && result.ok === false) {
+      return { ok: false, why: result.why || 'the poster refused', result };
+    }
     append({ job_id: jobId, kind: 'state', state: STATES.POSTED, result: result ?? null });
     return { ok: true, result, job: get(jobId) };
   }

@@ -472,5 +472,32 @@ await test('the pipeline is NOT wired into scheduler.js', () => {
     'content-pipeline is wired into scheduler.js — update this test deliberately');
 });
 
+await test('any SCHEDULED driver of the pipeline goes through process-content.js', () => {
+  // THIS TEST EXISTS BECAUSE THE ONE ABOVE PASSED WHILE ITS POINT WAS LOST.
+  //
+  // The pin above checks scheduler.js for the string `content-pipeline`. The
+  // pipeline was subsequently put on a 30-minute schedule anyway, by a route
+  // that never touches scheduler.js's source: a goal in schedules.json, which
+  // scheduler.js reads at runtime and hands to an agent with shell access. The
+  // grep stayed green throughout. A pin that names one file cannot see a
+  // mechanism whose whole purpose is to add work without editing that file.
+  //
+  // So the invariant is restated as what actually matters. Scheduled work on
+  // the pipeline is allowed — process-content.js is exactly that, and it is
+  // gate-respecting and covered by code/test-process-content.js. What is not
+  // allowed is a scheduled entry that drives the pipeline around it, because
+  // an unattended caller nothing tests is where a gate goes decorative
+  // unnoticed.
+  const schedules = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', 'schedules.json'), 'utf8'));
+  for (const entry of schedules) {
+    const goal = String(entry.goal || '');
+    if (!/content-pipeline|content-distribute|content-render|content pipeline/i.test(goal)) continue;
+    assert.match(goal, /process-content\.js/,
+      `a scheduled goal drives the content pipeline without going through `
+      + `process-content.js, which is where the gate discipline is tested: ${goal}`);
+  }
+});
+
 finish();
 })();
