@@ -161,6 +161,18 @@ jobs:
       # daemon. What still needs the Chromebook is the live round trip, not
       # this suite.
       #
+      # test-process-content covers code/process-content.js -- the one caller
+      # of the content pipeline that runs UNATTENDED (schedules.json, every 30
+      # minutes), which makes it the one place a decorative gate is invisible
+      # until something is published. It is in this list because the version it
+      # replaced was not: that version switched on STATES.SCRIPT_APPROVED and
+      # STATES.CUT_APPROVED, neither of which is a member of STATES, so the
+      # scheduled task silently matched nothing on every run -- and it called
+      # the distributor's post() DIRECTLY rather than pipeline.post(), which is
+      # where the cut-gate re-check lives. Offline like the rest: the pipeline
+      # handle, the render and the poster are all arguments, with no default
+      # for either function, so there is no path from this suite to YouTube.
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -188,7 +200,8 @@ jobs:
                    test-accessibility test-full-accessibility \
                    test-memory-embed test-content-pipeline \
                    test-content-cli test-content-fidelity \
-                   test-content-draft test-content-integration; do
+                   test-content-draft test-content-integration \
+                   test-process-content; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

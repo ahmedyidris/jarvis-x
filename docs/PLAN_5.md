@@ -319,7 +319,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
 
 5. **Content pipeline, phase 1** (§6.2) — **the two gates are built,
    2026-09-10; the production steps are not.** `code/content-pipeline.js` +
-   `code/test-content-pipeline.js` (37 assertions, 25/25 mutations caught),
+   `code/test-content-pipeline.js` (38 assertions, 25/25 mutations caught),
    in CI. The flow is prompt/link → research → outline → script draft in his
    voice → *his edit* → Higgsfield render → thumbnail, title, description →
    queue, with posting automated and publishing gated on his approval of the
@@ -506,6 +506,58 @@ as much as possible so the metered tier is spent only where it earns its keep.
    the Higgsfield render call and the poster — both of which now plug into an
    enforced machine with a working review surface and a drafter that cannot
    invent figures, rather than inventing their own control flow.
+
+   **The pipeline went on a schedule anyway, and the pin did not see it
+   (corrected 2026-09-24).** A local session added a 30-minute
+   `schedules.json` goal driving `code/process-content.js`. The pin above
+   greps `scheduler.js` for `content-pipeline` and stayed green throughout,
+   because `schedules.json` exists precisely so work can be scheduled without
+   editing `scheduler.js`. A pin naming one file cannot see a mechanism whose
+   purpose is to add work without touching that file. `test-content-pipeline`
+   now also asserts that any scheduled goal mentioning the pipeline names
+   `process-content.js`, which is the audited route.
+
+   **That unattended processor was written against an API that does not
+   exist**, and had been a silent no-op on every run since it landed. It
+   switched on `STATES.SCRIPT_APPROVED` and `STATES.CUT_APPROVED` — neither is
+   a member of `STATES`, so both read `undefined` and matched no job. Below
+   that: `advance(id, STATES.CUT_READY, result)`, a third argument `advance()`
+   does not take and `undefined` for the gate; and — the part that mattered —
+   **it called the distributor's `post(job)` directly** rather than
+   `pipeline.post(jobId, poster)`, which is the single function where rule 4's
+   cut-gate re-check lives. Correcting only the state names would have turned
+   a no-op into an unattended path to YouTube with no gate in front of it.
+
+   Rewritten with `code/test-process-content.js` (25 assertions, 11/15
+   mutations caught), in CI. It may carry a job past a gate Ahmed has already
+   answered; it may not answer one. That is structural rather than careful —
+   `advance()` refuses on anything but an `approved` verdict and `post()`
+   re-checks the cut gate — and the suite's centre is one assertion repeated
+   across every reachable state: **a job nobody approved is never posted.**
+
+   **The four escaped mutations are no-ops, recorded rather than rounded up.**
+   Three remove early returns after a refused `advance()`, which change
+   nothing because the state re-read below already blocks the next step; the
+   fourth widens the processor's own `queued` check, which changes nothing
+   because `post()` enforces it. That is the intended design — a second copy
+   of the gate rules in the unattended caller is a second thing to drift — but
+   a reliance nothing exercises is indistinguishable from a broken one, so the
+   suite exercises it directly.
+
+   **`post()` recorded a `posted` row whatever the poster returned**, found
+   while rewriting the above. A poster refusing with `{ok:false}` — the shape
+   every other module here uses — minted a `posted` row in the log that *is*
+   the record of what was published. Fixed, and the stubs now refuse instead
+   of reporting success: `content-render.js` returned a fake `rendered.mp4`
+   for any job (which would have put a nonexistent video in front of the cut
+   gate for a real, binding approval), and `content-distribute.js` returned
+   `{ok:true, url:'…watch?v=mock'}` with no OAuth token set — a fabricated URL
+   in an append-only log, which is the one kind of wrong this pipeline cannot
+   walk back.
+
+   So `node code/process-content.js` today carries approved jobs as far as a
+   **refused** render and stops, asserted by a test rather than assumed.
+   "Wired into `schedules.json`" does not mean "producing videos".
 6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
    The clause that gates phase 2 is built: **the honest performance
    measurement**, `code/trading-performance.js` +
