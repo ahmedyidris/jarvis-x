@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request as _urlreq
 import uuid
 from datetime import datetime
@@ -20,11 +21,12 @@ from fastapi import (
     File,
     Header,
     HTTPException,
+    Request,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -731,6 +733,95 @@ async def tradingview_webhook(signal: TradingViewSignal):
         
     return {"status": "received", "signal": signal.model_dump()}
 
+# ─────────────────────────────────────────────────────────────────────────
+# OpenAI-compatible adapter for StarNet, Aider, Continue.dev, Hermes
+# Maps model names to Jarvis tiers and returns OpenAI-shaped responses.
+# Added 2026-09-23.
+# ─────────────────────────────────────────────────────────────────────────
+@app.post("/v1/chat/completions")
+async def openai_compat_chat(request: Request):
+    """OpenAI-compatible endpoint. Accepts model='local'|'fast'|'smart'|
+    'quality'|'frontier' (or '<provider>/<model>' — provider prefix used)."""
+    body = await request.json()
+    model = body.get("model", "fast")
+    messages = body.get("messages", [])
+    question = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            question = m.get("content", "")
+            break
+    tier_map = {
+        "local": "local", "ollama": "local",
+        "fast": "fast", "groq": "fast",
+        "smart": "smart",
+        "quality": "quality", "gemini": "quality",
+        "frontier": "frontier",
+    }
+    tier = tier_map.get(model, "fast")
+    if "/" in model:
+        tier = tier_map.get(model.split("/")[0], "fast")
+
+    # Resolve tier name to an actual model name that engine.handle understands
+    tier_to_model = {
+        "local":    "qwen2.5:3b",
+        "fast":     "registry:fast",
+        "smart":    "registry:smart",
+        "quality":  "registry:quality",
+        "frontier": "registry:quality",
+    }
+    resolved_model = tier_to_model.get(tier, "registry:fast")
+
+    from code.reply import engine as reply_engine
+    from hermes import HermesCore
+
+    hermes = HermesCore()
+    try:
+        _pf = Path(__file__).resolve().parent / "config" / "system_prompt.txt"
+        _persona = _pf.read_text(encoding="utf-8").strip() if _pf.exists() else ""
+        system_msg = (
+            _persona
+            + "\n\n---\n\nOPERATIONAL RULES:\n"
+            + "You are Jarvis X, a local AI agent built by Ahmed. "
+            + "Reply in the same language the user wrote in. "
+            + "Keep answers concise unless asked to elaborate."
+        )
+        response = reply_engine.handle(question, model=resolved_model, system_msg=system_msg, hermes=hermes)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Model unavailable: {e}")
+    finally:
+        hermes.close()
+
+    return JSONResponse({
+        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": response},
+            "finish_reason": "stop"
+        }],
+        "usage": {
+            "prompt_tokens": len(question.split()),
+            "completion_tokens": len(response.split()),
+            "total_tokens": len(question.split()) + len(response.split())
+        }
+    })
+
+@app.get("/v1/models")
+async def openai_compat_models():
+    """List available model tiers for OpenAI-compatible clients."""
+    return {
+        "object": "list",
+        "data": [
+            {"id": "local", "object": "model", "owned_by": "jarvis"},
+            {"id": "fast", "object": "model", "owned_by": "jarvis"},
+            {"id": "smart", "object": "model", "owned_by": "jarvis"},
+            {"id": "quality", "object": "model", "owned_by": "jarvis"},
+            {"id": "frontier", "object": "model", "owned_by": "jarvis"},
+        ]
+    }
+
 # SPA fallback
 # SPA fallback: any unmatched non-/api path serves index.html,
 # so client-side routes (if added later) don't 404 on refresh.
@@ -1089,6 +1180,8 @@ async def spa_fallback(full_path: str):
     if full_path and candidate.is_file():
         return FileResponse(candidate)
     return FileResponse(WEB_DIST / "index.html")
+
+
 
 
 if __name__ == "__main__":
