@@ -563,8 +563,55 @@ as much as possible so the metered tier is spent only where it earns its keep.
    directions. The fixture was regenerated from the Python, as its generator's
    docstring requires.
 
+   **THE RENDER STEP IS WIRED, 2026-09-25, and it needed no credentials.**
+   `code/content-render.js` + `code/test-content-render.js` (18 assertions,
+   10/10 mutations caught), in CI, bridging to a new
+   `automation/phase-b/script_renderer.py`.
+
+   **Nothing about the composition was built, because it already existed.**
+   `automation/phase-b/video_renderer.py`'s `render_video()` has produced
+   1080×1920 verticals since Week 1 — local TTS narration, solid background,
+   headline, caption, atomic write, and a real check on ffmpeg's return code —
+   and its own docstring says the composition is not letter-specific. What was
+   missing was an adapter and a way for Node to reach it. Rewriting it would
+   have meant re-learning the two bugs that file records paying for: a
+   truncated MP4 left by an interrupted encode, and `write_videofile()`
+   returning cleanly while ffmpeg had failed to finalise the container.
+
+   This also corrects a plan assumption rather than satisfying it. §7's
+   remaining-work line said the render step needed **Higgsfield**, which needs
+   Ahmed's account and credits. It does not: MoviePy and `imageio-ffmpeg` are
+   already pinned in `bootstrap/requirements-venv-ai.txt` and `ffmpeg` is
+   installed by `bootstrap/install.sh`, so the free local path was available
+   the whole time. Higgsfield remains a quality upgrade, not a prerequisite.
+
+   **Which interpreter is the thing most likely to be wrong on a real box**, so
+   it is handled rather than assumed: moviepy is pinned into `venv-ai`, not the
+   system python, and a bare `python3` imports the renderer fine and then fails
+   on `from moviepy import …` — which reads like a broken renderer rather than
+   the wrong interpreter. The bridge prefers the venv when it exists and
+   **every result names the interpreter used, refusals included**, so that
+   failure is diagnosable from one run.
+
+   **A render is only reported once a watchable file exists**, checked on both
+   sides of the bridge. That is not belt-and-braces for its own sake: the two
+   checks answer different questions — did the encoder produce a file, and can
+   the process about to attach it as a cut actually see it — and this file
+   returned `{ok:true, file:"rendered.mp4"}` for any job as recently as
+   yesterday, which would have asked Ahmed for a real, recorded, binding
+   approval of a video that did not exist. A non-zero exit, unparseable output,
+   a missing file and an empty file are all refusals, and the job stays in
+   `producing` rather than reaching his desk.
+
+   **What is still unproven, said plainly.** The refusal paths are verified
+   against the real Python; the *happy* path is not, because this cloud
+   container has no moviepy, ffmpeg or PIL and cannot encode. The first real
+   MP4 has to come off the Chromebook. Every test injects the spawn, so CI
+   neither starts a python nor depends on moviepy — and the suite's header says
+   so rather than implying coverage it does not have.
+
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
-   the Higgsfield render call and the poster — both of which now plug into an
+   the poster — both of which now plug into an
    enforced machine with a working review surface and a drafter that cannot
    invent figures, rather than inventing their own control flow.
 

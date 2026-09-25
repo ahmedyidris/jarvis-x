@@ -206,6 +206,17 @@ jobs:
       # than filtering a row, because that is the allowlist widening, not a
       # stray alert.
       #
+      # test-content-render covers code/content-render.js, the bridge from the
+      # JS content pipeline to automation/phase-b's MoviePy renderer. Offline
+      # because `run` -- the spawn -- is injected in every test, so CI neither
+      # starts a python nor needs moviepy or ffmpeg (bootstrap puts both in
+      # venv-ai, which a hosted runner does not have). What it CANNOT prove is
+      # the happy path against a real encoder; that needs one run on the
+      # Chromebook, and the suite says so in its own header rather than
+      # implying coverage it does not have. The refusal paths ARE verified
+      # against the real python, which on a machine without moviepy returns
+      # exactly the refusal the injected runner reproduces.
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -235,7 +246,7 @@ jobs:
                    test-content-cli test-content-fidelity \
                    test-content-draft test-content-integration \
                    test-process-content test-voice-accents \
-                   test-trading-signals; do
+                   test-trading-signals test-content-render; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
