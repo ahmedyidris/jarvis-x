@@ -106,29 +106,45 @@ but it means an exclusion REASON is only ever as good as the last human who
 read it.
 
 **And an unfalsifiable reason hides more than the suite.** Once those two
-could fail, they showed that `code/voice-layer-manager.js`, the three
-providers under `code/providers/` and those two suites form a **second voice
-stack that no product code imports** — the real path is `voice-router.js` →
+could fail, they showed that code/voice-layer-manager.js, three providers
+under `code/providers/` and those two suites formed a **second voice stack
+that no product code imported** — the real path is `voice-router.js` →
 `voice.js`/`kokoro.js`, and `app.py` → `tts_worker.py`. The two stacks
-disagree, and they disagree about Egyptian Arabic specifically: `voice-router`
-lists `ar-eg` under `UNSUPPORTED` and throws, with its own comment saying it
-must fail loudly rather than be "silently misrouted to a different dialect",
-while the manifest advertises `ar-eg-male-coqui` at quality `high` and
-`ar-eg-male-cloned` at quality `ultimate` with `yourVoice: true`. Ahmed's
-cloned Egyptian voice is a carried-over open item waiting on a ~5GB checkpoint
-he has not sourced. The contradiction is now **pinned by tests on both sides**
-rather than reconciled, because which stack survives is his call; the pins
-fail if either side moves.
+disagreed, and they disagreed about Egyptian Arabic specifically:
+`voice-router` lists `ar-eg` under `UNSUPPORTED` and throws, with its own
+comment saying it must fail loudly rather than be "silently misrouted to a
+different dialect", while the manifest advertised `ar-eg-male-coqui` at quality
+`high` and `ar-eg-male-cloned` at quality `ultimate` with `yourVoice: true`.
+Ahmed's cloned Egyptian voice is a carried-over open item waiting on a ~5GB
+checkpoint he has not sourced, so a suite that could not fail was reporting a
+green Egyptian voice while the product refused that exact request.
 
-Three smaller repairs went with it, all the same class — a success shape for
-work that did not happen. `piper-provider.js` and `coqui-provider.js` logged
-`[Piper] Speaking: en-us-amy` and returned `{ status: 'ready' }` with no
-`source: 'mock'` tag, unlike every honest provider in that directory.
-`tortoise-provider.js` accepted any `modelPath` without looking at the
-filesystem and then reported `cloned: true` — the old suite registered a
-nonexistent `./voices/my-voice/model.pt` and printed "✓ PASS" for it. All
-three now tag their returns, and Tortoise refuses a clone whose model file is
-absent. 24 assertions across the two suites, 14/14 mutations caught.
+**Ruled 2026-09-25: Ahmed chose to delete the orphan stack.** The
+contradiction was pinned from both sides for a day rather than reconciled,
+because which stack survived was his decision and not a test's. Deleted, and
+written without backticks because these paths no longer exist and a backticked
+token is what weekly-sweep reads as a live path claim (detector 1's documented
+limitation -- it cannot tell a report from a claim, and the fix belongs here in
+the prose rather than in a cleverer check): voice-layer-manager.js,
+voice-manifest.json, the coqui, piper and tortoise providers, and
+test-voice-full-system.js. `code/voice-router.js` is now the single source of
+truth for what this machine can say and in which accent.
+
+The reasoning, recorded because "delete it" is the option that looks lazy and
+was not: the manifest's `coqui` and `tortoise` engines had **no implementation
+anywhere in the repo** — they were names, not adapters — so keeping the stack
+meant writing two model integrations for a 14 GB CPU-only box that had already
+lost Kokoro to a dependency it could not satisfy. And the Egyptian path Ahmed
+actually wants is Chatterbox via `code/tts_worker.py`, which is a different
+engine again. The catalogue idea (voices by accent and gender) was the one
+thing worth keeping and nothing consumed it, so it can come back the day a
+voice picker needs it — built against the router, which cannot then advertise
+a voice the router refuses.
+
+`code/test-voice-accents.js` survives: it covers the real router, including the
+assertion this whole episode inverted — that `ar-eg` is **refused, loudly, with
+its reason** — plus a test-local Arabic dialect detector kept as a marked
+prototype with no product caller.
 
 ### What already exists
 

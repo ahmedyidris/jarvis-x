@@ -120,12 +120,13 @@ await test('an unknown dialect is refused rather than defaulted to a nearby one'
   assert.throws(() => voiceRouter.resolveRoute('ar-maghrebi'), /No route for/);
 });
 
-await test('no engine named coqui or tortoise is reachable through the router', () => {
-  // The private table asserted `engine: 'coqui'` for Egyptian and
-  // `engine: 'tortoise'` for Gulf and Levantine. Neither engine exists behind
-  // the router; both are names in code/voice-manifest.json with no
-  // implementation. Pinned here too, so removing the manifest stack or wiring
-  // one of those engines both trip a test rather than passing unnoticed.
+await test('every Arabic route lands on piper, the only engine behind the router', () => {
+  // The private table this file used to carry asserted `engine: 'coqui'` for
+  // Egyptian and `engine: 'tortoise'` for Gulf and Levantine. Neither engine
+  // ever existed behind the router: they were names in a manifest with no
+  // implementation, which is why that whole stack was deleted on 2026-09-25
+  // (Ahmed's call — see PLAN_5). What is left is one engine set, pinned here
+  // so a new one has to be added deliberately.
   for (const tag of ['ar', 'ar-jo', 'ar-gulf', 'ar-ae']) {
     assert.strictEqual(voiceRouter.resolveRoute(tag).engine, 'piper',
       `${tag} no longer routes to piper — the engine set changed`);

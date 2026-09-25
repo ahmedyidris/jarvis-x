@@ -90,19 +90,20 @@ jobs:
       #   test-kokoro, test-vision, test-voice, test-voice-interaction,
       #   test-voice-router  need local Piper/Kokoro/Ollama and real audio
       #
-      #   test-voice-accents and test-voice-full-system WERE in the line above
-      #   and did not belong there -- corrected 2026-09-24. Neither needs a
-      #   model, a binary or audio: test-voice-accents imported nothing at all,
-      #   and test-voice-full-system only ever called listVoices() on hardcoded
-      #   arrays and read a JSON manifest. Both are in the run above now.
+      #   test-voice-accents WAS in the line above and did not belong there --
+      #   corrected 2026-09-24. It needs no model, binary or audio; it imported
+      #   nothing at all. It is in the run above now. test-voice-full-system
+      #   was corrected the same way and then DELETED on 2026-09-25 along with
+      #   the orphan voice stack it covered (Ahmed's call -- see PLAN_5).
       #
       #   Both ALSO could not fail, the same `.catch(console.error)` line as
       #   test-data-layer and the two accessibility suites -- the third and
       #   fourth occurrence, and the comment recording the previous fix sat two
       #   lines above their names in this very list. Demonstrated before
       #   fixing: with a deliberately false assertion each still exited 0 while
-      #   printing "ALL VOICE SYSTEM TESTS PASSED". Both use test-helper now,
-      #   and a failing assertion exits 1 -- checked both directions.
+      #   printing "ALL VOICE SYSTEM TESTS PASSED". test-voice-accents uses
+      #   test-helper now and exits 1 on a failing assertion -- checked both
+      #   directions.
       #
       #   A WRONG EXCLUSION REASON IS WORSE THAN NO REASON. "needs real audio"
       #   is unfalsifiable from the outside and nobody re-runs the check, so
@@ -234,7 +235,7 @@ jobs:
                    test-content-cli test-content-fidelity \
                    test-content-draft test-content-integration \
                    test-process-content test-voice-accents \
-                   test-voice-full-system test-trading-signals; do
+                   test-trading-signals; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
