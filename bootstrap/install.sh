@@ -140,6 +140,23 @@ command -v claude >/dev/null 2>&1 \
   && echo "  claude: $(claude --version 2>&1 | head -1)" \
   || echo "  (claude not on PATH yet — open a new shell, or: source ~/.bashrc)"
 
+# jj ON PATH. Added 2026-09-25 after Ahmed pasted `jj content new ...` from the
+# docs and got "bash: jj: command not found". Six documents and several months
+# of instructions have written it as a bare command; the repo has only ever had
+# a ./jj symlink usable from the repo root, and nothing ever linked it anywhere
+# on PATH. So every one of those instructions was wrong as written, which is
+# worse than not documenting the command at all -- a reader follows it, it
+# fails, and the failure looks like a broken install rather than a broken doc.
+#
+# Linked into NPM_PREFIX/bin because this script already owns that directory
+# and has just put it on PATH above, so this needs no second PATH entry and no
+# second .bashrc line to keep idempotent. Symlink rather than a copy: bin/jj
+# changes with the repo and a stale copy would be its own class of confusion.
+ln -sfn "$REPO_DIR/bin/jj" "$NPM_PREFIX/bin/jj"
+command -v jj >/dev/null 2>&1 \
+  && echo "  jj: on PATH ($(command -v jj))" \
+  || echo "  (jj not on PATH yet — open a new shell, or: source ~/.bashrc)"
+
 echo "==> [4/9] Python venv (venv-ai)"
 if [ ! -d "$HOME/venv-ai" ]; then
   python3 -m venv "$HOME/venv-ai"

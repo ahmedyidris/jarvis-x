@@ -564,7 +564,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    docstring requires.
 
    **THE RENDER STEP IS WIRED, 2026-09-25, and it needed no credentials.**
-   `code/content-render.js` + `code/test-content-render.js` (18 assertions,
+   `code/content-render.js` + `code/test-content-render.js` (20 assertions,
    10/10 mutations caught), in CI, bridging to a new
    `automation/phase-b/script_renderer.py`.
 
@@ -592,6 +592,19 @@ as much as possible so the metered tier is spent only where it earns its keep.
    the wrong interpreter. The bridge prefers the venv when it exists and
    **every result names the interpreter used, refusals included**, so that
    failure is diagnosable from one run.
+
+   **And I got the venv's location wrong on the first try, 2026-09-25 — it
+   would have failed on exactly the machine it was written for.** The original
+   check looked only in `<repo>/venv-ai`. `bootstrap/install.sh` step 4 creates
+   it at `$HOME/venv-ai`, so on the Chromebook the check would have missed,
+   fallen back to a bare `python3` with no moviepy, and produced the precise
+   confusing failure the venv preference exists to prevent. Found by reading
+   `install.sh`, not by a test: every test injects the spawn and the container
+   has no venv at either path, so the seam that makes the suite offline also
+   makes it blind to which path is real. Both are checked now, `$HOME` first
+   because that is what the installer does, and a test reads the venv's name
+   **out of `install.sh` itself** rather than restating it — the same rule as
+   weekly-sweep reading the kill switch out of `guard.js`'s own export.
 
    **A render is only reported once a watchable file exists**, checked on both
    sides of the bridge. That is not belt-and-braces for its own sake: the two
