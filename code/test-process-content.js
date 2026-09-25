@@ -375,10 +375,23 @@ await test('the module opens no socket and pulls in no network client', async ()
 
 // ─── the two stubs must refuse rather than report success ───────────────────
 
-await test('content-render.js refuses instead of returning a fake mp4', async () => {
-  const r = await require('./content-render.js').render({ id: 'j' });
+await test('content-render.js refuses when the encoder is unavailable, and spawns nothing here', async () => {
+  // As of 2026-09-25 this is a real bridge to automation/phase-b's MoviePy
+  // renderer, not a stub. So `run` is INJECTED: without it this suite would
+  // spawn python on every CI run and depend on moviepy being installed, which
+  // is the offline guarantee its own header claims. The injected runner
+  // reproduces exactly what this container returns for a real call —
+  // `python3 automation/phase-b/script_renderer.py` refuses with
+  // "No module named 'moviepy'" here, because bootstrap puts moviepy in
+  // venv-ai and this container never ran bootstrap.
+  let spawned = false;
+  const r = await require('./content-render.js').render(
+    { id: 'j', script: 'words', brief: 'a brief' },
+    { run: () => { spawned = true; return { code: 1, bin: 'python3', stderr: '',
+        stdout: JSON.stringify({ ok: false, why: "render failed: ModuleNotFoundError: No module named 'moviepy'" }) }; } });
   assert.strictEqual(r.ok, false);
-  assert.match(r.why, /no renderer is wired/);
+  assert.match(r.why, /moviepy/);
+  assert.ok(spawned, 'the injected runner was never reached');
 });
 
 await test('content-distribute.js throws rather than mocking a successful post', async () => {
@@ -419,9 +432,14 @@ await test('the scheduled entry point as configured does nothing but refuse', as
   p.attach('j', 'script', 's');
   p.submit('j', GATES.SCRIPT);
   p.approve('j', GATES.SCRIPT, { by: 'human' });
+  const realRender = require('./content-render.js').render;
   const results = await PC.run({
     pipeline: p,
-    render: require('./content-render.js').render,
+    // Same reason as above: the real render() spawns python, so the spawn is
+    // injected and everything above it — the refusal shape, and what the
+    // processor does with it — is exercised for real.
+    render: (job) => realRender(job, { run: () => ({ code: 1, bin: 'python3', stderr: '',
+      stdout: JSON.stringify({ ok: false, why: "render failed: ModuleNotFoundError: No module named 'moviepy'" }) }) }),
     poster: require('./content-distribute.js').post,
   });
   assert.strictEqual(p.get('j').state, STATES.PRODUCING);
