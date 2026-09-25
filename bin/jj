@@ -45,6 +45,22 @@ const rest = args.slice(1);
         process.exit(status.exitCode(report));
       }
 
+      case 'signals': {
+        // The consumer for logs/trading-signals.jsonl, which app.py's
+        // TradingView webhook writes and nothing read until 2026-09-25.
+        // READ-ONLY BY CONSTRUCTION: code/trading-signals.js imports no
+        // executor and has no path to code/paper-trading.js, asserted by its
+        // own suite. CONSTITUTION.md §III still gates every proposal on a
+        // human tap, and this command does not propose -- it shows Ahmed what
+        // his alerts actually said, including the ones that were rejected.
+        const signals = require(path.join(__dirname, '../code/trading-signals.js'));
+        const result = signals.read();
+        console.log(rest.includes('--json')
+          ? JSON.stringify(result, null, 2)
+          : signals.format(result));
+        process.exit(0);
+      }
+
       case 'content': {
         // The two gates from PLAN_5 §6.2. All logic lives in
         // code/content-cli.js so it is testable without a terminal; this
@@ -83,7 +99,7 @@ const rest = args.slice(1);
       }
 
       default:
-        console.log('Commands: ask, plan, status, content');
+        console.log('Commands: ask, plan, status, content, signals');
         process.exit(1);
     }
   } catch (err) {

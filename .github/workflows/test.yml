@@ -193,6 +193,18 @@ jobs:
       # handle, the render and the poster are all arguments, with no default
       # for either function, so there is no path from this suite to YouTube.
       #
+      # test-trading-signals covers code/trading-signals.js, the consumer for
+      # logs/trading-signals.jsonl -- which app.py's TradingView webhook wrote
+      # and NOTHING read until 2026-09-25. Offline: the log path, the clock and
+      # the config path are all arguments, so it never touches the machine's
+      # real log. Two of its assertions are constitutional rather than
+      # functional: the module must import no executor and reach no book (§III
+      # gates every proposal on a human tap), and every ticker in its map must
+      # resolve to one of config/trading.json's six (§IV forbids holding
+      # anything else) -- a map entry pointing outside the six THROWS rather
+      # than filtering a row, because that is the allowlist widening, not a
+      # stray alert.
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -222,7 +234,7 @@ jobs:
                    test-content-cli test-content-fidelity \
                    test-content-draft test-content-integration \
                    test-process-content test-voice-accents \
-                   test-voice-full-system; do
+                   test-voice-full-system test-trading-signals; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

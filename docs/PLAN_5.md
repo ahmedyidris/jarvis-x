@@ -603,12 +603,56 @@ as much as possible so the metered tier is spent only where it earns its keep.
    So `node code/process-content.js` today carries approved jobs as far as a
    **refused** render and stops, asserted by a test rather than assumed.
    "Wired into `schedules.json`" does not mean "producing videos".
-6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
+6. **Trading, phase 1** (§6.1) — **two clauses of five done; 2026-09-09 and 2026-09-25.**
    The clause that gates phase 2 is built: **the honest performance
    measurement**, `code/trading-performance.js` +
    `code/test-trading-performance.js` (28 assertions, 15/15 mutations caught),
    in CI. Read-only — it imports `fs` and `path` and nothing else, asserted by
    its own test, so there is no path from it to an order.
+
+   **The TradingView signals clause landed 2026-09-25**, and it needed no
+   ruling for the same reason measurement did not: reading a feed is not
+   proposing a trade. `code/trading-signals.js` +
+   `code/test-trading-signals.js` (22 assertions, 14/14 mutations caught), in
+   CI, surfaced as `jj signals`.
+
+   **It exists because the webhook had no consumer.** `app.py`'s
+   `/api/tradingview/webhook` has been appending to
+   `logs/trading-signals.jsonl` since 2026-09-20 and nothing read that file, so
+   Tier 2 task 5's DONE ("TradingView data integration") described a write-only
+   log plus `code/providers/tradingview-provider.js`, which no module imports.
+
+   **Every row is treated as untrusted input, and that is not hypothetical.**
+   The webhook's check is `if expected_passphrase and signal.passphrase !=
+   expected_passphrase` — with `TRADINGVIEW_PASSPHRASE` unset, and
+   `~/.jarvis-x/.env` is still unfilled, the comparison is skipped entirely and
+   the endpoint accepts anything posted to it while reading as though it
+   authenticates. `app.py` binds to `127.0.0.1`, so this is latent rather than
+   open; the consumer is the wrong place to find out it stopped being latent.
+   Shape, ticker, action, price and timestamp are all validated, and a row from
+   the *future* is rejected rather than winning the fold as the freshest.
+
+   Two rules carry the constitution rather than a preference. The module
+   imports no executor and reaches no book, asserted by a grep in its own suite
+   — §III gates proposing on a human tap, and a signal source is exactly the
+   module that grows an "and then act on it" later. And every ticker in its map
+   must resolve to one of `config/trading.json`'s six; a map entry pointing
+   outside them **throws** rather than filtering a row, because that is §IV's
+   allowlist widening rather than a stray alert.
+
+   **A rejected row is reported, never dropped.** A webhook discarding every
+   row looks identical to a webhook nobody is firing, and the difference is
+   exactly what Ahmed needs when checking whether his alerts are wired up. Same
+   for staleness: past six hours a signal is `stale: true` rather than absent,
+   and `agreement()` refuses to let a stale signal corroborate anything.
+
+   **`agreement()` is a reading for a human, never a decision.** It says
+   `corroborates` / `contradicts` / `unrelated` beside the analyst's own
+   verdict and nothing consumes it to change a recommendation — pinned by a
+   test asserting those three are the only values it can ever return. An
+   external feed that could flip a verdict would be a second opinion with no
+   accountability: nobody here can say why TradingView fired, and "the alert
+   said so" is not a reason Ahmed can check at a gate.
 
    Its design is mostly defences against a performance report flattering
    itself, each one a named rule: seven trades is not a win rate (the default
