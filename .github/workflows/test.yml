@@ -217,6 +217,17 @@ jobs:
       # against the real python, which on a machine without moviepy returns
       # exactly the refusal the injected runner reproduces.
       #
+      # test-openai-gateway covers code/openai-gateway.js, the OpenAI-compatible
+      # endpoint on 127.0.0.1:8001 that StarNet uses to reach registry.js's
+      # tiers. Offline: registry, fetch, clock, kill switch and log are all
+      # arguments, and requests/responses are in-memory fakes, so no socket is
+      # opened and no quota file is written. Its REGRESSION tests pin the four
+      # ways app.py's /v1 fails StarNet while returning 200 (no SSE, headers
+      # only after the answer, last user turn only, tools dropped). It reads
+      # app.py -- never writes it -- to pin that both endpoints map tier names
+      # identically. What it CANNOT prove is a live upstream: one real StarNet
+      # run on the Chromebook closes that (docs/STARNET_GATEWAY.md).
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -246,7 +257,8 @@ jobs:
                    test-content-cli test-content-fidelity \
                    test-content-draft test-content-integration \
                    test-process-content test-voice-accents \
-                   test-trading-signals test-content-render; do
+                   test-trading-signals test-content-render \
+                   test-openai-gateway; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done
