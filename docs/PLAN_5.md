@@ -85,6 +85,67 @@ skipping everything. And the fifth, found 2026-09-09 by running the sweep by
 hand: **`test-helper.js` is in CI's list of 20, emits 0 bytes, has 0 assertions,
 and exits 0 unconditionally.** It is a library, not a test.
 
+**Sixth and seventh, found 2026-09-24: `test-voice-accents.js` and
+`test-voice-full-system.js`.** Both ended in `.catch(console.error)` — the same
+line as `test-data-layer.js` and the two accessibility suites — so both exited
+0 on any failure. Demonstrated before fixing: with a deliberately false
+assertion each still exited 0, one of them while printing `=== ALL VOICE
+SYSTEM TESTS PASSED ===`. Both now use `test-helper.js`, and a failing
+assertion exits 1, checked in both directions.
+
+**What let them sit: a wrong exclusion reason, which is worse than none.**
+`test.yml` grouped both with the suites needing "local Piper/Kokoro/Ollama and
+real audio". Neither needs any of it — `test-voice-accents.js` imported
+nothing at all, and `test-voice-full-system.js` only called `listVoices()` on
+hardcoded arrays and read a JSON manifest. Both run offline and are in CI now.
+`weekly-sweep.js`'s orphan detector could not catch this by design: it treats
+a suite named anywhere in `test.yml` as a documented decision, and it cannot
+tell a documented decision from a documented mistake. That limit is the price
+of not having it flag every deliberate exclusion, and it is the right trade —
+but it means an exclusion REASON is only ever as good as the last human who
+read it.
+
+**And an unfalsifiable reason hides more than the suite.** Once those two
+could fail, they showed that code/voice-layer-manager.js, three providers
+under `code/providers/` and those two suites formed a **second voice stack
+that no product code imported** — the real path is `voice-router.js` →
+`voice.js`/`kokoro.js`, and `app.py` → `tts_worker.py`. The two stacks
+disagreed, and they disagreed about Egyptian Arabic specifically:
+`voice-router` lists `ar-eg` under `UNSUPPORTED` and throws, with its own
+comment saying it must fail loudly rather than be "silently misrouted to a
+different dialect", while the manifest advertised `ar-eg-male-coqui` at quality
+`high` and `ar-eg-male-cloned` at quality `ultimate` with `yourVoice: true`.
+Ahmed's cloned Egyptian voice is a carried-over open item waiting on a ~5GB
+checkpoint he has not sourced, so a suite that could not fail was reporting a
+green Egyptian voice while the product refused that exact request.
+
+**Ruled 2026-09-25: Ahmed chose to delete the orphan stack.** The
+contradiction was pinned from both sides for a day rather than reconciled,
+because which stack survived was his decision and not a test's. Deleted, and
+written without backticks because these paths no longer exist and a backticked
+token is what weekly-sweep reads as a live path claim (detector 1's documented
+limitation -- it cannot tell a report from a claim, and the fix belongs here in
+the prose rather than in a cleverer check): voice-layer-manager.js,
+voice-manifest.json, the coqui, piper and tortoise providers, and
+test-voice-full-system.js. `code/voice-router.js` is now the single source of
+truth for what this machine can say and in which accent.
+
+The reasoning, recorded because "delete it" is the option that looks lazy and
+was not: the manifest's `coqui` and `tortoise` engines had **no implementation
+anywhere in the repo** — they were names, not adapters — so keeping the stack
+meant writing two model integrations for a 14 GB CPU-only box that had already
+lost Kokoro to a dependency it could not satisfy. And the Egyptian path Ahmed
+actually wants is Chatterbox via `code/tts_worker.py`, which is a different
+engine again. The catalogue idea (voices by accent and gender) was the one
+thing worth keeping and nothing consumed it, so it can come back the day a
+voice picker needs it — built against the router, which cannot then advertise
+a voice the router refuses.
+
+`code/test-voice-accents.js` survives: it covers the real router, including the
+assertion this whole episode inverted — that `ar-eg` is **refused, loudly, with
+its reason** — plus a test-local Arabic dialect detector kept as a marked
+prototype with no product caller.
+
 ### What already exists
 
 | Piece | State |
@@ -502,8 +563,55 @@ as much as possible so the metered tier is spent only where it earns its keep.
    directions. The fixture was regenerated from the Python, as its generator's
    docstring requires.
 
+   **THE RENDER STEP IS WIRED, 2026-09-25, and it needed no credentials.**
+   `code/content-render.js` + `code/test-content-render.js` (18 assertions,
+   10/10 mutations caught), in CI, bridging to a new
+   `automation/phase-b/script_renderer.py`.
+
+   **Nothing about the composition was built, because it already existed.**
+   `automation/phase-b/video_renderer.py`'s `render_video()` has produced
+   1080×1920 verticals since Week 1 — local TTS narration, solid background,
+   headline, caption, atomic write, and a real check on ffmpeg's return code —
+   and its own docstring says the composition is not letter-specific. What was
+   missing was an adapter and a way for Node to reach it. Rewriting it would
+   have meant re-learning the two bugs that file records paying for: a
+   truncated MP4 left by an interrupted encode, and `write_videofile()`
+   returning cleanly while ffmpeg had failed to finalise the container.
+
+   This also corrects a plan assumption rather than satisfying it. §7's
+   remaining-work line said the render step needed **Higgsfield**, which needs
+   Ahmed's account and credits. It does not: MoviePy and `imageio-ffmpeg` are
+   already pinned in `bootstrap/requirements-venv-ai.txt` and `ffmpeg` is
+   installed by `bootstrap/install.sh`, so the free local path was available
+   the whole time. Higgsfield remains a quality upgrade, not a prerequisite.
+
+   **Which interpreter is the thing most likely to be wrong on a real box**, so
+   it is handled rather than assumed: moviepy is pinned into `venv-ai`, not the
+   system python, and a bare `python3` imports the renderer fine and then fails
+   on `from moviepy import …` — which reads like a broken renderer rather than
+   the wrong interpreter. The bridge prefers the venv when it exists and
+   **every result names the interpreter used, refusals included**, so that
+   failure is diagnosable from one run.
+
+   **A render is only reported once a watchable file exists**, checked on both
+   sides of the bridge. That is not belt-and-braces for its own sake: the two
+   checks answer different questions — did the encoder produce a file, and can
+   the process about to attach it as a cut actually see it — and this file
+   returned `{ok:true, file:"rendered.mp4"}` for any job as recently as
+   yesterday, which would have asked Ahmed for a real, recorded, binding
+   approval of a video that did not exist. A non-zero exit, unparseable output,
+   a missing file and an empty file are all refusals, and the job stays in
+   `producing` rather than reaching his desk.
+
+   **What is still unproven, said plainly.** The refusal paths are verified
+   against the real Python; the *happy* path is not, because this cloud
+   container has no moviepy, ffmpeg or PIL and cannot encode. The first real
+   MP4 has to come off the Chromebook. Every test injects the spawn, so CI
+   neither starts a python nor depends on moviepy — and the suite's header says
+   so rather than implying coverage it does not have.
+
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
-   the Higgsfield render call and the poster — both of which now plug into an
+   the poster — both of which now plug into an
    enforced machine with a working review surface and a drafter that cannot
    invent figures, rather than inventing their own control flow.
 
@@ -558,12 +666,56 @@ as much as possible so the metered tier is spent only where it earns its keep.
    So `node code/process-content.js` today carries approved jobs as far as a
    **refused** render and stops, asserted by a test rather than assumed.
    "Wired into `schedules.json`" does not mean "producing videos".
-6. **Trading, phase 1** (§6.1) — **one clause of five done, 2026-09-09.**
+6. **Trading, phase 1** (§6.1) — **two clauses of five done; 2026-09-09 and 2026-09-25.**
    The clause that gates phase 2 is built: **the honest performance
    measurement**, `code/trading-performance.js` +
    `code/test-trading-performance.js` (28 assertions, 15/15 mutations caught),
    in CI. Read-only — it imports `fs` and `path` and nothing else, asserted by
    its own test, so there is no path from it to an order.
+
+   **The TradingView signals clause landed 2026-09-25**, and it needed no
+   ruling for the same reason measurement did not: reading a feed is not
+   proposing a trade. `code/trading-signals.js` +
+   `code/test-trading-signals.js` (22 assertions, 14/14 mutations caught), in
+   CI, surfaced as `jj signals`.
+
+   **It exists because the webhook had no consumer.** `app.py`'s
+   `/api/tradingview/webhook` has been appending to
+   `logs/trading-signals.jsonl` since 2026-09-20 and nothing read that file, so
+   Tier 2 task 5's DONE ("TradingView data integration") described a write-only
+   log plus `code/providers/tradingview-provider.js`, which no module imports.
+
+   **Every row is treated as untrusted input, and that is not hypothetical.**
+   The webhook's check is `if expected_passphrase and signal.passphrase !=
+   expected_passphrase` — with `TRADINGVIEW_PASSPHRASE` unset, and
+   `~/.jarvis-x/.env` is still unfilled, the comparison is skipped entirely and
+   the endpoint accepts anything posted to it while reading as though it
+   authenticates. `app.py` binds to `127.0.0.1`, so this is latent rather than
+   open; the consumer is the wrong place to find out it stopped being latent.
+   Shape, ticker, action, price and timestamp are all validated, and a row from
+   the *future* is rejected rather than winning the fold as the freshest.
+
+   Two rules carry the constitution rather than a preference. The module
+   imports no executor and reaches no book, asserted by a grep in its own suite
+   — §III gates proposing on a human tap, and a signal source is exactly the
+   module that grows an "and then act on it" later. And every ticker in its map
+   must resolve to one of `config/trading.json`'s six; a map entry pointing
+   outside them **throws** rather than filtering a row, because that is §IV's
+   allowlist widening rather than a stray alert.
+
+   **A rejected row is reported, never dropped.** A webhook discarding every
+   row looks identical to a webhook nobody is firing, and the difference is
+   exactly what Ahmed needs when checking whether his alerts are wired up. Same
+   for staleness: past six hours a signal is `stale: true` rather than absent,
+   and `agreement()` refuses to let a stale signal corroborate anything.
+
+   **`agreement()` is a reading for a human, never a decision.** It says
+   `corroborates` / `contradicts` / `unrelated` beside the analyst's own
+   verdict and nothing consumes it to change a recommendation — pinned by a
+   test asserting those three are the only values it can ever return. An
+   external feed that could flip a verdict would be a second opinion with no
+   accountability: nobody here can say why TradingView fired, and "the alert
+   said so" is not a reason Ahmed can check at a gate.
 
    Its design is mostly defences against a performance report flattering
    itself, each one a named rule: seven trades is not a win rate (the default

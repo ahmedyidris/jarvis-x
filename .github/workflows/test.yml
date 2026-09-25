@@ -88,8 +88,29 @@ jobs:
       # then seven were excluded with no reason written anywhere, which is how
       # code/weekly-sweep.js's orphan detector found them:
       #   test-kokoro, test-vision, test-voice, test-voice-interaction,
-      #   test-voice-router, test-voice-accents, test-voice-full-system
-      #                       need local Piper/Kokoro/Ollama and real audio
+      #   test-voice-router  need local Piper/Kokoro/Ollama and real audio
+      #
+      #   test-voice-accents WAS in the line above and did not belong there --
+      #   corrected 2026-09-24. It needs no model, binary or audio; it imported
+      #   nothing at all. It is in the run above now. test-voice-full-system
+      #   was corrected the same way and then DELETED on 2026-09-25 along with
+      #   the orphan voice stack it covered (Ahmed's call -- see PLAN_5).
+      #
+      #   Both ALSO could not fail, the same `.catch(console.error)` line as
+      #   test-data-layer and the two accessibility suites -- the third and
+      #   fourth occurrence, and the comment recording the previous fix sat two
+      #   lines above their names in this very list. Demonstrated before
+      #   fixing: with a deliberately false assertion each still exited 0 while
+      #   printing "ALL VOICE SYSTEM TESTS PASSED". test-voice-accents uses
+      #   test-helper now and exits 1 on a failing assertion -- checked both
+      #   directions.
+      #
+      #   A WRONG EXCLUSION REASON IS WORSE THAN NO REASON. "needs real audio"
+      #   is unfalsifiable from the outside and nobody re-runs the check, so
+      #   these two sat out of CI for weeks on a claim that was never true.
+      #   code/weekly-sweep.js's orphan detector cannot catch that: naming a
+      #   suite anywhere in this file, including in a wrong reason, counts as
+      #   documented.
       #   test-list-models    talks to ollama on 127.0.0.1:11434
       #   test-live-data      shells out to scripts that reach live APIs
       #   test-net            is a GATE for network tests, not a suite at all —
@@ -173,6 +194,29 @@ jobs:
       # handle, the render and the poster are all arguments, with no default
       # for either function, so there is no path from this suite to YouTube.
       #
+      # test-trading-signals covers code/trading-signals.js, the consumer for
+      # logs/trading-signals.jsonl -- which app.py's TradingView webhook wrote
+      # and NOTHING read until 2026-09-25. Offline: the log path, the clock and
+      # the config path are all arguments, so it never touches the machine's
+      # real log. Two of its assertions are constitutional rather than
+      # functional: the module must import no executor and reach no book (§III
+      # gates every proposal on a human tap), and every ticker in its map must
+      # resolve to one of config/trading.json's six (§IV forbids holding
+      # anything else) -- a map entry pointing outside the six THROWS rather
+      # than filtering a row, because that is the allowlist widening, not a
+      # stray alert.
+      #
+      # test-content-render covers code/content-render.js, the bridge from the
+      # JS content pipeline to automation/phase-b's MoviePy renderer. Offline
+      # because `run` -- the spawn -- is injected in every test, so CI neither
+      # starts a python nor needs moviepy or ffmpeg (bootstrap puts both in
+      # venv-ai, which a hosted runner does not have). What it CANNOT prove is
+      # the happy path against a real encoder; that needs one run on the
+      # Chromebook, and the suite says so in its own header rather than
+      # implying coverage it does not have. The refusal paths ARE verified
+      # against the real python, which on a machine without moviepy returns
+      # exactly the refusal the injected runner reproduces.
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -201,7 +245,8 @@ jobs:
                    test-memory-embed test-content-pipeline \
                    test-content-cli test-content-fidelity \
                    test-content-draft test-content-integration \
-                   test-process-content; do
+                   test-process-content test-voice-accents \
+                   test-trading-signals test-content-render; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

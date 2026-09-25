@@ -1,32 +1,139 @@
 /**
- * CONTENT PHASE 1's RENDER STEP — not built, and saying so.
+ * CONTENT PHASE 1's RENDER STEP — now wired, to the renderer that already
+ * existed.
  *
- * This file used to return `{ ok: true, file: "rendered.mp4" }` for any job,
- * having rendered nothing. That is worse than an empty file: process-content.js
- * would have attached the fake result as the job's `cut` and submitted it to
- * the cut gate, putting a video that does not exist in front of Ahmed for
- * approval — and an approval he gives to a hash of the string "rendered.mp4"
- * is a real approval, recorded in an append-only log, binding.
+ * WHAT THIS REPLACES. Until 2026-09-25 this file returned
+ * `{ ok: true, file: "rendered.mp4" }` for any job, having rendered nothing;
+ * then it returned a refusal, which was honest but produced no video. Both
+ * versions shared a wrong assumption — that rendering had to be built. It did
+ * not. `automation/phase-b/video_renderer.py`'s `render_video()` has produced
+ * vertical MP4s since Week 1 (TTS narration, solid background, headline,
+ * caption, atomic write, a real check on ffmpeg's return code), and its own
+ * docstring says the composition is not letter-specific. What was missing was
+ * an adapter and a way for Node to reach it.
  *
- * So it refuses. `{ ok: false }` leaves the job in `producing` where it
- * belongs — Jarvis's side of the line, waiting on work Jarvis has not done —
- * instead of moving it to Ahmed's desk. Same rule as content-draft.js
- * refusing without a voice profile, and the same reason: an unknown must have
- * its own value and must never default to the reassuring one.
+ * `automation/phase-b/script_renderer.py` is that adapter. This file is the
+ * bridge to it: one JSON object in on stdin, one JSON object out on stdout.
  *
- * WHAT WIRING IT ACTUALLY TAKES, so the next person does not assume it is a
- * few lines. `automation/phase-b/video_renderer.py` renders vertical shorts
- * already, but it is not this function: it takes a LETTER and looks up
- * content_generator.py's JSON for it, not a script produced by
- * content-draft.js. It also needs MoviePy, the local TTS engine, and
- * HiggsfieldRenderer's credentials, none of which exist on a CI runner. A
- * render step for this pipeline is a real build, not an import.
+ * `run` IS INJECTED AND THE SUITE ALWAYS SUPPLIES IT, so the tests spawn no
+ * process and need neither moviepy nor ffmpeg. The real spawn is supplied here
+ * at the boundary rather than by a caller, because unlike a poster or a model
+ * call there is no decision in it — which interpreter to use is a fact about
+ * the machine, discoverable, and getting it wrong is the whole failure mode
+ * (see below).
+ *
+ * IT REFUSES RATHER THAN REPORTING A RENDER IT DID NOT DO. A non-zero exit,
+ * unparseable output, a missing `file`, or a file that is absent or empty on
+ * disk all come back `{ ok: false }` with a reason. `code/process-content.js`
+ * treats that as "stays in producing" and never attaches a cut, so nothing
+ * reaches the cut gate that a human would then be asked to approve sight
+ * unseen.
  */
-module.exports = {
-  render: async (job) => ({
-    ok: false,
-    why: 'no renderer is wired to the JS content pipeline yet — '
-      + 'automation/phase-b/video_renderer.py renders letters, not scripts, '
-      + `so job ${job && job.id} stays in producing rather than reaching the cut gate`,
-  }),
-};
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const ROOT = path.join(__dirname, '..');
+const SCRIPT = path.join(ROOT, 'automation', 'phase-b', 'script_renderer.py');
+
+/**
+ * WHICH PYTHON, and why this is the thing most likely to be wrong on a given
+ * machine. `bootstrap/requirements-venv-ai.txt` pins moviepy 2.2.1 and
+ * imageio-ffmpeg into `venv-ai`, not into the system interpreter — so a bare
+ * `python3` on the same box will import video_renderer fine and then fail on
+ * `from moviepy import ...`, which reads like a broken renderer rather than
+ * the wrong interpreter. Preferring the venv when it exists makes the common
+ * case right, and the result names the interpreter used so the uncommon case
+ * is diagnosable from the refusal alone instead of needing a second run.
+ */
+function pythonPath(root = ROOT) {
+  const venv = path.join(root, 'venv-ai', 'bin', 'python3');
+  try { if (fs.statSync(venv).isFile()) return venv; } catch { /* fall through */ }
+  return 'python3';
+}
+
+/** The real spawn. Returns { code, stdout, stderr } and never throws for a non-zero exit. */
+function spawnPython(job, { root = ROOT, timeoutMs = 10 * 60_000 } = {}) {
+  const bin = pythonPath(root);
+  try {
+    const stdout = execFileSync(bin, [SCRIPT], {
+      input: JSON.stringify(job),
+      encoding: 'utf8',
+      timeout: timeoutMs,
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    return { code: 0, stdout, stderr: '', bin };
+  } catch (e) {
+    return {
+      code: typeof e.status === 'number' ? e.status : -1,
+      stdout: e.stdout || '',
+      stderr: e.stderr || e.message || '',
+      bin,
+    };
+  }
+}
+
+/**
+ * Render a content-pipeline job into an MP4.
+ *
+ * Returns `{ ok: true, cut, bytes, durationSeconds, python }` — `cut` is the
+ * path, and it is what `process-content.js` attaches as the job's cut
+ * artifact. On any failure, `{ ok: false, why }`.
+ */
+async function render(job, { run = spawnPython, root = ROOT, outDir = null, now = () => new Date() } = {}) {
+  if (!job || !job.id) return { ok: false, why: 'render needs a job with an id' };
+
+  const dir = outDir || path.join(root, 'logs', 'cuts');
+  // A stamped filename rather than a bare job id: re-rendering after a script
+  // change must not overwrite the cut a human may already be looking at, and
+  // rule 1 binds an approval to the artifact's bytes — silently replacing them
+  // under the same path is exactly the swap that rule exists to catch.
+  const stamp = now().toISOString().replace(/[:.]/g, '-');
+  const out = path.join(dir, `${job.id}-${stamp}.mp4`);
+
+  const request = {
+    script: job.script,
+    brief: job.brief,
+    headline: job.headline || null,
+    out,
+  };
+
+  const res = run(request, { root });
+  let parsed;
+  try {
+    parsed = JSON.parse(String(res.stdout).trim().split('\n').pop() || '');
+  } catch {
+    return {
+      ok: false,
+      python: res.bin,
+      why: `the renderer produced no usable output (exit ${res.code})`
+        + `${res.stderr ? `: ${String(res.stderr).trim().split('\n').pop()}` : ''}`,
+    };
+  }
+
+  if (!parsed || parsed.ok !== true) {
+    return { ok: false, python: res.bin, why: parsed && parsed.why ? parsed.why : `the renderer refused (exit ${res.code})` };
+  }
+
+  // TRUST THE FILESYSTEM OVER THE REPORT. script_renderer.py already checks
+  // this on its side; doing it again here is not redundancy for its own sake.
+  // The two checks answer different questions — "did the encoder produce a
+  // file" and "can the process that will attach it as a cut actually see that
+  // file" — and this session has twice found a module reporting success for
+  // work that had not happened.
+  let size = 0;
+  try { size = fs.statSync(parsed.file).size; } catch {
+    return { ok: false, python: res.bin, why: `the renderer reported ${parsed.file}, which is not there` };
+  }
+  if (!size) return { ok: false, python: res.bin, why: `the renderer reported ${parsed.file}, which is empty` };
+
+  return {
+    ok: true,
+    cut: parsed.file,
+    bytes: size,
+    durationSeconds: parsed.durationSeconds ?? null,
+    python: res.bin,
+  };
+}
+
+module.exports = { render, pythonPath, spawnPython, SCRIPT };
