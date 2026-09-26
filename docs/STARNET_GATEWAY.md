@@ -1,7 +1,7 @@
 # StarNet → Jarvis gateway
 
 `code/openai-gateway.js` is a small OpenAI-compatible server on
-`http://127.0.0.1:8001/v1`. StarNet uses it as its **Custom OpenAI-Compatible**
+`http://127.0.0.1:8010/v1`. StarNet uses it as its **Custom OpenAI-Compatible**
 provider, so every StarNet agent reaches its model through Jarvis's tiers:
 the same free providers, the same fallback order and the same daily quota as
 the rest of Jarvis. This is the handoff's Priority 2 ("Route StarNet through
@@ -44,6 +44,11 @@ though Bug A itself is still undiagnosed.
 
 ## Run it on the Chromebook
 
+The port is **8010**. 8000 is app.py, 8001 is `tts-worker` and 8002 is the
+dashboard backend. A test reads those files and fails if the default ever
+collides with one of them. Set `JX_GATEWAY_PORT` to move it. A taken port is
+reported by number, not as a bare `EADDRINUSE`.
+
 ```bash
 cd ~/jarvis-x && git pull
 
@@ -52,9 +57,9 @@ NODE_OPTIONS="--dns-result-order=ipv4first" \
   nohup node code/openai-gateway.js > /tmp/jx-gateway.log 2>&1 &
 
 # 2. Check it
-curl -s http://127.0.0.1:8001/health                 # {"ok":true,"stopped":false}
-curl -s http://127.0.0.1:8001/v1/models | head -c 400
-curl -sN http://127.0.0.1:8001/v1/chat/completions \
+curl -s http://127.0.0.1:8010/health                 # {"ok":true,"stopped":false}
+curl -s http://127.0.0.1:8010/v1/models | head -c 400
+curl -sN http://127.0.0.1:8010/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"model":"fast","stream":true,"messages":[{"role":"user","content":"Reply with OK."}]}'
 # expect: data: {...role...}, data: {...OK...}, data: {...finish_reason...}, data: [DONE]
@@ -64,13 +69,13 @@ cat /tmp/jx-gateway.log      # one line per request: route, provider, time. Neve
 pkill -f "node sidecar/index.js"; sleep 2
 cd ~/starnet
 NODE_OPTIONS="--dns-result-order=ipv4first" \
-CUSTOM_OPENAI_BASE_URL="http://127.0.0.1:8001/v1" \
+CUSTOM_OPENAI_BASE_URL="http://127.0.0.1:8010/v1" \
   nohup node sidecar/index.js > /tmp/starnet.log 2>&1 &
 ```
 
 Then, in StarNet at http://127.0.0.1:8787:
 
-1. Go to **Settings → Providers → CUSTOM** and type the base URL **with the `http://`**: `http://127.0.0.1:8001/v1`. See Bug C for why the scheme matters.
+1. Go to **Settings → Providers → CUSTOM** and type the base URL **with the `http://`**: `http://127.0.0.1:8010/v1`. See Bug C for why the scheme matters.
 2. **Leave the API key empty.** The gateway needs none, and an empty key skips StarNet's key test entirely.
 3. Set Raqib's model to **CUSTOM → `fast`**, send a message, and watch `/tmp/jx-gateway.log`.
 
@@ -140,9 +145,9 @@ One non-cause, checked: against app.py's JSON shape, StarNet's key test would ac
 
 ## Tests
 
-`node code/test-openai-gateway.js` runs 54 assertions, fully offline, in CI.
+`node code/test-openai-gateway.js` runs 56 assertions, fully offline, in CI.
 
-- Mutation-tested: 29 hand-made mutations, and 28 caught.
+- Mutation-tested: 33 hand-made mutations, and 32 caught.
 - The one escape aborts a request's controller after the reply has already ended, which changes nothing.
 
 The contract was also checked by running **StarNet's real adapter** against the

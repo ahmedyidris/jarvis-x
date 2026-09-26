@@ -218,7 +218,7 @@ jobs:
       # exactly the refusal the injected runner reproduces.
       #
       # test-openai-gateway covers code/openai-gateway.js, the OpenAI-compatible
-      # endpoint on 127.0.0.1:8001 that StarNet uses to reach registry.js's
+      # endpoint on 127.0.0.1:8010 that StarNet uses to reach registry.js's
       # tiers. Offline: registry, fetch, clock, kill switch and log are all
       # arguments, and requests/responses are in-memory fakes, so no socket is
       # opened and no quota file is written. Its REGRESSION tests pin the four

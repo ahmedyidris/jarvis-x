@@ -3,7 +3,7 @@
  * OpenAI-compatible gateway over registry.js -- the endpoint StarNet (and any
  * other OpenAI-shaped client) uses to reach Jarvis's model tiers.
  *
- *   node code/openai-gateway.js          # http://127.0.0.1:8001/v1
+ *   node code/openai-gateway.js          # http://127.0.0.1:8010/v1
  *
  * WHY A SECOND /v1 AND NOT app.py's. app.py already serves /v1 on :8000
  * (added 2026-09-23 for StarNet, Aider and Continue). It cannot carry StarNet,
@@ -48,7 +48,10 @@ const http = require('http');
 const crypto = require('crypto');
 
 const HOST = '127.0.0.1';
-const DEFAULT_PORT = 8001;
+// 8010, not the next free-looking number: 8000 is app.py, 8001 is tts-worker
+// (app.py's TTS_WORKER_URL) and 8002 is the dashboard backend. A test reads
+// those files and fails if this ever lands on one of them.
+const DEFAULT_PORT = 8010;
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 // StarNet's idle watchdog cancels a stream after SKYNET_PROVIDER_IDLE_MS (300s)
 // without a byte. An SSE comment every 10s keeps a slow local answer alive; the
@@ -68,7 +71,7 @@ const OLLAMA_TAGS_URL = 'http://127.0.0.1:11434/api/tags';
 const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
 // The same aliases as app.py's tier_map, so a model id means the same thing on
-// :8000 and :8001. registry.js has no `frontier` tier; app.py sends it to
+// :8000 and :8010. registry.js has no `frontier` tier; app.py sends it to
 // registry:quality, and so does this.
 const TIER_ALIASES = {
   local: 'local', ollama: 'local',
@@ -521,9 +524,14 @@ function createGateway(opts = {}) {
   return { handle, deps };
 }
 
-function serve({ port = Number(process.env.JX_GATEWAY_PORT) || DEFAULT_PORT, ...opts } = {}) {
+function serve({
+  port = Number(process.env.JX_GATEWAY_PORT) || DEFAULT_PORT,
+  createServer = http.createServer,
+  onFatal = () => { process.exitCode = 1; },
+  ...opts
+} = {}) {
   const gw = createGateway(opts);
-  const server = http.createServer((req, res) => {
+  const server = createServer((req, res) => {
     gw.handle(req, res).catch((e) => {
       gw.deps.log(`[openai-gateway] handler error: ${oneLine(e && e.message)}`);
       try {
@@ -531,6 +539,15 @@ function serve({ port = Number(process.env.JX_GATEWAY_PORT) || DEFAULT_PORT, ...
         else res.end();
       } catch { /* socket already gone */ }
     });
+  });
+  // A taken port is the likeliest first-run failure on a box already running
+  // app.py, tts-worker and the dashboard. Say which port and how to move it,
+  // instead of Node's bare EADDRINUSE stack.
+  server.on('error', (e) => {
+    gw.deps.log(e && e.code === 'EADDRINUSE'
+      ? `[openai-gateway] port ${port} is already in use -- set JX_GATEWAY_PORT to a free one`
+      : `[openai-gateway] server error: ${oneLine(e && e.message)}`);
+    onFatal(e);
   });
   // Loopback only, never 0.0.0.0: this hands out free-tier quota to any caller.
   server.listen(port, HOST, () => {

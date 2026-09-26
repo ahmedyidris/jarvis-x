@@ -80,7 +80,7 @@ function fakeReq({ method = 'POST', url = '/v1/chat/completions', headers = {}, 
   const r = Readable.from(chunks);
   r.method = method;
   r.url = url;
-  r.headers = { host: '127.0.0.1:8001', 'content-type': 'application/json', ...headers };
+  r.headers = { host: '127.0.0.1:8010', 'content-type': 'application/json', ...headers };
   return r;
 }
 
@@ -525,10 +525,10 @@ await test('a non-JSON content type is refused (no CORS-free browser POST can sp
 });
 
 await test('a foreign Host header is refused (DNS rebinding)', async () => {
-  const res = await call(gateway(), { headers: { host: 'evil.example:8001' }, body: { model: 'fast', messages: USER } });
+  const res = await call(gateway(), { headers: { host: 'evil.example:8010' }, body: { model: 'fast', messages: USER } });
   assert.strictEqual(res.status, 403);
   assert.strictEqual((await call(gateway(), { headers: { host: undefined }, method: 'GET', url: '/v1/models' })).status, 403);
-  for (const h of ['127.0.0.1:8001', 'localhost:8001', '[::1]:8001', 'LOCALHOST']) assert.ok(G.hostAllowed(h), h);
+  for (const h of ['127.0.0.1:8010', 'localhost:8010', '[::1]:8010', 'LOCALHOST']) assert.ok(G.hostAllowed(h), h);
   assert.ok(!G.hostAllowed('127.0.0.1.evil.example'));
 });
 
@@ -616,6 +616,39 @@ await test('REAL registry.js exports bumpQuota, so both paths count one quota', 
   const reg = require('./providers/registry.js');
   for (const fn of ['loadKey', 'available', 'quotaLeft', 'bumpQuota']) assert.strictEqual(typeof reg[fn], 'function', fn);
   assert.strictEqual(G.createGateway({ log: () => {} }).deps.registry, reg);
+});
+
+await test('REAL config: the default port is not one another Jarvis service already binds', () => {
+  // The first version shipped on 8001 -- tts-worker's port -- because nothing
+  // checked. Read the port out of every file that binds or calls one, so a
+  // new service on 8010 fails here instead of on the Chromebook.
+  const root = path.join(__dirname, '..');
+  const taken = new Set();
+  const scan = (rel, re) => {
+    const src = fs.readFileSync(path.join(root, rel), 'utf8');
+    const found = [...src.matchAll(re)].map((m) => Number(m[1]));
+    assert.ok(found.length > 0, `no port found in ${rel}; the pattern went stale`);
+    for (const p of found) taken.add(p);
+  };
+  scan('app.py', /127\.0\.0\.1:(\d{4,5})/g);
+  scan('code/tts_worker.py', /port=(\d{4,5})/g);
+  scan('code/reply/tools/weather.py', /127\.0\.0\.1:(\d{4,5})/g);
+  scan('config/supervisord.conf', /--port (\d{4,5})/g);
+  for (const p of [8001, 8000, 8002]) assert.ok(taken.has(p), `expected ${p} among the scanned ports`);
+  assert.ok(!taken.has(G.DEFAULT_PORT), `port ${G.DEFAULT_PORT} is already taken by a Jarvis service`);
+  assert.notStrictEqual(G.DEFAULT_PORT, 8787, 'StarNet itself listens on 8787');
+});
+
+await test('a taken port says which one and how to move it, and flags a failed start', () => {
+  const logs = [];
+  let fatal = null;
+  const fake = new EventEmitter();
+  fake.listen = () => fake;
+  G.serve({ port: 8010, createServer: () => fake, onFatal: (e) => { fatal = e; }, log: (l) => logs.push(l) });
+  const err = Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' });
+  fake.emit('error', err);
+  assert.strictEqual(fatal, err);
+  assert.ok(/port 8010 is already in use -- set JX_GATEWAY_PORT/.test(logs.join('\n')), logs.join('\n'));
 });
 
 await test('binds loopback only', () => {
