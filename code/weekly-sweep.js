@@ -109,6 +109,54 @@ const DEFAULT_DOCS = Object.freeze([
   'AS_BUILT.md', 'docs/PLAN_5.md', 'README.md', 'CLAUDE.md', 'docs/architecture.md',
 ]);
 
+/**
+ * EVERY TRACKED MARKDOWN FILE, for the one check that must not be scoped.
+ *
+ * WHY THIS EXISTS, 2026-09-26. Detector 4 was added 2026-09-10 so a kill
+ * switch documented at the wrong path "cannot recur silently". It could, and
+ * it had: DEFAULT_DOCS is five files, and NOTES.md and REMAINING_WORK.md have
+ * been naming `~/.jarvis-x/STOP` the whole time -- invisible to the detector
+ * because they are not on the list. 27 tracked docs mention a STOP token;
+ * the detector was reading 5 of them.
+ *
+ * That is the same shape as the two other scope failures this repo has found:
+ * a suite excluded from CI for a reason nobody re-read, and a pin that greps
+ * one file while the mechanism it guards runs through another. A control whose
+ * scope is narrower than its reputation is worse than no control, because the
+ * reputation is what stops anyone checking by hand.
+ *
+ * ONLY detector 4 gets this. The others stay on DEFAULT_DOCS deliberately:
+ * assertion counts and stale refs are worth tracking in the living documents
+ * and would be noise across 100 files, most of them dated session records that
+ * are SUPPOSED to describe a repo that has moved on. The kill switch is
+ * different in kind -- a wrong path there tells someone trying to STOP Jarvis
+ * to create a file that halts nothing, at the moment they most need to be
+ * right, and that is just as true in a runbook as in the living plan.
+ *
+ * archive/ and docs/incoming/ are excluded: both are explicitly historical,
+ * and docs/incoming is reference material PLAN_5 §0 says does not set scope.
+ */
+function allDocs({ repoRoot = REPO } = {}) {
+  try {
+    const out = require('child_process')
+      .execFileSync('git', ['ls-files', '*.md'],
+        // stderr ignored: outside a git repo this prints 'not a git
+        // repository' on the way to the fallback below, and a fallback that
+        // is working as designed should not look like an error.
+        { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const docs = out.split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((f) => !f.startsWith('archive/') && !f.startsWith('docs/incoming/'));
+    // A git that answers with nothing is a git that is not working here; fall
+    // back rather than silently scanning zero documents, which would read as
+    // "no findings" -- the reassuring value an unknown must never take.
+    return docs.length ? docs : DEFAULT_DOCS;
+  } catch {
+    return DEFAULT_DOCS;
+  }
+}
+
 // --- detector 1: doc references to files that no longer exist --------------
 
 const PATH_RE = /`([A-Za-z0-9_./-]+\.(?:js|py|json|md|sh|yml|yaml))`/g;
@@ -338,7 +386,8 @@ function orphanSuites({ repoRoot = REPO, codeDir = null, listed = null } = {}) {
 const STOP_TOKEN_RE = /`([^`\n]*STOP[^`\n]*)`/g;
 const WINDOW = 300;
 
-function killSwitchDrift({ repoRoot = REPO, docs = DEFAULT_DOCS, stopFile = null } = {}) {
+function killSwitchDrift({ repoRoot = REPO, docs = null, stopFile = null } = {}) {
+  docs = docs || allDocs({ repoRoot });
   // Injected for tests; the default is guard.js's own constant.
   const real = path.basename(stopFile || require('./guard.js').STOP_FILE);
   const out = [];
@@ -354,6 +403,16 @@ function killSwitchDrift({ repoRoot = REPO, docs = DEFAULT_DOCS, stopFile = null
       // this detector produced four such findings before this line existed.
       // A path claim contains a separator or is explicitly relative/home-anchored.
       if (!/[/\\]/.test(token) && !/^[.~]/.test(token)) continue;
+      // AND A PATH CLAIM IS ONE TOKEN, not a command. Added 2026-09-26 when the
+      // doc scope widened (see ALL_DOCS below): a runbook's
+      // `test -e ~/jarvis-x/.jarvis-x-STOP && echo ...` and a plan's
+      // `STOP_FILE.parent / "..."` both contain a slash, so both passed the
+      // rule above, and basename() of a whole shell line is never the real
+      // filename -- two false positives, both about code that was CORRECT.
+      // The cost is stated rather than hidden: a stale path written with a
+      // space in it escapes. No path in this repo has one, and a detector that
+      // cries wolf on correct docs gets ignored, which is the worse failure.
+      if (/\s/.test(token)) continue;
       if (path.basename(token) === real) continue;
       // The window deliberately EXCLUDES the matched token itself. Including
       // it let the token satisfy its own contrast test — a path that merely
@@ -454,6 +513,10 @@ function park(findings, { file = INBOX, now } = {}) {
  */
 function run({
   repoRoot = REPO, docs = DEFAULT_DOCS, now = new Date(),
+  // Detector 4 reads EVERY tracked doc rather than `docs` (see allDocs).
+  // Still an argument, because a check whose scope a test cannot set is a
+  // check whose scope nobody can verify.
+  killSwitchDocs = null,
   runSweep = () => sweepMod.sweep(), inboxFile = INBOX, isIgnored = gitIgnored,
   heartbeatFile = heartbeatFilePath,
 } = {}) {
@@ -477,7 +540,8 @@ function run({
   const orphans = orphanSuites({ repoRoot });
   const { claims, unchecked } = assertionClaims({ repoRoot, docs });
   const drift = assertionDrift(claims, suite.results);
-  const killSwitch = killSwitchDrift({ repoRoot, docs });
+  // Deliberately NOT `docs`: this one reads every tracked markdown file.
+  const killSwitch = killSwitchDrift({ repoRoot, docs: killSwitchDocs });
 
   const findings = [...suiteFindings, ...refs, ...orphans, ...drift, ...killSwitch];
   const parked = park(findings, { file: inboxFile, now });
@@ -557,7 +621,7 @@ module.exports = {
   setHeartbeatFile, currentHeartbeatFile,
   run, format, exitCode, staleRefs, assertionClaims, assertionDrift, orphanSuites,
   sentences, park, readInbox, fingerprint, gitIgnored,
-  DEFAULT_DOCS, INBOX, PATH_RE, SUITE_RE, COUNT_RE,
+  DEFAULT_DOCS, allDocs, INBOX, PATH_RE, SUITE_RE, COUNT_RE,
 };
 
 if (require.main === module) {

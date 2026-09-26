@@ -24,6 +24,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const cp = require('child_process');
 const { test, finish, assert } = require('./test-helper.js');
 const W = require('./weekly-sweep.js');
 
@@ -59,6 +60,26 @@ function fakeRepo(files = {}) {
     fs.writeFileSync(abs, body);
   }
   fs.mkdirSync(root, { recursive: true });
+  return root;
+}
+
+/**
+ * A fixture that is a REAL git repository, because allDocs() asks git what is
+ * tracked and fakeRepo() is just a directory. Three mutations escaped this
+ * suite without it -- the widening itself, its empty-output fallback, and its
+ * archive/ exclusion -- all because the tests reached allDocs() directly
+ * instead of proving killSwitchDrift USES it. Same gap as the two mutations
+ * that escaped detector 4's first round: every test called the detector
+ * directly, so nothing proved run() included its findings.
+ */
+function gitRepo(files = {}) {
+  const root = fakeRepo(files);
+  const opts = { cwd: root, stdio: 'ignore' };
+  cp.execFileSync('git', ['init', '-q'], opts);
+  cp.execFileSync('git', ['config', 'user.email', 't@t'], opts);
+  cp.execFileSync('git', ['config', 'user.name', 't'], opts);
+  cp.execFileSync('git', ['add', '-A'], opts);
+  // Tracked-but-uncommitted is enough: `git ls-files` reads the index.
   return root;
 }
 
@@ -393,6 +414,106 @@ test('a missing doc is skipped rather than throwing', () => {
     W.killSwitchDrift({ repoRoot: root, docs: ['gone.md'], stopFile: STOP }), []);
 });
 
+// --- detector 4's SCOPE, widened 2026-09-26 --------------------------------
+//
+// This detector was added 2026-09-10 so a kill switch documented at the wrong
+// path "cannot recur silently". It could, and it had. DEFAULT_DOCS is five
+// files; NOTES.md and REMAINING_WORK.md had been naming ~/.jarvis-x/STOP the
+// whole time, invisible to it. 27 tracked docs mention a STOP token and the
+// detector was reading 5 of them -- including none of the obsidian-vault
+// runbooks, one of which is literally called debug-the-kill-switch.md.
+//
+// Same shape as the two other scope failures this repo has found: a suite
+// excluded from CI for a reason nobody re-read, and a pin that greps one file
+// while the mechanism it guards runs through another. A control whose scope is
+// narrower than its reputation is worse than no control, because the
+// reputation is what stops anyone checking by hand.
+
+test('killSwitchDrift with NO docs argument finds a doc outside DEFAULT_DOCS', () => {
+  // THE WIDENING ITSELF, driven through the detector rather than through
+  // allDocs(). NOTES.md was wrong for sixteen days precisely because it is not
+  // one of the five, so the fixture uses a name that is not one either and
+  // passes NO docs argument — exactly how run() calls it.
+  const root = gitRepo({ 'NOTES.md': 'Kill switch: `~/.jarvis-x/STOP`.' });
+  assert.ok(!W.DEFAULT_DOCS.includes('NOTES.md'), 'fixture is pointless if NOTES.md joined DEFAULT_DOCS');
+  const out = W.killSwitchDrift({ repoRoot: root, stopFile: STOP });
+  assert.strictEqual(out.length, 1, 'a doc outside DEFAULT_DOCS was not read');
+  assert.strictEqual(out[0].doc, 'NOTES.md');
+});
+
+test('the historical trees are excluded, proven with files that are actually there', () => {
+  // The first version of this test iterated the live repo's allDocs() and
+  // asserted nothing started with archive/. The repo tracks ZERO archive/*.md,
+  // so it could not fail — a vacuous assertion guarding the exclusion rule.
+  const root = gitRepo({
+    'archive/old.md': 'Kill switch: `~/.jarvis-x/STOP`.',
+    'docs/incoming/ref.md': 'Kill switch: `~/.jarvis-x/STOP`.',
+    'LIVE.md': 'Kill switch: `~/.jarvis-x/STOP`.',
+  });
+  const docs = W.allDocs({ repoRoot: root });
+  assert.ok(docs.includes('LIVE.md'), 'the live doc was dropped');
+  assert.ok(!docs.includes('archive/old.md'), 'archive/ leaked in');
+  assert.ok(!docs.includes('docs/incoming/ref.md'), 'docs/incoming/ leaked in');
+  // And through the detector: only the live file is reported.
+  const out = W.killSwitchDrift({ repoRoot: root, stopFile: STOP });
+  assert.deepStrictEqual(out.map((f) => f.doc), ['LIVE.md']);
+});
+
+test('a git repo with NO markdown falls back rather than scanning NOTHING', () => {
+  // The empty-OUTPUT branch, which is not the same as the throws branch below.
+  // git succeeds and returns nothing; returning [] would read as "no findings"
+  // — the reassuring value an unknown must never take.
+  const root = gitRepo({ 'code.js': 'no markdown here' });
+  assert.deepStrictEqual(W.allDocs({ repoRoot: root }), W.DEFAULT_DOCS);
+});
+
+test('a directory that is not a git repo falls back too', () => {
+  assert.deepStrictEqual(W.allDocs({ repoRoot: fakeRepo({ 'D.md': 'x' }) }), W.DEFAULT_DOCS);
+});
+
+test('the live repo IS meaningfully wider than the narrow list', () => {
+  const all = W.allDocs();
+  assert.ok(all.length > W.DEFAULT_DOCS.length * 3,
+    `allDocs() returned ${all.length}; DEFAULT_DOCS has ${W.DEFAULT_DOCS.length} — the scope did not widen`);
+  for (const d of W.DEFAULT_DOCS) {
+    assert.ok(all.includes(d), `allDocs() dropped ${d}, which the narrow list covered`);
+  }
+  assert.ok(all.includes('NOTES.md'), 'NOTES.md — the file this widening was for — is not covered');
+});
+
+test('a SHELL COMMAND containing the right path is not a path claim', () => {
+  // Found by widening: docs/superpowers/plans/…-deployment-shared-state.md has
+  //   `test -e ~/jarvis-x/.jarvis-x-STOP && echo "EXISTS" || echo "absent"`
+  // which contains a slash, so it passed the looks-like-a-path rule, and
+  // basename() of a whole shell line is never the real filename. Two false
+  // positives, both about code that was CORRECT. A detector that cries wolf on
+  // correct docs gets ignored, which is the worse failure.
+  const root = fakeRepo({
+    'D.md': 'Check it with `test -e ~/jarvis-x/.jarvis-x-STOP && echo "EXISTS -- stopped"`.',
+  });
+  assert.deepStrictEqual(W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('a code expression naming a DIFFERENT file is not a path claim either', () => {
+  const root = fakeRepo({ 'D.md': 'It writes `STOP_FILE.parent / ".jarvis-x-instances.json"` alongside.' });
+  assert.deepStrictEqual(W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }), []);
+});
+
+test('the whitespace rule does NOT excuse a bare wrong path', () => {
+  // The refinement must stay narrow: it skips tokens with whitespace, and a
+  // stale path has none. If this ever passes, the rule has eaten the detector.
+  const root = fakeRepo({ 'D.md': 'The kill switch is `~/.jarvis-x/STOP`.' });
+  assert.strictEqual(W.killSwitchDrift({ repoRoot: root, docs: ['D.md'], stopFile: STOP }).length, 1);
+});
+
+test('the live repo has NO doc naming the kill switch wrongly', () => {
+  // The payoff, asserted against the real tree rather than a fixture. This
+  // failed with 3 findings when the scope widened (NOTES.md once,
+  // REMAINING_WORK.md twice) and those are fixed.
+  assert.deepStrictEqual(W.killSwitchDrift({}), [],
+    'a tracked document names the kill switch at a path that is not it');
+});
+
 test('the real path is read from guard.js, not written here', () => {
   // A detector carrying its own copy of the value it checks is one rename
   // away from confidently enforcing the wrong answer — and this is the one
@@ -549,7 +670,7 @@ test('run() writes a heartbeat even when it finds nothing', () => {
   const root = fakeRepo({ 'D.md': 'nothing to see' });
   const file = beatPath();
   const r = W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     heartbeatFile: file, isIgnored: NEVER_IGNORED,
     runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 5 }] }),
   });
@@ -563,7 +684,7 @@ test('run() writes the heartbeat for a dirty run too', () => {
   const root = fakeRepo({ 'D.md': 'see `code/gone.js`' });
   const file = beatPath();
   W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     heartbeatFile: file, isIgnored: NEVER_IGNORED,
     runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 5 }] }),
   });
@@ -577,7 +698,7 @@ test('the heartbeat is written after the detectors, so it means "completed"', ()
   const root = fakeRepo({ 'D.md': 'x' });
   const file = beatPath();
   assert.throws(() => W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     heartbeatFile: file, isIgnored: NEVER_IGNORED,
     runSweep: () => { throw new Error('detector exploded'); },
   }), /detector exploded/);
@@ -589,7 +710,7 @@ test('the heartbeat is written after the detectors, so it means "completed"', ()
 test('suite findings and failures both surface as findings', () => {
   const root = fakeRepo({ 'D.md': 'nothing to see' });
   const r = W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     isIgnored: NEVER_IGNORED,
     runSweep: () => fakeSweep({
       results: [{ name: 'test-a', count: 5 }, { name: 'test-b', count: null }],
@@ -609,7 +730,7 @@ test('run() actually INCLUDES kill-switch drift in its findings', () => {
   // unit-level test above calls killSwitchDrift() directly, so neither showed.
   const root = fakeRepo({ 'D.md': 'Kill switch: `~/.jarvis-x/STOP`.' });
   const r = W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     isIgnored: NEVER_IGNORED, runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 1 }] }),
   });
   const ks = r.findings.filter((f) => f.kind === 'kill-switch-path');
@@ -621,7 +742,7 @@ test('a kill-switch finding parks and so fails the weekly job', () => {
   // It is only a control if a red run follows from it.
   const root = fakeRepo({ 'D.md': 'Kill switch: `~/.jarvis-x/STOP`.' });
   const r = W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     isIgnored: NEVER_IGNORED, runSweep: () => fakeSweep({ results: [{ name: 'test-a', count: 1 }] }),
   });
   assert.strictEqual(W.exitCode(r), 1);
@@ -648,7 +769,7 @@ test('run() actually INCLUDES orphans in its findings', () => {
     'code/test-listed.js': 'assert.ok(1);',
   });
   const r = W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     isIgnored: NEVER_IGNORED, runSweep: () => fakeSweep(),
   });
   const orphans = r.findings.filter((f) => f.kind === 'suite-not-in-ci');
@@ -660,7 +781,7 @@ test('run() actually INCLUDES orphans in its findings', () => {
 test('run() reports coverage even when it finds nothing', () => {
   const root = fakeRepo({ 'D.md': 'test-guard and test-shell have 37 and 22 assertions.' });
   const r = W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     isIgnored: NEVER_IGNORED, runSweep: () => fakeSweep(),
   });
   assert.strictEqual(r.findings.length, 0);
@@ -716,7 +837,7 @@ test('run() never edits the docs it inspects', () => {
   const body = 'see `code/gone.js` — 12 assertions in `code/test-foo.js`.';
   const root = fakeRepo({ 'D.md': body });
   W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     isIgnored: NEVER_IGNORED,
     runSweep: () => fakeSweep({ results: [{ name: 'test-foo', count: 99 }] }),
   });
@@ -729,7 +850,7 @@ test('drift found through run() names the doc and both numbers', () => {
   // test about drift.
   const root = fakeRepo({ 'D.md': '`code/test-foo.js` has 12 assertions.', 'code/test-foo.js': '' });
   const r = W.run({
-    repoRoot: root, docs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
+    repoRoot: root, docs: ['D.md'], killSwitchDocs: ['D.md'], now: CLOCK, inboxFile: inboxPath(),
     isIgnored: NEVER_IGNORED,
     runSweep: () => fakeSweep({ results: [{ name: 'test-foo', count: 99 }] }),
   });
