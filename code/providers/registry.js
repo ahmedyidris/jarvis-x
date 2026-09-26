@@ -172,6 +172,7 @@ module.exports.ask = ask;
 module.exports.callProvider = callProvider;
 module.exports.quotaLeft = quotaLeft;
 module.exports.readQuota = readQuota;
+module.exports.bumpQuota = bumpQuota;   // shared with code/openai-gateway.js, so both count one quota
 
 if (require.main === module) {
   (async () => {
