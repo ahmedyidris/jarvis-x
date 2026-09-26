@@ -564,7 +564,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    docstring requires.
 
    **THE RENDER STEP IS WIRED, 2026-09-25, and it needed no credentials.**
-   `code/content-render.js` + `code/test-content-render.js` (18 assertions,
+   `code/content-render.js` + `code/test-content-render.js` (20 assertions,
    10/10 mutations caught), in CI, bridging to a new
    `automation/phase-b/script_renderer.py`.
 
@@ -593,6 +593,19 @@ as much as possible so the metered tier is spent only where it earns its keep.
    **every result names the interpreter used, refusals included**, so that
    failure is diagnosable from one run.
 
+   **And I got the venv's location wrong on the first try, 2026-09-25 — it
+   would have failed on exactly the machine it was written for.** The original
+   check looked only in `<repo>/venv-ai`. `bootstrap/install.sh` step 4 creates
+   it at `$HOME/venv-ai`, so on the Chromebook the check would have missed,
+   fallen back to a bare `python3` with no moviepy, and produced the precise
+   confusing failure the venv preference exists to prevent. Found by reading
+   `install.sh`, not by a test: every test injects the spawn and the container
+   has no venv at either path, so the seam that makes the suite offline also
+   makes it blind to which path is real. Both are checked now, `$HOME` first
+   because that is what the installer does, and a test reads the venv's name
+   **out of `install.sh` itself** rather than restating it — the same rule as
+   weekly-sweep reading the kill switch out of `guard.js`'s own export.
+
    **A render is only reported once a watchable file exists**, checked on both
    sides of the bridge. That is not belt-and-braces for its own sake: the two
    checks answer different questions — did the encoder produce a file, and can
@@ -609,6 +622,43 @@ as much as possible so the metered tier is spent only where it earns its keep.
    MP4 has to come off the Chromebook. Every test injects the spawn, so CI
    neither starts a python nor depends on moviepy — and the suite's header says
    so rather than implying coverage it does not have.
+
+   **DETECTOR 4's SCOPE WAS FIVE DOCUMENTS, AND THAT WAS THE BUG — corrected
+   2026-09-26.** It was added 2026-09-10 so a kill switch documented at the
+   wrong path "cannot recur silently". It could, and it had: `DEFAULT_DOCS` is
+   five files, and `NOTES.md` and `REMAINING_WORK.md` had been naming the stale
+   path the whole time, invisible to it. 27 tracked documents mention a STOP
+   token; the detector was reading 5 — including none of the obsidian-vault
+   runbooks, one of which is literally debug-the-kill-switch.md.
+
+   That is the third scope failure of the same shape in three days: a suite
+   excluded from CI for a reason nobody re-read, a pin that greps one file while
+   the mechanism it guards runs through another, and now a detector whose
+   reputation ("cannot recur silently") was broader than its inputs. **A control
+   whose scope is narrower than its reputation is worse than no control**,
+   because the reputation is what stops anyone checking by hand.
+
+   Detector 4 now reads every tracked markdown file, excluding `archive/` and
+   `docs/incoming/` as explicitly historical. **Only detector 4** — assertion
+   counts and stale refs stay on the five living documents deliberately, since
+   across 100 files, most of them dated session records describing a repo that
+   has moved on, they would be noise. The kill switch is different in kind, and
+   a wrong path is just as dangerous in a runbook as in the living plan.
+
+   **Widening it surfaced two false positives, and those mattered too**: a
+   runbook's shell one-liner and a plan's code expression both contain a slash,
+   so both passed the looks-like-a-path rule, and basename() of a whole shell
+   line is never the real filename. Both were about code that was **correct**.
+   A path claim is now required to be one token with no whitespace — the cost
+   stated rather than hidden: a stale path written with a space in it escapes,
+   no path in this repo has one, and a detector that cries wolf on correct docs
+   gets ignored, which is the worse failure.
+
+   Three mutations escaped the first round of tests for this, all the same gap:
+   they reached `allDocs()` directly instead of proving `killSwitchDrift` uses
+   it, and the archive-exclusion assertion iterated a list that tracks **zero**
+   `archive/*.md` — it could not fail. Fixed with a fixture that is a real git
+   repository. 9/9 now.
 
    **Not wired into `code/scheduler.js`**, pinned by a test. Still to build:
    the poster — both of which now plug into an
@@ -782,7 +832,7 @@ as much as possible so the metered tier is spent only where it earns its keep.
    unauthenticated Gemini CLI "a real, currently-blocking gap" when nothing in
    this codebase invokes the `gemini` binary at all.
 9. ~~**Weekly sweep**~~ (§3 item 3) — **DONE 2026-09-09.**
-   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (65 assertions), in CI,
+   `code/weekly-sweep.js`, `code/test-weekly-sweep.js` (74 assertions), in CI,
    plus `.github/workflows/weekly-sweep.yml` on a Monday 07:00 UTC cron. Five
    detectors, all pure lookups, no model calls: suite health (delegated to
    `sweep.js`, so the two cannot disagree about the CI list), doc references to

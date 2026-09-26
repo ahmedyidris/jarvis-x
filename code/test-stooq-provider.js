@@ -149,5 +149,102 @@ await test('the file records the probe result rather than implying it works', ()
   assert.ok(/--probe/.test(src), 'with the command that would change that status');
 });
 
+// ─── THE CONTROL, and the verdict it makes possible ────────────────────────
+//
+// The 2026-09-04 probe ended in a question: four uniform 404s that could mean
+// the codes are wrong OR the URL is. The file's own comment named the
+// experiment that separates them and it went un-run for three weeks, because
+// it was a thing a human had to remember to do by hand. It is part of the
+// probe now, and diagnose() is the decision table — pure, so every branch is
+// reachable here without a socket.
+
+await test('the control fetch uses the SAME url shape as an instrument', () => {
+  // A control built a different way tests a different thing and would prove
+  // nothing about the four.
+  const p = new StooqProvider({ getText: async () => GOOD });
+  assert.strictEqual(p.urlFor(StooqProvider.SYMBOLS.gold.code), p.url('gold'));
+  assert.ok(p.urlFor(StooqProvider.CONTROL.code).startsWith('https://stooq.com/q/l/?s=aapl.us'));
+});
+
+await test('a network failure on the control means NOTHING is learned about the symbols', () => {
+  for (const err of ['Stooq timed out after 10000ms', 'fetch failed', 'ECONNRESET', 'ENOTFOUND stooq.com']) {
+    const d = StooqProvider.diagnose({ ok: false, error: err },
+      [{ key: 'gold', ok: false }, { key: 'oil', ok: false }]);
+    assert.strictEqual(d.verdict, 'no-network', `"${err}" was not read as a network failure`);
+    assert.strictEqual(d.actionable, false, 'a no-network run must not look actionable');
+    assert.match(d.why, /nothing is learned/);
+  }
+});
+
+await test('an HTTP failure on the control blames the ENDPOINT, not the codes', () => {
+  const d = StooqProvider.diagnose({ ok: false, error: 'Stooq HTTP 404' },
+    [{ key: 'gold', ok: false }, { key: 'oil', ok: false }]);
+  assert.strictEqual(d.verdict, 'endpoint-wrong');
+  assert.match(d.why, /the URL or the request shape is wrong, not the four codes/);
+  assert.match(StooqProvider.NEXT_STEP['endpoint-wrong'], /Do NOT\n  touch the symbol table/);
+});
+
+await test('control OK + everything else failing blames the CODES — the answer 2026-09-04 could not reach', () => {
+  const d = StooqProvider.diagnose({ ok: true },
+    [{ key: 'gold', ok: false }, { key: 'sp500', ok: false }, { key: 'nasdaq', ok: false }, { key: 'oil', ok: false }]);
+  assert.strictEqual(d.verdict, 'symbols-wrong');
+  assert.match(d.why, /the endpoint is fine and these codes are wrong/);
+});
+
+await test('a partial result is its own verdict, not rounded to success or failure', () => {
+  const d = StooqProvider.diagnose({ ok: true },
+    [{ key: 'gold', ok: true }, { key: 'oil', ok: false }]);
+  assert.strictEqual(d.verdict, 'partial');
+  assert.match(StooqProvider.NEXT_STEP.partial, /Wire ONLY the passing symbols/);
+});
+
+await test('every symbol resolving is the only route to `confirmed`', () => {
+  assert.strictEqual(StooqProvider.diagnose({ ok: true },
+    [{ key: 'gold', ok: true }, { key: 'oil', ok: true }]).verdict, 'confirmed');
+  // One failure anywhere must not confirm.
+  assert.notStrictEqual(StooqProvider.diagnose({ ok: true },
+    [{ key: 'gold', ok: true }, { key: 'oil', ok: false }]).verdict, 'confirmed');
+});
+
+await test('every verdict has a next step — a diagnosis with no instruction is half a tool', () => {
+  const verdicts = ['no-network', 'endpoint-wrong', 'symbols-wrong', 'partial', 'confirmed'];
+  for (const v of verdicts) {
+    assert.ok(StooqProvider.NEXT_STEP[v], `no next step for ${v}`);
+  }
+  assert.deepStrictEqual(Object.keys(StooqProvider.NEXT_STEP).sort(), [...verdicts].sort(),
+    'NEXT_STEP and the verdicts diagnose() can return have drifted apart');
+});
+
+await test('classify tells network from http from parse', () => {
+  assert.strictEqual(StooqProvider.classify('Stooq timed out after 10000ms'), 'network');
+  assert.strictEqual(StooqProvider.classify('Stooq HTTP 404'), 'http');
+  assert.strictEqual(StooqProvider.classify('Stooq returned no usable close for xauusd'), 'parse');
+});
+
+await test('probeControl resolves either way — its failure is the datum, not an exception', () => {
+  const bad = new StooqProvider({ getText: async () => { throw new Error('Stooq HTTP 500'); } });
+  return bad.probeControl().then((r) => {
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.error, 'Stooq HTTP 500');
+  });
+});
+
+await test('probeControl rejects an N/D row for the control too', () => {
+  // The control has to be held to the same parse standard, or a Stooq "symbol
+  // not found" row would read as a working endpoint and wrongly blame the four.
+  const nd = new StooqProvider({ getText: async () => csv('AAPL.US,N/D,N/D,N/D,N/D,N/D,N/D') });
+  return nd.probeControl().then((r) => assert.strictEqual(r.ok, false, 'an N/D control passed'));
+});
+
+await test('the file records that the cloud session CANNOT run this probe', () => {
+  // Written down because the next session will otherwise spend the same
+  // twenty minutes rediscovering it. Attempted 2026-09-25: every request to
+  // stooq.com:443 died as ws_closed_mid_exchange through the container's
+  // egress proxy, control included, curl included.
+  const src = fs.readFileSync(path.join(__dirname, 'providers', 'stooq-provider.js'), 'utf8');
+  assert.match(src, /ws_closed_mid_exchange/, 'the measured proxy failure is not recorded');
+  assert.match(src, /HAS TO RUN ON THE CHROMEBOOK/, 'where it must be run is not stated');
+});
+
 finish();
 })();

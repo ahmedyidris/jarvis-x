@@ -31,6 +31,7 @@
  */
 const { execFileSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
@@ -45,10 +46,36 @@ const SCRIPT = path.join(ROOT, 'automation', 'phase-b', 'script_renderer.py');
  * the wrong interpreter. Preferring the venv when it exists makes the common
  * case right, and the result names the interpreter used so the uncommon case
  * is diagnosable from the refusal alone instead of needing a second run.
+ *
+ * I GOT THE VENV'S LOCATION WRONG WHEN I WROTE THIS, 2026-09-25, and it would
+ * have failed on exactly the machine it was written for. The first version
+ * looked only in `<repo>/venv-ai`. `bootstrap/install.sh` step 4 creates it at
+ * `$HOME/venv-ai` — `python3 -m venv "$HOME/venv-ai"` — so on Ahmed's box the
+ * check would have missed, fallen back to a bare `python3` with no moviepy,
+ * and produced the precise confusing failure this function exists to prevent.
+ *
+ * Caught by reading install.sh rather than by any test, because every test
+ * injects the spawn and the container has no venv at either path — a seam that
+ * makes the suite offline also makes it blind to which path is real. So both
+ * are checked, `$HOME` first because that is what the installer actually does,
+ * and CANDIDATES is exported so a test can assert the installer's path is
+ * among them rather than trusting this comment.
  */
-function pythonPath(root = ROOT) {
-  const venv = path.join(root, 'venv-ai', 'bin', 'python3');
-  try { if (fs.statSync(venv).isFile()) return venv; } catch { /* fall through */ }
+function venvCandidates(root = ROOT, home = os.homedir()) {
+  return [
+    // What bootstrap/install.sh step 4 actually creates.
+    path.join(home, 'venv-ai', 'bin', 'python3'),
+    // A repo-local venv, which nothing creates today but is the arrangement a
+    // reader would assume from the name. Checked second so it cannot shadow
+    // the real one.
+    path.join(root, 'venv-ai', 'bin', 'python3'),
+  ];
+}
+
+function pythonPath(root = ROOT, home = os.homedir()) {
+  for (const venv of venvCandidates(root, home)) {
+    try { if (fs.statSync(venv).isFile()) return venv; } catch { /* keep looking */ }
+  }
   return 'python3';
 }
 
@@ -136,4 +163,4 @@ async function render(job, { run = spawnPython, root = ROOT, outDir = null, now 
   };
 }
 
-module.exports = { render, pythonPath, spawnPython, SCRIPT };
+module.exports = { render, pythonPath, venvCandidates, spawnPython, SCRIPT };

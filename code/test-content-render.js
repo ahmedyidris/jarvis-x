@@ -200,19 +200,49 @@ await test('an unmeasurable duration is reported as null, never as a number', as
 
 // ─── which interpreter, the thing most likely to be wrong on a real box ────
 
-await test('the venv interpreter is preferred when it exists', async () => {
-  // bootstrap/requirements-venv-ai.txt pins moviepy into venv-ai, not into the
-  // system python. A bare python3 imports video_renderer fine and then fails
-  // on moviepy, which reads like a broken renderer rather than the wrong
-  // interpreter.
-  const fakeRoot = path.join(TMP, 'root');
-  fs.mkdirSync(path.join(fakeRoot, 'venv-ai', 'bin'), { recursive: true });
-  fs.writeFileSync(path.join(fakeRoot, 'venv-ai', 'bin', 'python3'), '#!/bin/sh\n');
-  assert.strictEqual(R.pythonPath(fakeRoot), path.join(fakeRoot, 'venv-ai', 'bin', 'python3'));
+await test('THE INSTALLER\'S OWN VENV PATH IS ONE OF THE CANDIDATES', () => {
+  // THE BUG THIS TEST EXISTS FOR, and it shipped. The first version of
+  // pythonPath() looked only in <repo>/venv-ai. bootstrap/install.sh step 4
+  // creates it at $HOME/venv-ai — `python3 -m venv "$HOME/venv-ai"` — so on
+  // Ahmed's machine the check would have missed, fallen back to a bare python3
+  // with no moviepy, and produced the exact confusing failure the venv
+  // preference exists to prevent.
+  //
+  // Read out of install.sh rather than written here, for the same reason
+  // weekly-sweep's kill-switch detector reads guard.js's own export: a check
+  // carrying its own copy of the value it checks is one move away from
+  // confidently enforcing the wrong answer.
+  const sh = fs.readFileSync(path.join(__dirname, '..', 'bootstrap', 'install.sh'), 'utf8');
+  const m = /python3 -m venv "\$HOME\/([A-Za-z0-9._-]+)"/.exec(sh);
+  assert.ok(m, 'install.sh no longer creates a $HOME venv — re-derive the candidates');
+  const expected = path.join('/home/someone', m[1], 'bin', 'python3');
+  assert.ok(R.venvCandidates('/repo', '/home/someone').includes(expected),
+    `install.sh creates $HOME/${m[1]} but that is not among the candidates: `
+    + R.venvCandidates('/repo', '/home/someone').join(', '));
 });
 
-await test('it falls back to python3 when there is no venv', async () => {
-  assert.strictEqual(R.pythonPath(path.join(TMP, 'no-such-root')), 'python3');
+await test('the HOME venv is preferred over a repo-local one', () => {
+  // Ordering matters: a repo-local venv nothing creates must not shadow the
+  // one the installer actually builds.
+  const home = path.join(TMP, 'home');
+  const root = path.join(TMP, 'repo');
+  for (const base of [home, root]) {
+    fs.mkdirSync(path.join(base, 'venv-ai', 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(base, 'venv-ai', 'bin', 'python3'), '#!/bin/sh\n');
+  }
+  assert.strictEqual(R.pythonPath(root, home), path.join(home, 'venv-ai', 'bin', 'python3'));
+});
+
+await test('a repo-local venv is still found when there is no HOME one', () => {
+  const home = path.join(TMP, 'empty-home');
+  const root = path.join(TMP, 'repo2');
+  fs.mkdirSync(path.join(root, 'venv-ai', 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'venv-ai', 'bin', 'python3'), '#!/bin/sh\n');
+  assert.strictEqual(R.pythonPath(root, home), path.join(root, 'venv-ai', 'bin', 'python3'));
+});
+
+await test('it falls back to python3 when there is no venv anywhere', () => {
+  assert.strictEqual(R.pythonPath(path.join(TMP, 'no-such-root'), path.join(TMP, 'no-such-home')), 'python3');
 });
 
 await test('every result names the interpreter used, including the refusals', async () => {

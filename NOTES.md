@@ -48,7 +48,7 @@ Deliberately **not** built: `paper.js`. `selfdebug.js` was built 2026-09-07 once
 
 | file | role |
 |---|---|
-| `guard.js` | kill switch (`~/.jarvis-x/STOP`) + action logging. All actions route here. |
+| `guard.js` | kill switch (`.jarvis-x-STOP` at the repo root) + action logging. All actions route here. |
 | `exec.js` | jailed file ops, confined to `~/jarvis-x/` via `safePath()` |
 | `shell.js` | allowlisted shell (`spawnSync`, `shell:false`), fixed-form git helpers |
 | `validate.js` | structural rejection of bad proposals BEFORE the human gate |
