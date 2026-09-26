@@ -1,14 +1,16 @@
 import { useState } from "react"
-import { MessageSquare, Terminal, Settings as SettingsIcon, History as HistoryIcon, User } from "lucide-react"
+import { MessageSquare, Terminal, Settings as SettingsIcon, History as HistoryIcon, User, Users } from "lucide-react"
 import { ChatInterface } from "@/components/dashboard/ChatInterface"
 import { Settings } from "@/components/dashboard/Settings"
 import { History } from "@/components/dashboard/History"
 import { TerminalInterface } from "@/components/dashboard/TerminalInterface"
+import { Station } from "@/components/dashboard/Station"
 
-type Tab = "chat" | "terminal" | "history" | "settings"
+type Tab = "chat" | "station" | "terminal" | "history" | "settings"
 
 const TABS = [
   { id: "chat" as const, label: "Chat", icon: MessageSquare },
+  { id: "station" as const, label: "Station", icon: Users },
   { id: "terminal" as const, label: "PC Access", icon: Terminal },
   { id: "history" as const, label: "History", icon: HistoryIcon },
   { id: "settings" as const, label: "Settings", icon: SettingsIcon },
@@ -53,6 +55,7 @@ export function Dashboard() {
       {/* Main Content */}
       <div className="min-w-0 flex-1 bg-white dark:bg-[#1e1e1e]">
         {tab === "chat" && <ChatInterface />}
+        {tab === "station" && <Station />}
         {tab === "terminal" && <TerminalInterface />}
         {tab === "history" && <History />}
         {tab === "settings" && <Settings />}

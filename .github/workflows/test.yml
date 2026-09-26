@@ -286,6 +286,18 @@ jobs:
       # of the code.
       - name: Run portable Python tests
         run: python -m pytest test_hermes_ask_timeout_and_log.py test_hermes_market_context.py -q
+      # code/station is the Station tab's backend. It imports fastapi and
+      # PyYAML, pinned here to the versions bootstrap/requirements-venv-ai.txt
+      # installs on the Chromebook, so CI exercises the library the machine
+      # runs rather than whatever is newest. Offline like the rest: the model
+      # call, the kill switch, the clock and the storage root are arguments,
+      # so no node process starts, no provider is reached and the real logs/
+      # is never written. Its KILL SWITCH tests pin the two things an agent
+      # must never do: run while .jarvis-x-STOP exists, and replay a stopped
+      # task after the switch is released.
+      - run: pip install fastapi==0.141.1 starlette==1.6.0 httpx==0.28.1 PyYAML==6.0.3
+      - name: Run the Station suite
+        run: python -m pytest code/station/test_station.py -q
       # automation/ had never been run by CI at all. Both fidelity suites are
       # offline by construction -- the numeric guard is pure, and both the
       # Ollama and the Gemini calls are injected or monkeypatched -- so the
