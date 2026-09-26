@@ -228,6 +228,15 @@ jobs:
       # identically. What it CANNOT prove is a live upstream: one real StarNet
       # run on the Chromebook closes that (docs/STARNET_GATEWAY.md).
       #
+      # test-starnet-launcher covers scripts/starnet.sh, which installs and runs
+      # StarNet itself on the Chromebook, wired to that gateway. Offline: every
+      # run points STARNET_DIR, HOME and the workspace root at a temp dir, and
+      # `start` is exercised only on its refusal path, so nothing is cloned,
+      # installed or started. It pins the process-matching bug found while
+      # building it (an unanchored pgrep made `stop` kill the terminal that ran
+      # it) with a live decoy process, and the stale-lock rule with real dead
+      # and live PIDs.
+      #
       # test-status covers code/status.js, which is what `jj status` reports.
       # Offline like the rest: collect() takes its registry, its fetch, its
       # stop-file path and its log path as arguments, so nothing in it opens a
@@ -258,7 +267,7 @@ jobs:
                    test-content-draft test-content-integration \
                    test-process-content test-voice-accents \
                    test-trading-signals test-content-render \
-                   test-openai-gateway; do
+                   test-openai-gateway test-starnet-launcher; do
             echo "▶ code/$f.js"
             node "code/$f.js" || failed="$failed $f"
           done

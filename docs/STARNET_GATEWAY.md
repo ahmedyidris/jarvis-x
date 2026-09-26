@@ -7,6 +7,10 @@ the same free providers, the same fallback order and the same daily quota as
 the rest of Jarvis. This is the handoff's Priority 2 ("Route StarNet through
 Jarvis"), built 2026-09-25.
 
+> **To run StarNet itself on the Chromebook** (its own interface, wired to this gateway) with one
+> command, use `scripts/starnet.sh`. See [STARNET_CHROMEOS.md](STARNET_CHROMEOS.md). The manual
+> commands below still work, and the script does the same plus the Crostini install fixes.
+
 ## Why not app.py's /v1 on :8000
 
 app.py's `/v1` stays exactly as it is. It is Jarvis's own persona for Aider
